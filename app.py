@@ -1,16 +1,19 @@
 from flask import Flask, render_template, request, redirect, session, url_for, flash
 from core.database import init_db, verify_user, update_password, create_initial_user, add_or_update_server, get_connected_server
-from core.ssh_manager import setup_passwordless_ssh
+# ایمپورت ماژول‌های جدید
+from core.ssh_manager import setup_passwordless_ssh, run_remote_command
 import os
 import secrets
 
 app = Flask(__name__)
-# تولید کلید امنیتی غیرقابل حدس برای سشن‌ها
 app.secret_key = secrets.token_hex(32)
 
-# راه اندازی اولیه
-init_db()
-create_initial_user()
+# راه اندازی دیتابیس
+try:
+    init_db()
+    create_initial_user()
+except Exception as e:
+    print(f"Database Error: {e}")
 
 def is_logged_in():
     return 'user' in session
@@ -31,10 +34,10 @@ def login():
         password = request.form['password']
         if verify_user(username, password):
             session['user'] = username
-            session.permanent = True # انقضای سشن با بستن مرورگر
+            session.permanent = True
             return redirect(url_for('dashboard'))
         else:
-            flash('Access Denied: Invalid Credentials', 'danger')
+            flash('Login Failed: Check credentials', 'danger')
     return render_template('login.html')
 
 @app.route('/dashboard')
@@ -54,13 +57,16 @@ def connect_server():
     password = request.form.get('password')
     port = request.form.get('port', 22)
     
-    success, message = setup_passwordless_ssh(ip, password, port)
-    
-    if success:
-        add_or_update_server(ip, port, 'root', 'connected')
-        flash(f'Connection Established: {message}', 'success')
-    else:
-        flash(f'Connection Failed: {message}', 'danger')
+    # استفاده از ماژول SSH
+    try:
+        success, message = setup_passwordless_ssh(ip, password, port)
+        if success:
+            add_or_update_server(ip, port, 'root', 'connected')
+            flash(f'Success: {message}', 'success')
+        else:
+            flash(f'Connection Failed: {message}', 'danger')
+    except Exception as e:
+        flash(f'System Error: {str(e)}', 'danger')
         
     return redirect(url_for('dashboard'))
 
@@ -73,7 +79,7 @@ def settings():
         if 'new_password' in request.form:
             new_pass = request.form['new_password']
             update_password(session['user'], new_pass)
-            flash('Security settings updated.', 'success')
+            flash('Password updated.', 'success')
             
     return render_template('settings.html')
 
@@ -83,5 +89,5 @@ def logout():
     return redirect(url_for('login'))
 
 if __name__ == '__main__':
-    # اجرا فقط روی لوکال سرور برای امنیت، پروکسی کردن با Nginx توصیه می‌شود
-    app.run(host='0.0.0.0', port=5050, debug=False)
+    # اجرا روی پورت 5050
+    app.run(host='0.0.0.0', port=5050, debug=True)

@@ -1,44 +1,42 @@
-import paramiko
 import os
-import socket
+import subprocess
 
-SSH_KEY_PATH = os.path.expanduser('~/.ssh/id_rsa')
-
-def generate_ssh_key():
-    if not os.path.exists(SSH_KEY_PATH):
-        os.system(f'ssh-keygen -t rsa -b 4096 -f {SSH_KEY_PATH} -N ""')
-
-def setup_passwordless_ssh(ip, password, port=22, user='root'):
-    generate_ssh_key()
-    
-    with open(f"{SSH_KEY_PATH}.pub", "r") as f:
-        public_key = f.read().strip()
-    
+def check_certbot_installed():
+    """بررسی نصب بودن certbot"""
     try:
-        client = paramiko.SSHClient()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        client.connect(hostname=ip, port=int(port), username=user, password=password, timeout=10)
-        
-        cmd = f'mkdir -p ~/.ssh && grep -q "{public_key}" ~/.ssh/authorized_keys || echo "{public_key}" >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys'
-        
-        stdin, stdout, stderr = client.exec_command(cmd)
-        exit_status = stdout.channel.recv_exit_status()
-        client.close()
-        
-        if exit_status == 0:
-            return True, "Key deployed successfully."
-        else:
-            return False, f"Server Error: {stderr.read().decode()}"
+        subprocess.check_output(["which", "certbot"])
+        return True
+    except:
+        return False
 
-    except Exception as e:
-        return False, str(e)
+def install_certbot():
+    """نصب خودکار certbot"""
+    print("[+] Installing Certbot...")
+    os.system("apt-get update && apt-get install -y certbot")
 
-def run_remote_command(ip, command):
-    try:
-        client = paramiko.SSHClient()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        client.connect(hostname=ip, key_filename=SSH_KEY_PATH, timeout=5)
-        stdin, stdout, stderr = client.exec_command(command)
-        return True, stdout.read().decode().strip()
-    except Exception as e:
-        return False, str(e)
+def get_ssl_certificate(domain, email="admin@alamor.local"):
+    """گرفتن SSL رایگان با روش Standalone"""
+    if not check_certbot_installed():
+        install_certbot()
+    
+    print(f"[+] Requesting SSL for {domain}...")
+    
+    # نکته: پورت 80 باید خالی باشد. اگر پنل روی 80 است باید موقت استاپ شود.
+    # ما از --http-01-port استفاده نمی‌کنیم چون پیچیده می‌شود.
+    # فرض بر این است که پورت 80 آزاد است.
+    
+    cmd = f"certbot certonly --standalone -d {domain} --non-interactive --agree-tos -m {email} --keep-until-expiring"
+    
+    result = os.system(cmd)
+    
+    if result == 0:
+        cert_path = f"/etc/letsencrypt/live/{domain}/fullchain.pem"
+        key_path = f"/etc/letsencrypt/live/{domain}/privkey.pem"
+        if os.path.exists(cert_path):
+            return True, cert_path, key_path
+    
+    return False, None, None
+
+def renew_certificates():
+    """تمدید تمام گواهی‌ها"""
+    os.system("certbot renew")
