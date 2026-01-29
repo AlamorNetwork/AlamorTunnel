@@ -1,0 +1,58 @@
+:root {
+    --bg-color: #0d0d0d;           /* مشکی خیلی عمیق */
+    --card-bg: #1a1a1a;            /* خاکستری تیره */
+    --slytherin-green: #1a472a;    /* سبز اصلی اسلیترین */
+    --slytherin-light: #2a623d;    /* سبز روشن‌تر برای هاور */
+    --silver: #aaaaaa;             /* نقره‌ای */
+    --text-color: #e0e0e0;
+    --danger: #8b0000;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* استایل کارت‌ها */
+.card {
+    background-color: var(--card-bg);
+    border: 1px solid #333;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* دکمه‌های خاص */
+.btn-alamor {
+    background-color: var(--slytherin-green);
+    color: #fff;
+    border: 1px solid var(--slytherin-light);
+    transition: all 0.3s ease;
+}
+
+.btn-alamor:hover {
+    background-color: var(--slytherin-light);
+    box-shadow: 0 0 10px var(--slytherin-green);
+    color: #fff;
+}
+
+/* اینپوت‌ها */
+.form-control {
+    background-color: #000;
+    border: 1px solid #333;
+    color: var(--silver);
+}
+
+.form-control:focus {
+    background-color: #111;
+    border-color: var(--slytherin-green);
+    color: #fff;
+    box-shadow: 0 0 5px var(--slytherin-green);
+}
+
+/* نوار کناری */
+.sidebar {
+    min-height: 100vh;
+    background: linear-gradient(180deg, #0a0a0a 0%, #1a472a 150%);
+    border-right: 1px solid #333;
+}
