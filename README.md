@@ -51,5 +51,5 @@ AlamorTunnel is not just a script; it's a full-stack infrastructure manager desi
 Run this command on your **Iran Server (Master Node)**. The script handles everything automatically.
 
 ```bash
-apt update -y && apt install git -y && git clone [https://github.com/AlamorNetwork/AlamorTunnel.git](https://github.com/AlamorNetwork/AlamorTunnel.git) && cd AlamorTunnel && chmod +x install.sh && ./install.sh
+apt update -y && apt install git -y && git clone https://github.com/AlamorNetwork/AlamorTunnel.git && cd AlamorTunnel && chmod +x install.sh && ./install.sh
 ```
