@@ -14,7 +14,7 @@
             <div class="position-absolute top-0 end-0 p-3 opacity-25">
                 <i class="fa-solid fa-server fa-4x text-white"></i>
             </div>
-            <h6 class="text-uppercase text-muted mb-3" style="letter-spacing: 1px;">Local Node (Iran)</h6>
+            <h6 class="text-uppercase text-muted mb-3">Local Node (Iran)</h6>
             <h2 class="fw-bold mb-1">Active</h2>
             <div class="d-flex align-items-center mt-3">
                 <span class="status-dot status-active me-2"></span>
@@ -28,14 +28,11 @@
             <div class="position-absolute top-0 end-0 p-3 opacity-25">
                 <i class="fa-solid fa-globe fa-4x {{ 'text-success' if server else 'text-danger' }}"></i>
             </div>
-            <h6 class="text-uppercase text-muted mb-3" style="letter-spacing: 1px;">Remote Node (Foreign)</h6>
+            <h6 class="text-uppercase text-muted mb-3">Remote Node (Foreign)</h6>
             
             {% if server %}
                 <h2 class="fw-bold mb-1 text-success">Connected</h2>
                 <p class="mb-0 text-white font-monospace mt-2">{{ server[0] }}</p>
-                <div class="mt-3">
-                    <button class="btn btn-sm btn-outline-danger w-100">Terminate Link</button>
-                </div>
             {% else %}
                 <h2 class="fw-bold mb-1 text-danger">Disconnected</h2>
                 <div class="mt-3">
@@ -44,23 +41,6 @@
                     </button>
                 </div>
             {% endif %}
-        </div>
-    </div>
-
-    <div class="col-md-12 col-lg-4">
-        <div class="card h-100 p-4">
-            <h6 class="text-uppercase text-muted mb-3">Tunnel Metrics</h6>
-            <div class="d-flex justify-content-between mb-2">
-                <span>Active Tunnels</span>
-                <span class="fw-bold text-white">0</span>
-            </div>
-            <div class="progress mb-3" style="height: 6px; background: rgba(255,255,255,0.1);">
-                <div class="progress-bar bg-success" role="progressbar" style="width: 0%"></div>
-            </div>
-            <div class="d-flex justify-content-between mb-2">
-                <span>Total Bandwidth</span>
-                <span class="fw-bold text-white">0 GB</span>
-            </div>
         </div>
     </div>
 </div>
@@ -77,29 +57,14 @@
                     </div>
                     <h5 class="card-title text-white mb-0">Backhaul Tunnel</h5>
                 </div>
-                <p class="card-text text-muted small">Low-latency reverse tunnel optimized for TCP gaming traffic.</p>
+                <p class="card-text text-muted small">High-performance TCP reverse tunnel.</p>
             </div>
             <div class="card-footer bg-transparent border-top border-secondary p-3">
-                <button class="btn btn-outline-light w-100 {{ 'disabled' if not server }}" >
-                    {{ 'Waiting for Remote Node...' if not server else 'Configure & Deploy' }}
-                </button>
-            </div>
-        </div>
-    </div>
-
-     <div class="col">
-        <div class="card h-100">
-            <div class="card-body">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="rounded-circle bg-info bg-opacity-10 p-3 me-3">
-                        <i class="fa-brands fa-cloudflare text-info fs-4"></i>
-                    </div>
-                    <h5 class="card-title text-white mb-0">Clean IP Scanner</h5>
-                </div>
-                <p class="card-text text-muted small">Auto-scan and inject clean Cloudflare IPs into X-UI configs.</p>
-            </div>
-            <div class="card-footer bg-transparent border-top border-secondary p-3">
-                <button class="btn btn-outline-info w-100">Start Scanner</button>
+                <form action="{{ url_for('install_backhaul') }}" method="POST">
+                    <button type="submit" class="btn btn-outline-light w-100 {{ 'disabled' if not server }}">
+                        {{ 'Waiting for Remote Node...' if not server else 'Configure & Deploy' }}
+                    </button>
+                </form>
             </div>
         </div>
     </div>
@@ -128,7 +93,7 @@
                         <input type="password" name="password" class="form-control" required>
                     </div>
                     <div class="alert alert-info bg-opacity-10 border-0 fs-6 small">
-                        <i class="fa-solid fa-key me-2"></i> RSA Keys will be auto-generated and deployed.
+                        <i class="fa-solid fa-key me-2"></i> RSA Keys will be auto-generated.
                     </div>
                     <button type="submit" class="btn btn-alamor w-100 py-2">Initialize Connection</button>
                 </form>

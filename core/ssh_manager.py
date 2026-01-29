@@ -2,33 +2,32 @@ import paramiko
 import os
 import socket
 
-# مسیر کلید SSH
+# مسیر ذخیره کلید SSH
 SSH_KEY_PATH = os.path.expanduser('~/.ssh/id_rsa')
 
 def generate_ssh_key():
-    """اگر کلید وجود نداشت، می‌سازد"""
+    """اگر کلید SSH وجود نداشت، آن را می‌سازد"""
     if not os.path.exists(SSH_KEY_PATH):
-        print(f"[+] Generating SSH Key at {SSH_KEY_PATH}")
+        print(f"[+] Generating SSH Key at {SSH_KEY_PATH}...")
         os.system(f'ssh-keygen -t rsa -b 4096 -f {SSH_KEY_PATH} -N ""')
 
 def setup_passwordless_ssh(ip, password, port=22, user='root'):
-    """اتصال اولیه و کپی کردن کلید در سرور مقصد"""
+    """اتصال اولیه با پسورد و تزریق کلید عمومی به سرور مقصد"""
     generate_ssh_key()
     
-    # خواندن کلید عمومی
+    # خواندن کلید عمومی ساخته شده
     try:
         with open(f"{SSH_KEY_PATH}.pub", "r") as f:
             public_key = f.read().strip()
     except FileNotFoundError:
-        return False, "SSH Public Key not found. Generation failed."
+        return False, "SSH Public Key generation failed."
     
     try:
         # ایجاد کلاینت
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         
-        # اتصال با پسورد
-        print(f"[~] Connecting to {ip}:{port}...")
+        # اتصال با پسورد (فقط برای بار اول)
         client.connect(hostname=ip, port=int(port), username=user, password=password, timeout=10)
         
         # دستور تزریق کلید (با بررسی اینکه تکراری نباشد)
@@ -40,7 +39,7 @@ def setup_passwordless_ssh(ip, password, port=22, user='root'):
         client.close()
         
         if exit_status == 0:
-            return True, "Connection successful! SSH Key deployed."
+            return True, "Connection established! SSH Key deployed."
         else:
             return False, f"Remote Error: {stderr.read().decode()}"
 
@@ -52,7 +51,7 @@ def setup_passwordless_ssh(ip, password, port=22, user='root'):
         return False, f"Error: {str(e)}"
 
 def run_remote_command(ip, command, user='root', port=22):
-    """اجرای دستور در سرور خارج بدون پسورد"""
+    """اجرای دستور در سرور خارج (بدون نیاز به پسورد)"""
     try:
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -63,8 +62,7 @@ def run_remote_command(ip, command, user='root', port=22):
         error = stderr.read().decode().strip()
         client.close()
         
-        if error and not output:
-            return False, error
-        return True, output
+        # اگر خروجی داشتیم برگردان، اگر نه خطا را برگردان
+        return True, output if output else error
     except Exception as e:
         return False, str(e)
