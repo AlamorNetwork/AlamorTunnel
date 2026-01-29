@@ -1,58 +1,101 @@
 :root {
-    --bg-color: #0d0d0d;           /* مشکی خیلی عمیق */
-    --card-bg: #1a1a1a;            /* خاکستری تیره */
-    --slytherin-green: #1a472a;    /* سبز اصلی اسلیترین */
-    --slytherin-light: #2a623d;    /* سبز روشن‌تر برای هاور */
-    --silver: #aaaaaa;             /* نقره‌ای */
-    --text-color: #e0e0e0;
-    --danger: #8b0000;
+    --bg-dark: #050505;
+    --card-glass: rgba(20, 20, 20, 0.7);
+    --slytherin-green: #10b981; /* سبز نئونی/مدرن */
+    --slytherin-dark: #064e3b;
+    --text-primary: #ecfdf5;
+    --text-muted: #9ca3af;
+    --border-color: rgba(16, 185, 129, 0.2);
 }
 
 body {
-    background-color: var(--bg-color);
-    color: var(--text-color);
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-dark);
+    background-image: 
+        radial-gradient(at 0% 0%, hsla(153,47%,20%,1) 0, transparent 50%), 
+        radial-gradient(at 100% 100%, hsla(0,0%,10%,1) 0, transparent 50%);
+    color: var(--text-primary);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
 }
 
-/* استایل کارت‌ها */
+/* Glassmorphism Classes */
+.glass-panel {
+    background: var(--card-glass);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+}
+
 .card {
-    background-color: var(--card-bg);
-    border: 1px solid #333;
-    border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    background: rgba(30, 30, 30, 0.4);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* دکمه‌های خاص */
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(16, 185, 129, 0.1);
+    border-color: var(--slytherin-green);
+}
+
+/* Sidebar */
+.sidebar {
+    background: rgba(10, 10, 10, 0.8);
+    backdrop-filter: blur(20px);
+    border-right: 1px solid var(--border-color);
+}
+
+.nav-link {
+    color: var(--text-muted);
+    transition: all 0.2s;
+    border-radius: 8px;
+    margin-bottom: 5px;
+}
+
+.nav-link:hover, .nav-link.active {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--slytherin-green);
+    border-left: 3px solid var(--slytherin-green);
+}
+
+/* Buttons */
 .btn-alamor {
-    background-color: var(--slytherin-green);
-    color: #fff;
-    border: 1px solid var(--slytherin-light);
-    transition: all 0.3s ease;
+    background: linear-gradient(135deg, var(--slytherin-dark) 0%, var(--slytherin-green) 100%);
+    border: none;
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
 }
 
 .btn-alamor:hover {
-    background-color: var(--slytherin-light);
-    box-shadow: 0 0 10px var(--slytherin-green);
-    color: #fff;
+    filter: brightness(1.2);
+    color: white;
+    transform: scale(1.02);
 }
 
-/* اینپوت‌ها */
+/* Inputs */
 .form-control {
-    background-color: #000;
-    border: 1px solid #333;
-    color: var(--silver);
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
 }
 
 .form-control:focus {
-    background-color: #111;
+    background: rgba(0, 0, 0, 0.8);
     border-color: var(--slytherin-green);
-    color: #fff;
-    box-shadow: 0 0 5px var(--slytherin-green);
+    color: white;
+    box-shadow: 0 0 0 0.25rem rgba(16, 185, 129, 0.25);
 }
 
-/* نوار کناری */
-.sidebar {
-    min-height: 100vh;
-    background: linear-gradient(180deg, #0a0a0a 0%, #1a472a 150%);
-    border-right: 1px solid #333;
+/* Status Indicators */
+.status-dot {
+    height: 10px;
+    width: 10px;
+    border-radius: 50%;
+    display: inline-block;
 }
+.status-active { background-color: #10b981; box-shadow: 0 0 10px #10b981; }
+.status-inactive { background-color: #ef4444; box-shadow: 0 0 10px #ef4444; }

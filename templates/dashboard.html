@@ -1,115 +1,139 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom border-secondary">
-    <h1 class="h2">Dashboard Overview</h1>
-    <div class="btn-toolbar mb-2 mb-md-0">
-        <div class="btn-group me-2">
-            <button type="button" class="btn btn-sm btn-outline-secondary">Log View</button>
-            <button type="button" class="btn btn-sm btn-outline-secondary">Export</button>
+<div class="d-flex justify-content-between align-items-center pt-3 pb-2 mb-4">
+    <h2 class="h3 fw-bold text-white">Network Overview</h2>
+    <div class="badge bg-dark border border-success text-success p-2">
+        <i class="fa-solid fa-circle-pulse me-1"></i> System Operational
+    </div>
+</div>
+
+<div class="row g-4 mb-5">
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 p-4 position-relative overflow-hidden">
+            <div class="position-absolute top-0 end-0 p-3 opacity-25">
+                <i class="fa-solid fa-server fa-4x text-white"></i>
+            </div>
+            <h6 class="text-uppercase text-muted mb-3" style="letter-spacing: 1px;">Local Node (Iran)</h6>
+            <h2 class="fw-bold mb-1">Active</h2>
+            <div class="d-flex align-items-center mt-3">
+                <span class="status-dot status-active me-2"></span>
+                <span class="small text-muted">Master Controller</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 p-4 position-relative overflow-hidden" style="border-color: {{ 'var(--slytherin-green)' if server else 'rgba(239, 68, 68, 0.3)' }};">
+            <div class="position-absolute top-0 end-0 p-3 opacity-25">
+                <i class="fa-solid fa-globe fa-4x {{ 'text-success' if server else 'text-danger' }}"></i>
+            </div>
+            <h6 class="text-uppercase text-muted mb-3" style="letter-spacing: 1px;">Remote Node (Foreign)</h6>
+            
+            {% if server %}
+                <h2 class="fw-bold mb-1 text-success">Connected</h2>
+                <p class="mb-0 text-white font-monospace mt-2">{{ server[0] }}</p>
+                <div class="mt-3">
+                    <button class="btn btn-sm btn-outline-danger w-100">Terminate Link</button>
+                </div>
+            {% else %}
+                <h2 class="fw-bold mb-1 text-danger">Disconnected</h2>
+                <div class="mt-3">
+                    <button class="btn btn-sm btn-alamor w-100 shadow-lg" data-bs-toggle="modal" data-bs-target="#connectModal">
+                        <i class="fa-solid fa-link me-1"></i> Establish Link
+                    </button>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="col-md-12 col-lg-4">
+        <div class="card h-100 p-4">
+            <h6 class="text-uppercase text-muted mb-3">Tunnel Metrics</h6>
+            <div class="d-flex justify-content-between mb-2">
+                <span>Active Tunnels</span>
+                <span class="fw-bold text-white">0</span>
+            </div>
+            <div class="progress mb-3" style="height: 6px; background: rgba(255,255,255,0.1);">
+                <div class="progress-bar bg-success" role="progressbar" style="width: 0%"></div>
+            </div>
+            <div class="d-flex justify-content-between mb-2">
+                <span>Total Bandwidth</span>
+                <span class="fw-bold text-white">0 GB</span>
+            </div>
         </div>
     </div>
 </div>
 
-<div class="row mb-4">
-    <div class="col-md-4">
-        <div class="card p-3 h-100">
-            <h6 class="text-secondary">IRAN SERVER (MASTER)</h6>
-            <h3 class="text-white">Active ✅</h3>
-            <p class="small text-muted mb-0">CPU: 12% | RAM: 1.4GB / 4GB</p>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card p-3 h-100" style="border-color: var(--silver);">
-            <h6 class="text-secondary">FOREIGN SERVER (SLAVE)</h6>
-            <h3 class="text-danger">Not Connected ❌</h3>
-            <button class="btn btn-sm btn-outline-light mt-2 w-50" data-bs-toggle="modal" data-bs-target="#connectModal">Connect Now</button>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card p-3 h-100">
-            <h6 class="text-secondary">ACTIVE TUNNELS</h6>
-            <h3 style="color: var(--slytherin-green);">0</h3>
-            <p class="small text-muted mb-0">Total Bandwidth: 0 GB</p>
-        </div>
-    </div>
-</div>
-
-<h4 class="mt-5 mb-3 text-secondary">Available Modules (On-Demand)</h4>
+<h4 class="text-white mb-4 border-bottom border-secondary pb-2">Available Modules</h4>
 <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
     
     <div class="col">
         <div class="card h-100">
             <div class="card-body">
-                <h5 class="card-title text-white"><i class="fa-solid fa-bolt text-warning"></i> Backhaul Tunnel</h5>
-                <p class="card-text text-muted">High-performance reverse tunnel. Best for TCP traffic and low latency gaming.</p>
-                <div class="d-grid gap-2">
-                    <button class="btn btn-alamor disabled">Install & Config</button> </div>
+                <div class="d-flex align-items-center mb-3">
+                    <div class="rounded-circle bg-warning bg-opacity-10 p-3 me-3">
+                        <i class="fa-solid fa-bolt text-warning fs-4"></i>
+                    </div>
+                    <h5 class="card-title text-white mb-0">Backhaul Tunnel</h5>
+                </div>
+                <p class="card-text text-muted small">Low-latency reverse tunnel optimized for TCP gaming traffic.</p>
             </div>
-            <div class="card-footer border-secondary">
-                <small class="text-muted">Status: Not Installed</small>
+            <div class="card-footer bg-transparent border-top border-secondary p-3">
+                <button class="btn btn-outline-light w-100 {{ 'disabled' if not server }}" >
+                    {{ 'Waiting for Remote Node...' if not server else 'Configure & Deploy' }}
+                </button>
             </div>
         </div>
     </div>
 
-    <div class="col">
+     <div class="col">
         <div class="card h-100">
             <div class="card-body">
-                <h5 class="card-title text-white"><i class="fa-solid fa-dungeon text-info"></i> Rathole Tunnel</h5>
-                <p class="card-text text-muted">Secure, rust-based tunnel. Ideal for bypassing heavy censorship.</p>
-                <div class="d-grid gap-2">
-                    <button class="btn btn-alamor disabled">Install & Config</button>
+                <div class="d-flex align-items-center mb-3">
+                    <div class="rounded-circle bg-info bg-opacity-10 p-3 me-3">
+                        <i class="fa-brands fa-cloudflare text-info fs-4"></i>
+                    </div>
+                    <h5 class="card-title text-white mb-0">Clean IP Scanner</h5>
                 </div>
+                <p class="card-text text-muted small">Auto-scan and inject clean Cloudflare IPs into X-UI configs.</p>
             </div>
-            <div class="card-footer border-secondary">
-                <small class="text-muted">Status: Not Installed</small>
-            </div>
-        </div>
-    </div>
-
-    <div class="col">
-        <div class="card h-100">
-            <div class="card-body">
-                <h5 class="card-title text-white"><i class="fa-brands fa-cloudflare text-warning"></i> Clean IP Scanner</h5>
-                <p class="card-text text-muted">Finds clean Cloudflare IPs and injects them into your X-UI config automatically.</p>
-                <div class="d-grid gap-2">
-                    <button class="btn btn-outline-light">Open Scanner</button>
-                </div>
-            </div>
-            <div class="card-footer border-secondary">
-                <small class="text-muted">Idle</small>
+            <div class="card-footer bg-transparent border-top border-secondary p-3">
+                <button class="btn btn-outline-info w-100">Start Scanner</button>
             </div>
         </div>
     </div>
 
 </div>
 
-<div class="modal fade" id="connectModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content bg-dark border-secondary">
-      <div class="modal-header border-secondary">
-        <h5 class="modal-title">Connect Foreign Server</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <form>
-          <div class="mb-3">
-            <label class="form-label">Server IP</label>
-            <input type="text" class="form-control" placeholder="45.x.x.x">
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Root Password</label>
-            <input type="password" class="form-control">
-          </div>
-          <p class="text-muted small"><i class="fa-solid fa-shield-halved"></i> SSH Keys will be generated automatically.</p>
-        </form>
-      </div>
-      <div class="modal-footer border-secondary">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-        <button type="button" class="btn btn-alamor">Establish Connection</button>
-      </div>
+<div class="modal fade" id="connectModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-panel text-white">
+            <div class="modal-header border-bottom border-secondary">
+                <h5 class="modal-title">Secure Connection Setup</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form action="{{ url_for('connect_server') }}" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label text-muted small">REMOTE IP ADDRESS</label>
+                        <input type="text" name="ip" class="form-control" placeholder="45.x.x.x" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted small">SSH PORT</label>
+                        <input type="number" name="port" class="form-control" value="22">
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label text-muted small">ROOT PASSWORD</label>
+                        <input type="password" name="password" class="form-control" required>
+                    </div>
+                    <div class="alert alert-info bg-opacity-10 border-0 fs-6 small">
+                        <i class="fa-solid fa-key me-2"></i> RSA Keys will be auto-generated and deployed.
+                    </div>
+                    <button type="submit" class="btn btn-alamor w-100 py-2">Initialize Connection</button>
+                </form>
+            </div>
+        </div>
     </div>
-  </div>
 </div>
-
 {% endblock %}
