@@ -6,9 +6,13 @@ from core.ssl_manager import generate_self_signed_cert
 INSTALL_DIR = "/root/backhaul"
 BIN_URL = "https://github.com/Musixal/Backhaul/releases/latest/download/backhaul_linux_amd64.tar.gz"
 
+def generate_token():
+    """تولید توکن امن برای تانل"""
+    return secrets.token_hex(16)
+
 def install_local_backhaul(config_data):
     """
-    نصب روی سرور ایران (Server Mode) - دقیقاً طبق تمپلت درخواستی
+    نصب روی سرور ایران (Server Mode)
     """
     print(f"[+] Configuring Local Backhaul (Iran) | Transport: {config_data['transport']}")
     
@@ -24,7 +28,6 @@ def install_local_backhaul(config_data):
             os.system(cmd)
 
     # 2. مدیریت SSL
-    # اگر پروتکل امن بود، فایل‌ها ساخته می‌شوند، در غیر این صورت مسیرها در کانفیگ می‌مانند (طبق درخواست)
     if config_data['transport'] in ["wss", "wssmux"]:
         generate_self_signed_cert(domain_or_ip="127.0.0.1")
 
@@ -90,14 +93,12 @@ WantedBy=multi-user.target
 
 def install_remote_backhaul(ssh_target_ip, iran_connect_ip, config_data):
     """
-    نصب روی سرور خارج (Client Mode) - دقیقاً طبق تمپلت درخواستی
+    نصب روی سرور خارج (Client Mode)
     """
     print(f"[+] Configuring Remote Backhaul on {ssh_target_ip}")
     
-    # اطمینان از اینکه آی‌پی ایران تمیز است (جلوگیری از باگ HTML)
     clean_iran_ip = iran_connect_ip.strip()
     
-    # ساخت اسکریپت ریموت
     remote_script = f"""
     mkdir -p {INSTALL_DIR}
     curl -L -o {INSTALL_DIR}/backhaul.tar.gz {BIN_URL}
@@ -155,6 +156,7 @@ EOL
     return success, output
 
 def stop_and_delete_backhaul():
+    """توقف و حذف سرویس"""
     os.system("systemctl stop backhaul && systemctl disable backhaul")
     os.system(f"rm {INSTALL_DIR}/config.toml")
     return True
