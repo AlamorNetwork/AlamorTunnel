@@ -1,122 +1,180 @@
 :root {
-    --bg-body: #0b1120;       /* Deep Navy */
-    --bg-panel: rgba(30, 41, 59, 0.7); /* Slate 800 Glass */
-    --bg-input: rgba(15, 23, 42, 0.8); /* Darker input bg */
-    --border-color: rgba(255, 255, 255, 0.08);
-    --primary: #3b82f6;
+    /* پس‌زمینه اصلی: سرمه‌ای بسیار تیره (تقریبا مشکی) */
+    --bg-body: #020617;
+    
+    /* پنل‌ها: مات و تیره برای خوانایی حداکثری */
+    --bg-panel: #0f172a; 
+    --bg-panel-hover: #1e293b;
+    
+    /* ورودی‌ها: کمی روشن‌تر از پنل */
+    --bg-input: #1e293b; 
+    
+    /* بوردرها: واضح و مشخص */
+    --border-color: #334155;
+    
+    /* رنگ‌های اصلی */
+    --primary: #3b82f6;       /* آبی روشن */
     --primary-hover: #2563eb;
-    --text-main: #f8fafc;
-    --text-muted: #94a3b8;
     
-    /* Protocol Colors */
-    --color-backhaul: #f59e0b; /* Amber */
-    --color-rathole: #0ea5e9;  /* Sky Blue */
-    --color-hysteria: #ef4444; /* Red */
+    /* متن‌ها - اصلاح شده برای خوانایی */
+    --text-main: #ffffff;     /* سفید خالص */
+    --text-muted: #cbd5e1;    /* خاکستری بسیار روشن (Slate 300) */
     
-    --sidebar-width: 280px;
-    --card-radius: 16px;
+    /* رنگ پروتکل‌ها (روشن‌تر شده برای دیده شدن روی مشکی) */
+    --color-backhaul: #fbbf24; /* Amber 400 */
+    --color-rathole: #38bdf8;  /* Sky 400 */
+    --color-hysteria: #f87171; /* Red 400 */
+    
+    --sidebar-width: 260px;
+    --card-radius: 12px;
 }
 
 body {
     background-color: var(--bg-body);
-    background-image: 
-        radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.08), transparent 25%),
-        radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.05), transparent 25%);
+    /* یک گرادینت بسیار محو در پس‌زمینه برای عمق دادن (مزاحم متن نیست) */
+    background-image: radial-gradient(circle at 50% 0%, #1e1b4b 0%, transparent 70%);
     color: var(--text-main);
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     min-height: 100vh;
+    line-height: 1.6;
 }
 
-/* Glass Components */
+/* --- Panel Styles --- */
 .glass-panel {
-    background: var(--bg-panel);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    background-color: var(--bg-panel);
     border: 1px solid var(--border-color);
     border-radius: var(--card-radius);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    /* حذف بلور زیاد که باعث ناخوانایی می‌شد */
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
 }
 
-/* Sidebar */
+/* --- Sidebar --- */
 .sidebar {
     width: var(--sidebar-width);
-    background: rgba(15, 23, 42, 0.95);
+    background-color: #0f172a; /* Slate 900 */
     border-right: 1px solid var(--border-color);
     position: fixed; top: 0; bottom: 0; left: 0; z-index: 1000;
-    transition: transform 0.3s ease;
 }
 
 .nav-link {
-    color: var(--text-muted);
+    color: var(--text-muted); /* رنگ پیش‌فرض روشن‌تر شده */
     padding: 12px 16px;
-    border-radius: 12px;
+    border-radius: 8px;
     margin-bottom: 4px;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
     font-weight: 500;
+    transition: all 0.2s;
+    display: flex; align-items: center;
 }
 
-.nav-link i { width: 24px; text-align: center; margin-right: 12px; }
+.nav-link i { width: 24px; text-align: center; margin-right: 12px; opacity: 0.8; }
 
-.nav-link:hover, .nav-link.active {
-    background: rgba(59, 130, 246, 0.1);
+.nav-link:hover {
+    background-color: rgba(59, 130, 246, 0.1);
     color: #fff;
 }
+
 .nav-link.active {
-    background: linear-gradient(90deg, rgba(59,130,246,0.2) 0%, transparent 100%);
-    border-left: 3px solid var(--primary);
+    background-color: var(--primary);
+    color: #fff !important;
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
 }
 
-/* Inputs & Forms */
+/* --- Typography Fixes --- */
+h1, h2, h3, h4, h5, h6 {
+    color: #fff !important;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+}
+
+.text-muted {
+    color: #94a3b8 !important; /* Slate 400 - خواناتر */
+}
+
+.text-white-50 {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* --- Inputs & Forms (High Contrast) --- */
 .form-control, .form-select {
     background-color: var(--bg-input);
     border: 1px solid var(--border-color);
-    color: var(--text-main);
+    color: #fff !important; /* متن اینپوت همیشه سفید */
     padding: 10px 14px;
     border-radius: 8px;
+    font-size: 0.95rem;
 }
+
 .form-control:focus, .form-select:focus {
-    background-color: var(--bg-input);
+    background-color: #334155; /* کمی روشن‌تر هنگام فوکوس */
     border-color: var(--primary);
     color: #fff;
-    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+    outline: none;
 }
-.form-control::placeholder { color: rgba(148, 163, 184, 0.4); }
 
-/* Buttons */
+.form-control::placeholder {
+    color: #64748b; /* Slate 500 */
+}
+
+/* --- Buttons --- */
 .btn-primary-glow {
-    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
-    border: none;
+    background-color: var(--primary);
+    border: 1px solid var(--primary);
     color: white;
-    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
-    transition: transform 0.2s;
+    font-weight: 600;
+    transition: all 0.2s;
 }
 .btn-primary-glow:hover {
-    transform: translateY(-2px);
+    background-color: var(--primary-hover);
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.6);
     color: white;
-    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
 }
 
-/* Protocol Badges & Accents */
-.border-backhaul { border-color: rgba(245, 158, 11, 0.3) !important; }
+.btn-outline-light {
+    border-color: var(--border-color);
+    color: var(--text-muted);
+}
+.btn-outline-light:hover {
+    background-color: var(--bg-input);
+    color: #fff;
+    border-color: var(--text-muted);
+}
+
+/* --- Protocol Accents (Vibrant) --- */
+.border-backhaul { border-color: var(--color-backhaul) !important; }
 .text-backhaul { color: var(--color-backhaul) !important; }
 
-.border-rathole { border-color: rgba(14, 165, 233, 0.3) !important; }
+.border-rathole { border-color: var(--color-rathole) !important; }
 .text-rathole { color: var(--color-rathole) !important; }
 
-.border-hysteria { border-color: rgba(239, 68, 68, 0.3) !important; }
+.border-hysteria { border-color: var(--color-hysteria) !important; }
 .text-hysteria { color: var(--color-hysteria) !important; }
 
-/* Utilities */
-.text-xs { font-size: 0.75rem; }
-.font-mono { font-family: 'Fira Code', monospace; }
-.cursor-pointer { cursor: pointer; }
+/* --- Specific Elements --- */
+.accordion-button {
+    background-color: transparent !important;
+    color: white !important;
+    box-shadow: none !important;
+}
+.accordion-button::after {
+    filter: invert(1); /* آیکون سفید */
+}
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #0f172a; }
-::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+.dropdown-menu-dark {
+    background-color: var(--bg-panel);
+    border: 1px solid var(--border-color);
+}
+
+.modal-content {
+    background-color: #0f172a; /* سالید مشکی برای مودال */
+    border: 1px solid var(--border-color);
+}
+
+/* Code Blocks */
+.font-mono {
+    font-family: 'Fira Code', 'Consolas', monospace;
+    letter-spacing: -0.5px;
+}
 
 /* Mobile */
 @media (max-width: 768px) {
