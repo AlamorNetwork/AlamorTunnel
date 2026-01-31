@@ -2,114 +2,137 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center pt-3 pb-2 mb-4">
-    <h2 class="h3 fw-bold" style="color: var(--primary-color);">Network Overview</h2>
-    <div class="d-flex align-items-center gap-3">
-        <i class="fa-solid fa-circle-half-stroke theme-switch" id="themeToggle" title="Switch Theme (Slytherin/Hufflepuff)"></i>
-        
-        <div class="badge p-2" style="background: var(--input-bg); color: var(--primary-color); border: 1px solid var(--glass-border);">
-            <i class="fa-solid fa-circle-pulse me-1"></i> System Operational
-        </div>
+    <h2 class="h3 fw-bold" style="color: var(--primary-color);">Deployment Center</h2>
+    <div class="d-flex gap-3">
+        <i class="fa-solid fa-circle-half-stroke theme-switch" id="themeToggle"></i>
     </div>
 </div>
 
-<div class="row g-4 mb-5">
-    <div class="col-md-6 col-lg-4">
-        <div class="glass-panel h-100 p-4 position-relative overflow-hidden">
-            <div class="position-absolute top-0 end-0 p-3 opacity-25">
-                <i class="fa-solid fa-server fa-4x" style="color: var(--text-muted);"></i>
-            </div>
-            <h6 class="text-uppercase mb-3" style="color: var(--text-muted);">Local Node (Iran)</h6>
-            <h2 class="fw-bold mb-1" style="color: var(--text-main);">Active</h2>
-            <div class="d-flex align-items-center mt-3">
-                <span class="status-dot status-active me-2"></span>
-                <span class="small" style="color: var(--text-muted);">Master Controller</span>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-6 col-lg-4">
-        <div class="glass-panel h-100 p-4 position-relative overflow-hidden" 
-             style="border-color: {{ 'var(--primary-color)' if server else 'rgba(239, 68, 68, 0.5)' }};">
-            <div class="position-absolute top-0 end-0 p-3 opacity-25">
-                <i class="fa-solid fa-globe fa-4x {{ 'text-success' if server else 'text-danger' }}"></i>
-            </div>
-            <h6 class="text-uppercase mb-3" style="color: var(--text-muted);">Remote Node (Foreign)</h6>
-            {% if server %}
-                <h2 class="fw-bold mb-1 text-success">Connected</h2>
-                <p class="mb-0 font-monospace mt-2" style="color: var(--text-main);">{{ server[0] }}</p>
-            {% else %}
-                <h2 class="fw-bold mb-1 text-danger">Disconnected</h2>
-                <div class="mt-3">
-                    <button class="btn btn-sm btn-alamor w-100 shadow-lg" data-bs-toggle="modal" data-bs-target="#connectModal">
-                        <i class="fa-solid fa-link me-1"></i> Establish Link
-                    </button>
+<div class="row g-4">
+    <div class="col-12">
+        <div class="glass-panel p-3 d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-3">
+                <i class="fa-solid fa-server fa-2x text-muted"></i>
+                <div>
+                    <h6 class="mb-0 text-main">Foreign Server Connection</h6>
+                    <small class="text-muted">{{ server[0] if server else 'Disconnected' }}</small>
                 </div>
+            </div>
+            {% if not server %}
+                <button class="btn btn-sm btn-alamor" data-bs-toggle="modal" data-bs-target="#connectModal">Connect</button>
+            {% else %}
+                <span class="badge bg-success">Connected</span>
             {% endif %}
         </div>
     </div>
-</div>
 
-<h4 class="mb-4 border-bottom pb-2" style="color: var(--text-main); border-color: var(--glass-border) !important;">
-    Advanced Modules
-</h4>
-
-<div class="row row-cols-1 row-cols-xl-2 g-4">
-    
-    <div class="col">
-        <div class="glass-panel h-100">
-            <div class="card-body p-4">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="rounded-circle p-3 me-3" style="background: rgba(255, 193, 7, 0.1);">
-                        <i class="fa-solid fa-bolt fs-4 text-warning"></i>
+    <div class="col-12">
+        <div class="glass-panel p-4">
+            <h4 class="mb-4 border-bottom pb-2" style="border-color: var(--glass-border) !important;">Create New Tunnel</h4>
+            
+            <form action="{{ url_for('install_backhaul') }}" method="POST">
+                
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted">Protocol</label>
+                        <select name="transport" id="transportSelect" class="form-select" onchange="toggleMuxFields()">
+                            <option value="tcp" selected>TCP</option>
+                            <option value="tcpmux">TCP MUX</option>
+                            <option value="ws">WebSocket</option>
+                            <option value="wsmux">WS MUX</option>
+                            <option value="wss">WSS (Secure)</option>
+                            <option value="wssmux">WSS MUX (Secure)</option>
+                        </select>
                     </div>
-                    <div>
-                        <h5 class="card-title mb-0" style="color: var(--text-main);">Backhaul Tunnel</h5>
-                        <small style="color: var(--text-muted);">Reverse Tunneling Orchestrator</small>
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted">Tunnel Port (Bind)</label>
+                        <input type="number" name="tunnel_port" class="form-control" value="3080">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted">Connection Pool</label>
+                        <input type="number" name="connection_pool" class="form-control" value="8">
                     </div>
                 </div>
-                
-                <form action="{{ url_for('install_backhaul') }}" method="POST">
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-6">
-                            <label class="small mb-1" style="color: var(--text-muted);">Tunnel Port</label>
-                            <input type="number" name="tunnel_port" class="form-control" value="3080" placeholder="e.g. 3080">
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <label class="small mb-1" style="color: var(--text-muted);">Transport</label>
-                            <select name="transport" class="form-select">
-                                <option value="tcp" selected>TCP</option>
-                                <option value="tcpmux">TCP MUX</option>
-                                <option value="ws">WebSocket</option>
-                                <option value="wsmux">WS MUX</option>
-                            </select>
-                        </div>
 
-                        <div class="col-md-12">
-                            <label class="small mb-1" style="color: var(--text-muted);">Mux Version</label>
-                            <select name="mux_version" class="form-select">
-                                <option value="1" selected>Version 1 (Standard)</option>
-                                <option value="2">Version 2 (Advanced)</option>
-                            </select>
+                <div class="mb-4">
+                    <label class="form-label small text-muted">Port Forwarding Rules</label>
+                    <textarea name="port_rules" class="form-control font-monospace" rows="4" placeholder="443&#10;8080=80&#10;443-600&#10;127.0.0.1:443=1.1.1.1:5201"></textarea>
+                </div>
+
+                <div class="accordion mb-4" id="advAccordion">
+                    <div class="accordion-item" style="background: transparent; border: 1px solid var(--glass-border);">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#advCollapse" style="background: var(--input-bg); color: var(--text-main);">
+                                Advanced Configuration
+                            </button>
+                        </h2>
+                        <div id="advCollapse" class="accordion-collapse collapse" data-bs-parent="#advAccordion">
+                            <div class="accordion-body">
+                                <div class="row g-3">
+                                    <div class="col-md-12 mux-field" style="display:none;">
+                                        <div class="p-3 border rounded border-secondary">
+                                            <h6 class="text-warning mb-3">Multiplexing Settings</h6>
+                                            <div class="row g-3">
+                                                <div class="col-md-3">
+                                                    <label class="small text-muted">Mux Version</label>
+                                                    <select name="mux_version" class="form-select">
+                                                        <option value="1">v1</option>
+                                                        <option value="2">v2</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="small text-muted">Mux Concurrency</label>
+                                                    <input type="number" name="mux_con" class="form-control" value="8">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="small text-muted">Frame Size</label>
+                                                    <input type="number" name="mux_framesize" class="form-control" value="32768">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label class="small text-muted">Keepalive (s)</label>
+                                        <input type="number" name="keepalive_period" class="form-control" value="75">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="small text-muted">Channel Size</label>
+                                        <input type="number" name="channel_size" class="form-control" value="2048">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="small text-muted">Socket Recv Buf</label>
+                                        <input type="number" name="so_rcvbuf" class="form-control" value="4194304">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="small text-muted">Socket Send Buf</label>
+                                        <input type="number" name="so_sndbuf" class="form-control" value="1048576">
+                                    </div>
+
+                                    <div class="col-md-12 d-flex gap-4 mt-3">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" name="nodelay">
+                                            <label class="form-check-label text-muted">TCP NoDelay</label>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" name="accept_udp">
+                                            <label class="form-check-label text-muted">Accept UDP</label>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" name="aggressive_pool">
+                                            <label class="form-check-label text-muted">Aggressive Pool</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
+                </div>
 
-                    <div class="mb-3">
-                        <label class="small mb-1" style="color: var(--text-muted);">Port Forwarding Rules (One per line)</label>
-                        <textarea name="port_rules" class="form-control font-monospace" rows="5" placeholder='443
-8080=80
-443-600
-127.0.0.1:443=1.1.1.1:5201'></textarea>
-                        <div class="form-text text-white-50" style="font-size: 0.75rem;">
-                            Format: <code>local=remote</code> or <code>range</code> or <code>ip:port=ip:port</code>
-                        </div>
-                    </div>
-                    
-                    <button type="submit" class="btn btn-alamor w-100 py-2 {{ 'disabled' if not server }}">
-                        {{ 'Waiting for Remote Node...' if not server else 'Deploy Configuration' }}
-                    </button>
-                </form>
-            </div>
+                <button type="submit" class="btn btn-alamor w-100 py-3 fw-bold {{ 'disabled' if not server }}">
+                    {{ 'Waiting for Server Connection...' if not server else 'Deploy Tunnel Configuration' }}
+                </button>
+            </form>
         </div>
     </div>
 </div>
@@ -117,24 +140,10 @@
 <div class="modal fade" id="connectModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content glass-panel" style="background: var(--sidebar-bg);">
-            <div class="modal-header border-bottom" style="border-color: var(--glass-border) !important;">
-                <h5 class="modal-title" style="color: var(--text-main);">Secure Connection Setup</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" style="filter: invert(1);"></button>
-            </div>
             <div class="modal-body">
                 <form action="{{ url_for('connect_server') }}" method="POST">
-                    <div class="mb-3">
-                        <label class="form-label small" style="color: var(--text-muted);">REMOTE IP</label>
-                        <input type="text" name="ip" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label small" style="color: var(--text-muted);">SSH PORT</label>
-                        <input type="number" name="port" class="form-control" value="22">
-                    </div>
-                    <div class="mb-4">
-                        <label class="form-label small" style="color: var(--text-muted);">PASSWORD</label>
-                        <input type="password" name="password" class="form-control" required>
-                    </div>
+                    <div class="mb-3"><label class="small text-muted">IP</label><input type="text" name="ip" class="form-control" required></div>
+                    <div class="mb-3"><label class="small text-muted">Pass</label><input type="password" name="password" class="form-control" required></div>
                     <button type="submit" class="btn btn-alamor w-100">Connect</button>
                 </form>
             </div>
@@ -143,18 +152,25 @@
 </div>
 
 <script>
-    // Theme Switcher Logic
+    function toggleMuxFields() {
+        const proto = document.getElementById('transportSelect').value;
+        const muxFields = document.querySelectorAll('.mux-field');
+        const isMux = ['tcpmux', 'wsmux', 'wssmux'].includes(proto);
+        
+        muxFields.forEach(el => {
+            el.style.display = isMux ? 'block' : 'none';
+        });
+    }
+    // Run on load
+    toggleMuxFields();
+
+    // Theme logic
     const toggleBtn = document.getElementById('themeToggle');
     const htmlTag = document.documentElement;
-
-    // Check saved theme
-    if (localStorage.getItem('theme') === 'light') {
-        htmlTag.setAttribute('data-theme', 'light');
-    }
-
+    if (localStorage.getItem('theme') === 'light') htmlTag.setAttribute('data-theme', 'light');
     toggleBtn.addEventListener('click', () => {
-        const currentTheme = htmlTag.getAttribute('data-theme');
-        if (currentTheme === 'light') {
+        const current = htmlTag.getAttribute('data-theme');
+        if (current === 'light') {
             htmlTag.removeAttribute('data-theme');
             localStorage.setItem('theme', 'dark');
         } else {
