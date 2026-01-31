@@ -1,123 +1,109 @@
 import sqlite3
+import os
 import json
-import random
-import string
-from werkzeug.security import generate_password_hash, check_password_hash
 
-DB_NAME = "alamor.db"
+DB_PATH = "alamor.db"
 
 def init_db():
-    conn = sqlite3.connect(DB_NAME)
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, password TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS servers (ip TEXT PRIMARY KEY, user TEXT, password TEXT, port INTEGER)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS tunnels (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, transport TEXT, port TEXT, token TEXT, config TEXT, status TEXT DEFAULT 'active')''')
     
-    c.execute('''CREATE TABLE IF NOT EXISTS users 
-                 (id INTEGER PRIMARY KEY, username TEXT, password TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS servers 
-                 (id INTEGER PRIMARY KEY, ip TEXT UNIQUE, port INTEGER DEFAULT 22, username TEXT DEFAULT 'root', status TEXT DEFAULT 'disconnected')''')
-    
-    # جدول تانل‌ها
-    c.execute('''CREATE TABLE IF NOT EXISTS tunnels (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        transport TEXT,
-        tunnel_port INTEGER,
-        token TEXT,
-        config_json TEXT,
-        status TEXT DEFAULT 'active'
-    )''')
-    
-    conn.commit()
-    conn.close()
-
-def create_initial_user():
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
     c.execute("SELECT * FROM users WHERE username='admin'")
     if not c.fetchone():
-        chars = string.ascii_letters + string.digits
-        raw_pass = ''.join(random.choice(chars) for i in range(12))
-        hashed_pass = generate_password_hash(raw_pass)
-        c.execute("INSERT INTO users (username, password) VALUES (?, ?)", ('admin', hashed_pass))
-        conn.commit()
-    conn.close()
-
-def verify_user(username, password):
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-    c.execute("SELECT password FROM users WHERE username=?", (username,))
-    user = c.fetchone()
-    conn.close()
-    if user and check_password_hash(user[0], password):
-        return True
-    return False
-
-def update_password(username, new_password):
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-    hashed_pass = generate_password_hash(new_password)
-    c.execute("UPDATE users SET password=? WHERE username=?", (hashed_pass, username))
+        c.execute("INSERT INTO users VALUES ('admin', 'admin')")
     conn.commit()
     conn.close()
 
-def add_or_update_server(ip, port, username, status="connected"):
-    conn = sqlite3.connect(DB_NAME)
+# --- Server Functions ---
+def add_server(ip, user, password, port):
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("""INSERT INTO servers (ip, port, username, status) VALUES (?, ?, ?, ?) 
-                 ON CONFLICT(ip) DO UPDATE SET status=excluded.status, port=excluded.port""", 
-              (ip, port, username, status))
+    c.execute("DELETE FROM servers")
+    c.execute("INSERT INTO servers (ip, user, password, port) VALUES (?, ?, ?, ?)", (ip, user, password, port))
+    conn.commit()
+    conn.close()
+
+def remove_server():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("DELETE FROM servers")
     conn.commit()
     conn.close()
 
 def get_connected_server():
-    conn = sqlite3.connect(DB_NAME)
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("SELECT ip, port, username, status FROM servers WHERE status='connected' LIMIT 1")
-    server = c.fetchone()
+    c.execute("SELECT * FROM servers LIMIT 1")
+    data = c.fetchone()
     conn.close()
-    return server
+    return data
 
-# --- Tunnel CRUD ---
-def add_tunnel(name, transport, tunnel_port, token, config_dict):
-    conn = sqlite3.connect(DB_NAME)
+# --- Tunnel Functions ---
+def add_tunnel(name, transport, port, token, config_dict):
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     config_json = json.dumps(config_dict)
-    c.execute("INSERT INTO tunnels (name, transport, tunnel_port, token, config_json, status) VALUES (?, ?, ?, ?, ?, ?)",
-              (name, transport, tunnel_port, token, config_json, 'active'))
+    c.execute("INSERT INTO tunnels (name, transport, port, token, config, status) VALUES (?, ?, ?, ?, ?, ?)", (name, transport, str(port), token, config_json, 'active'))
     conn.commit()
     conn.close()
 
 def get_all_tunnels():
-    conn = sqlite3.connect(DB_NAME)
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("SELECT * FROM tunnels ORDER BY id DESC")
-    tunnels = c.fetchall()
+    data = c.fetchall()
     conn.close()
-    return tunnels
+    return data
 
-def get_tunnel_by_id(tunnel_id):
-    conn = sqlite3.connect(DB_NAME)
+def get_tunnel_by_id(tid):
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("SELECT * FROM tunnels WHERE id=?", (tunnel_id,))
-    tunnel = c.fetchone()
+    c.execute("SELECT * FROM tunnels WHERE id=?", (tid,))
+    data = c.fetchone()
     conn.close()
-    return tunnel
+    return data
 
-def delete_tunnel_by_id(tunnel_id):
-    conn = sqlite3.connect(DB_NAME)
+def delete_tunnel_by_id(tid):
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("DELETE FROM tunnels WHERE id=?", (tunnel_id,))
+    c.execute("DELETE FROM tunnels WHERE id=?", (tid,))
     conn.commit()
     conn.close()
 
-def update_tunnel_config(tunnel_id, name, transport, tunnel_port, config_dict):
-    """آپدیت کردن تنظیمات یک تانل موجود"""
-    conn = sqlite3.connect(DB_NAME)
+def update_tunnel_config(tid, name, transport, port, config_dict):
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     config_json = json.dumps(config_dict)
-    c.execute("""
-        UPDATE tunnels 
-        SET name=?, transport=?, tunnel_port=?, config_json=?
-        WHERE id=?
-    """, (name, transport, tunnel_port, config_json, tunnel_id))
+    c.execute("UPDATE tunnels SET name=?, transport=?, port=?, config=? WHERE id=?", (name, transport, str(port), config_json, tid))
     conn.commit()
     conn.close()
+
+# --- User Functions ---
+def check_user(username, password):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT * FROM users WHERE username=? AND password=?", (username, password))
+    user = c.fetchone()
+    conn.close()
+    return user
+
+def get_admin_user():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT * FROM users WHERE username='admin'")
+    data = c.fetchone()
+    conn.close()
+    return data
+
+def update_password(new_pass):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("UPDATE users SET password=? WHERE username='admin'", (new_pass,))
+    conn.commit()
+    conn.close()
+
+if __name__ == "__main__":
+    init_db()

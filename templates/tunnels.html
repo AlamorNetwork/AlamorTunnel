@@ -2,27 +2,27 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Active Tunnels</h2>
-    <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary">Add New Tunnel</a>
+    <h2 class="text-primary"><i class="fas fa-list me-2"></i>Active Tunnels</h2>
+    <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary btn-custom"><i class="fas fa-plus me-2"></i>New Tunnel</a>
 </div>
 
-<div class="card">
-    <div class="card-body">
-        <table class="table table-hover">
-            <thead>
+<div class="card bg-white shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="bg-light">
                 <tr>
-                    <th>ID</th>
+                    <th class="py-3 ps-4">ID</th>
                     <th>Name</th>
                     <th>Type</th>
                     <th>Details</th>
                     <th>Status</th>
-                    <th>Actions</th>
+                    <th class="text-end pe-4">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for tunnel in tunnels %}
                 <tr>
-                    <td>{{ tunnel.id }}</td>
+                    <td class="ps-4 fw-bold">#{{ tunnel.id }}</td>
                     <td>{{ tunnel.name }}</td>
                     
                     <td>
@@ -39,33 +39,36 @@
 
                     <td>
                         {% if 'hysteria' in tunnel.transport %}
-                            <small>Port: <b>{{ tunnel.port }} (UDP)</b></small><br>
-                            <small>Pass: {{ tunnel.token }}</small>
+                            <small class="d-block text-muted">Port: <b>{{ tunnel.port }} (UDP)</b></small>
+                            <small class="text-muted">Pass: {{ tunnel.token }}</small>
                         {% elif 'slipstream' in tunnel.transport %}
-                            <small>Iran Port: <b>{{ tunnel.port }}</b></small><br>
-                            <small>Tunnel Port: {{ tunnel.config.tunnel_port }}</small>
+                            <small class="d-block text-muted">Iran Port: <b>{{ tunnel.port }}</b></small>
+                            <small class="text-muted">Dest: {{ tunnel.config.dest_port }}</small>
                         {% else %}
-                            <small>Listen: {{ tunnel.port }}</small><br>
-                            <small class="text-muted">Token: {{ tunnel.token[:10] }}...</small>
+                            <small class="d-block text-muted">Listen: {{ tunnel.port }}</small>
+                            <small class="text-muted">Token: {{ tunnel.token[:8] }}...</small>
                         {% endif %}
                     </td>
 
                     <td>
                         {% if tunnel.status == 'active' %}
-                            <span class="text-success fw-bold">Active</span>
+                            <span class="badge bg-success rounded-pill">Active</span>
                         {% else %}
-                            <span class="text-danger fw-bold">Stopped</span>
+                            <span class="badge bg-danger rounded-pill">Stopped</span>
                         {% endif %}
                     </td>
 
-                    <td>
-                        <a href="{{ url_for('tunnels.edit_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-primary">Config</a>
+                    <td class="text-end pe-4">
+                        <a href="{{ url_for('tunnels.edit_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-primary me-1">Config</a>
                         <a href="{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this tunnel?')">Delete</a>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="6" class="text-center text-muted">No tunnels yet.</td>
+                    <td colspan="6" class="text-center py-5 text-muted">
+                        <i class="fas fa-ghost fa-3x mb-3 text-secondary"></i><br>
+                        No tunnels found.
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
