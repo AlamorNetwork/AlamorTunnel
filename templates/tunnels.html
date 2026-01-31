@@ -1,148 +1,87 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-5">
-    <div>
-        <h2 class="fw-bold text-white mb-1">Active Tunnels</h2>
-        <p class="text-muted mb-0">Live monitoring and management.</p>
-    </div>
-    <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary-glow px-4 rounded-pill">
-        <i class="fa-solid fa-plus me-2"></i>New Tunnel
-    </a>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-network-wired me-2"></i>Active Tunnels</h2>
+    <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary"><i class="fas fa-plus me-2"></i>New Tunnel</a>
 </div>
 
-<div class="row g-4">
-    {% if tunnels %}
-        {% for tunnel in tunnels %}
-        <div class="col-12 col-xl-6">
-            <div class="glass-panel h-100 d-flex flex-column overflow-hidden position-relative">
-                
-                <div class="position-absolute top-0 start-0 bottom-0" style="width: 4px; 
-                    {% if 'Hysteria' in tunnel.name %}background: var(--color-hysteria);
-                    {% elif 'Rathole' in tunnel.name %}background: var(--color-rathole);
-                    {% else %}background: var(--color-backhaul);{% endif %}">
-                </div>
-
-                <div class="p-3 border-bottom border-secondary border-opacity-25 bg-dark bg-opacity-25 d-flex justify-content-between align-items-center ps-4">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="rounded p-2 bg-dark border border-opacity-25 
-                            {% if 'Hysteria' in tunnel.name %}border-hysteria text-hysteria
-                            {% elif 'Rathole' in tunnel.name %}border-rathole text-rathole
-                            {% else %}border-backhaul text-backhaul{% endif %}">
-                            
-                            {% if 'Hysteria' in tunnel.name %}<i class="fa-solid fa-fire"></i>
-                            {% elif 'Rathole' in tunnel.name %}<i class="fa-solid fa-shield-halved"></i>
-                            {% else %}<i class="fa-solid fa-bolt"></i>{% endif %}
-                        </div>
+<div class="card bg-dark text-white border-0 shadow">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-dark table-hover mb-0 align-middle">
+                <thead class="bg-secondary">
+                    <tr>
+                        <th class="py-3 ps-4">ID</th>
+                        <th class="py-3">Name</th>
+                        <th class="py-3">Type</th>
+                        <th class="py-3">Configuration</th>
+                        <th class="py-3">Status</th>
+                        <th class="py-3 text-end pe-4">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tunnel in tunnels %}
+                    <tr>
+                        <td class="ps-4">#{{ tunnel.id }}</td>
+                        <td class="fw-bold">{{ tunnel.name }}</td>
                         
-                        <div>
-                            <h6 class="mb-0 fw-bold text-white">{{ tunnel.name }}</h6>
-                            <span class="badge bg-secondary bg-opacity-25 border border-secondary border-opacity-25 text-muted font-mono" style="font-size: 0.65rem;">
-                                {{ tunnel.transport|upper }} / {{ tunnel.port }}
-                            </span>
-                        </div>
-                    </div>
-                    
-                    <div class="d-flex gap-2">
-                        <a href="{{ url_for('tunnels.edit_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-light border-secondary text-muted hover-white" title="Edit">
-                            <i class="fa-solid fa-pen"></i>
-                        </a>
-                        <button class="btn btn-sm btn-outline-danger border-secondary" onclick="confirmDelete('{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel.id) }}')" title="Delete">
-                            <i class="fa-solid fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
+                        <td>
+                            {% if 'hysteria' in tunnel.transport %}
+                                <span class="badge btn-purple text-white px-3 py-2"><i class="fas fa-bolt me-1"></i> Hysteria 2</span>
+                            {% elif 'rathole' in tunnel.transport %}
+                                <span class="badge bg-success text-white px-3 py-2"><i class="fas fa-mouse me-1"></i> Rathole</span>
+                            {% elif 'slipstream' in tunnel.transport %}
+                                <span class="badge bg-info text-dark px-3 py-2"><i class="fas fa-wind me-1"></i> Slipstream</span>
+                            {% else %}
+                                <span class="badge bg-secondary px-3 py-2"><i class="fas fa-road me-1"></i> Backhaul</span>
+                            {% endif %}
+                        </td>
 
-                <div class="p-3 border-bottom border-secondary border-opacity-25 d-flex gap-2 ps-4">
-                    <button class="btn btn-sm btn-dark border border-secondary flex-grow-1 text-muted" onclick="runRealTest({{ tunnel.id }}, 'speed', this)">
-                        <i class="fa-solid fa-gauge me-2"></i>Latency
-                    </button>
-                    <button class="btn btn-sm btn-dark border border-secondary flex-grow-1 text-muted" onclick="runRealTest({{ tunnel.id }}, 'download', this)">
-                        <i class="fa-solid fa-heart-pulse me-2"></i>Health
-                    </button>
-                </div>
-                <div id="test-result-{{ tunnel.id }}" class="text-center text-xs py-1" style="min-height: 24px;"></div>
+                        <td>
+                            {% if 'hysteria' in tunnel.transport %}
+                                <div class="small text-muted">Tunnel: <span class="text-white">{{ tunnel.port }} (UDP)</span></div>
+                                <div class="small text-muted">Pass: <span class="text-warning font-monospace">{{ tunnel.token }}</span></div>
+                            
+                            {% elif 'slipstream' in tunnel.transport %}
+                                <div class="small text-muted">Iran Port: <span class="text-white fw-bold">{{ tunnel.port }}</span></div>
+                                <div class="small text-muted">Tunnel: <span class="text-info">{{ tunnel.config.tunnel_port }} (DNS)</span></div>
+                                <div class="small text-muted">Dest: <span class="text-secondary">{{ tunnel.config.dest_port }}</span></div>
 
-                <div class="p-4 flex-grow-1 ps-4">
-                    <div class="p-3 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25">
-                        {% if 'hysteria' in tunnel.transport %}
-                            <div class="d-flex justify-content-between mb-2">
-                                <span class="text-xs text-muted">Bandwidth</span>
-                                <span class="text-xs text-white font-mono">{{ tunnel.config.up_mbps }}↑ / {{ tunnel.config.down_mbps }}↓ Mbps</span>
-                            </div>
-                            <div class="text-xs text-muted mb-1">Obfuscation:</div>
-                            <div class="text-xs text-white font-mono text-truncate">{{ tunnel.config.obfs_pass }}</div>
-                        {% endif %}
+                            {% else %}
+                                <div class="small text-muted">Listen: <span class="text-white">{{ tunnel.port }}</span></div>
+                                <div class="small text-muted">Token: <span class="text-truncate d-inline-block text-secondary" style="max-width: 100px;">{{ tunnel.token }}</span></div>
+                            {% endif %}
+                        </td>
 
-                        {% if tunnel.config.port_rules %}
-                            <div class="text-xs text-warning mb-2 fw-bold text-uppercase">Rules</div>
-                            {% for rule in tunnel.config.port_rules %}
-                                <div class="text-xs text-muted font-mono ps-2 border-start border-warning mb-1">{{ rule }}</div>
-                            {% endfor %}
-                        {% elif tunnel.config.ports %}
-                             <div class="text-xs text-info mb-2 fw-bold text-uppercase">Forwarded Ports</div>
-                             <div class="text-xs text-white font-mono ps-2 border-start border-info text-wrap">
-                                 {{ tunnel.config.ports | join(', ') }}
-                             </div>
-                        {% endif %}
-                    </div>
-                </div>
+                        <td>
+                            {% if tunnel.status == 'active' %}
+                                <span class="badge bg-success rounded-pill px-3">Active</span>
+                            {% else %}
+                                <span class="badge bg-danger rounded-pill px-3">Stopped</span>
+                            {% endif %}
+                        </td>
 
-                <div class="px-4 py-2 bg-dark bg-opacity-50 border-top border-secondary border-opacity-25 d-flex justify-content-between align-items-center">
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="status-dot bg-success rounded-circle" style="width: 6px; height: 6px; box-shadow: 0 0 8px #10b981;"></span>
-                        <span class="text-xs text-success fw-bold">Active</span>
-                    </div>
-                    <small class="text-muted font-mono" style="font-size: 0.65rem; opacity: 0.5;">ID: {{ tunnel.token[:8] }}</small>
-                </div>
-            </div>
+                        <td class="text-end pe-4">
+                            <a href="{{ url_for('tunnels.edit_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-primary me-2">
+                                <i class="fas fa-cog"></i> Config
+                            </a>
+                            <a href="{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to delete this tunnel?')">
+                                <i class="fas fa-trash"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            <i class="fas fa-ghost fa-3x mb-3"></i><br>
+                            No tunnels found. Go to Dashboard to create one.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
-        {% endfor %}
-    {% else %}
-        <div class="col-12">
-            <div class="glass-panel p-5 text-center d-flex flex-column align-items-center">
-                <div class="mb-3 text-muted opacity-25">
-                    <i class="fa-solid fa-rocket fa-4x"></i>
-                </div>
-                <h4 class="text-white fw-bold">Ready to Launch</h4>
-                <p class="text-muted small mb-4">No active tunnels found. Start by deploying your first service.</p>
-                <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary-glow px-5 rounded-pill">Go to Dashboard</a>
-            </div>
-        </div>
-    {% endif %}
+    </div>
 </div>
-
-<script>
-    function confirmDelete(url) {
-        if(confirm('Are you sure? This will stop the service permanently.')) window.location.href = url;
-    }
-
-    function runRealTest(id, type, btn) {
-        const resDiv = document.getElementById(`test-result-${id}`);
-        const icon = btn.querySelector('i');
-        const oldClass = icon.className;
-        
-        icon.className = 'fa-solid fa-spinner fa-spin me-2';
-        btn.disabled = true;
-        resDiv.innerHTML = '<span class="text-warning">Connecting...</span>';
-
-        fetch(`/perform-test/${id}/${type}`)
-            .then(r => r.json())
-            .then(data => {
-                icon.className = oldClass;
-                btn.disabled = false;
-                if(data.status === 'success') {
-                    resDiv.innerHTML = `<span class="text-success fw-bold">${data.msg}</span>`;
-                } else {
-                    resDiv.innerHTML = `<span class="text-danger fw-bold">${data.msg}</span>`;
-                }
-                setTimeout(() => resDiv.innerHTML = '', 5000);
-            })
-            .catch(() => {
-                icon.className = oldClass;
-                btn.disabled = false;
-                resDiv.innerHTML = '<span class="text-danger">Network Error</span>';
-            });
-    }
-</script>
 {% endblock %}

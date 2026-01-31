@@ -3,6 +3,7 @@ from core.database import get_connected_server, add_tunnel, get_all_tunnels, get
 from core.backhaul_manager import install_local_backhaul, install_remote_backhaul, generate_token, stop_and_delete_backhaul
 from core.rathole_manager import install_local_rathole, install_remote_rathole
 from core.hysteria_manager import install_hysteria_server_remote, install_hysteria_client_local, generate_pass
+from core.slipstream_manager import install_slipstream_server_remote, install_slipstream_client_local
 import json
 import os
 import subprocess
@@ -105,7 +106,48 @@ def edit_tunnel(tunnel_id):
         return redirect(url_for('tunnels.list_tunnels'))
 
     return render_template('edit_tunnel.html', tunnel=tunnel, config=current_config, current_ip=get_server_public_ip())
+@tunnels_bp.route('/install-slipstream', methods=['POST'])
+def install_slipstream():
+    if not is_logged_in(): return redirect(url_for('auth.login'))
+    
+    server = get_connected_server()
+    if not server:
+        flash('No foreign server connected.', 'danger')
+        return redirect(url_for('dashboard.index'))
+    
+    # تنظیمات دریافتی از فرم
+    # tunnel_port: پورتی که ترافیک DNS/QUIC از آن رد می‌شود (مثلا 8853)
+    # client_port: پورتی که کاربر در ایران به آن وصل می‌شود (مثلا 8443)
+    # dest_port: پورتی در خارج که V2Ray روی آن است (مثلا 8443)
+    
+    config_data = {
+        'tunnel_port': request.form.get('tunnel_port', '8853'),
+        'client_port': request.form.get('client_port', '8443'),
+        'dest_port': request.form.get('dest_port', '8443'),
+        'domain': request.form.get('domain', 'google.com') # دامین فیک برای هندشیک
+    }
 
+    flash('Starting Slipstream build... This takes 5-10 minutes. Please wait.', 'info')
+    
+    # 1. نصب روی خارج
+    try:
+        success_remote, msg_remote = install_slipstream_server_remote(server[0], config_data)
+        if not success_remote:
+            flash(f'Remote Build Failed: {msg_remote}', 'danger')
+            return redirect(url_for('dashboard.index'))
+    except Exception as e:
+         flash(f'Remote Error: {str(e)}', 'danger')
+         return redirect(url_for('dashboard.index'))
+
+    # 2. نصب روی ایران
+    try:
+        install_slipstream_client_local(server[0], config_data)
+        add_tunnel(f"Slipstream-{config_data['tunnel_port']}", "slipstream", config_data['client_port'], "N/A", config_data)
+        flash('Slipstream Tunnel Installed! (Rust Built Successfully)', 'success')
+        return redirect(url_for('tunnels.list_tunnels'))
+    except Exception as e:
+        flash(f'Local Build Failed: {str(e)}', 'danger')
+        return redirect(url_for('dashboard.index'))
 # --- REAL TESTS ---
 @tunnels_bp.route('/perform-test/<int:tunnel_id>/<test_type>')
 def perform_test(tunnel_id, test_type):

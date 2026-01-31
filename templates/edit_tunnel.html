@@ -1,87 +1,96 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-5">
-    <div>
-        <h2 class="fw-bold text-white mb-1">Edit Tunnel</h2>
-        <p class="text-muted mb-0">Modify configuration and restart services.</p>
-    </div>
-    <a href="{{ url_for('tunnels.list_tunnels') }}" class="btn btn-outline-light btn-sm px-3">
-        <i class="fa-solid fa-arrow-left me-2"></i>Back
-    </a>
-</div>
-
 <div class="row justify-content-center">
-    <div class="col-12 col-lg-8">
-        <div class="glass-panel p-4">
-            
-            <form method="POST">
-                <div class="mb-4">
-                    <label class="text-xs text-muted mb-1 text-uppercase">Iran Server IP</label>
-                    <input type="text" name="iran_ip_manual" class="form-control font-mono" value="{{ current_ip }}">
-                </div>
-
-                <div class="row g-3 mb-4">
-                    <div class="col-md-6">
-                        <label class="text-xs text-muted mb-1 text-uppercase">Tunnel Port</label>
-                        <input type="number" name="tunnel_port" class="form-control" value="{{ config.tunnel_port }}">
+    <div class="col-md-8">
+        <div class="card bg-dark text-white shadow border-0">
+            <div class="card-header border-secondary d-flex justify-content-between align-items-center py-3">
+                <h4 class="mb-0"><i class="fas fa-sliders-h me-2"></i>Edit Tunnel: <span class="text-warning">{{ tunnel[1] }}</span></h4>
+                <a href="{{ url_for('tunnels.list_tunnels') }}" class="btn btn-sm btn-outline-secondary">Back to List</a>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST">
+                    
+                    <input type="hidden" name="transport" value="{{ tunnel[2] }}">
+                    
+                    {% if 'slipstream' in tunnel[2] %}
+                    <div class="alert alert-info bg-opacity-10 border-info text-info small">
+                        <i class="fas fa-wind me-2"></i> <b>Slipstream Settings</b><br>
+                        Changes will trigger a rebuild/restart of the services.
                     </div>
-                    <div class="col-md-6">
-                        <label class="text-xs text-muted mb-1 text-uppercase">Transport</label>
-                        <select name="transport" class="form-select" readonly disabled>
-                            <option selected>{{ config.transport|upper }}</option>
-                        </select>
-                        <input type="hidden" name="transport" value="{{ config.transport }}">
-                    </div>
-                </div>
 
-                {% if 'Hysteria' in tunnel[1] or 'hysteria' in tunnel[2] %}
-                    <div class="row g-3 mb-3">
-                        <div class="col-6">
-                            <label class="text-xs text-muted mb-1">Upload (Mbps)</label>
-                            <input type="number" name="up_mbps" class="form-control" value="{{ config.up_mbps }}">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-muted">Tunnel Port (UDP)</label>
+                            <input type="number" class="form-control" name="tunnel_port" value="{{ config.tunnel_port }}" required>
                         </div>
-                        <div class="col-6">
-                            <label class="text-xs text-muted mb-1">Download (Mbps)</label>
-                            <input type="number" name="down_mbps" class="form-control" value="{{ config.down_mbps }}">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-muted">Client Port (Iran)</label>
+                            <input type="number" class="form-control" name="client_port" value="{{ config.client_port }}" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-muted">Dest Port (Xray)</label>
+                            <input type="number" class="form-control" name="dest_port" value="{{ config.dest_port }}" required>
                         </div>
                     </div>
+
                     <div class="mb-4">
-                        <label class="text-xs text-muted mb-1 text-uppercase">Forward Ports</label>
-                        <input type="text" name="forward_ports" class="form-control font-mono" value="{{ config.ports | join(', ') }}">
+                        <label class="form-label text-muted">Fake Domain (Handshake)</label>
+                        <input type="text" class="form-control" name="domain" value="{{ config.domain }}" required>
                     </div>
 
-                {% elif 'rathole' in tunnel[2] or 'Rathole' in tunnel[1] %}
-                    <div class="mb-4">
-                        <label class="text-xs text-muted mb-1 text-uppercase">Forward Ports</label>
-                        <input type="text" name="forward_ports" class="form-control font-mono" value="{{ config.ports | join(', ') }}">
-                    </div>
-                    <div class="d-flex gap-4 mb-4 p-3 rounded bg-dark border border-secondary border-opacity-25">
-                        <div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="ipv6" {% if config.ipv6 %}checked{% endif %}><label class="text-xs text-muted">IPv6</label></div>
-                        <div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="nodelay" {% if config.nodelay %}checked{% endif %}><label class="text-xs text-muted">NoDelay</label></div>
+                    {% elif 'hysteria' in tunnel[2] %}
+                    <div class="alert alert-primary bg-opacity-10 border-primary text-primary small">
+                        <i class="fas fa-bolt me-2"></i> <b>Hysteria 2 Settings</b>
                     </div>
 
-                {% else %}
                     <div class="mb-3">
-                        <label class="text-xs text-muted mb-1 text-uppercase">Edge IP</label>
-                        <input type="text" name="edge_ip" class="form-control" value="{{ config.edge_ip }}">
+                        <label class="form-label text-muted">UDP Tunnel Port</label>
+                        <input type="number" class="form-control" name="tunnel_port" value="{{ config.tunnel_port }}" required>
                     </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">Upload Limit (Mbps)</label>
+                            <input type="number" class="form-control" name="up_mbps" value="{{ config.up_mbps }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">Download Limit (Mbps)</label>
+                            <input type="number" class="form-control" name="down_mbps" value="{{ config.down_mbps }}">
+                        </div>
+                    </div>
+
                     <div class="mb-4">
-                        <label class="text-xs text-muted mb-1 text-uppercase">Port Rules</label>
-                        <textarea name="port_rules" class="form-control font-mono" rows="4">{{ config.port_rules | join('\n') }}</textarea>
+                        <label class="form-label text-muted">Forward Ports (Comma Separated)</label>
+                        <input type="text" class="form-control" name="forward_ports" value="{{ config.ports|join(', ') }}" placeholder="8080, 443">
                     </div>
-                {% endif %}
 
-                <div class="alert alert-dark border border-warning border-opacity-25 text-warning small d-flex align-items-center">
-                    <i class="fa-solid fa-triangle-exclamation me-3 fs-5"></i>
-                    <div>Saving changes will restart the service on both local and remote servers briefly.</div>
-                </div>
+                    {% else %}
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Tunnel Port</label>
+                        <input type="number" class="form-control" name="tunnel_port" value="{{ config.tunnel_port }}" required>
+                    </div>
 
-                <button type="submit" class="btn btn-primary-glow w-100 py-2 fw-bold">
-                    <i class="fa-solid fa-rotate me-2"></i> Save & Restart
-                </button>
-            </form>
+                    {% if 'rathole' in tunnel[2] %}
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Forward Ports</label>
+                        <input type="text" class="form-control" name="forward_ports" value="{{ config.ports|join(', ') }}">
+                    </div>
+                    {% endif %}
+                    
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" name="nodelay" {% if config.nodelay %}checked{% endif %}>
+                        <label class="form-check-label">No Delay (Low Latency)</label>
+                    </div>
+                    {% endif %}
 
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-warning fw-bold">
+                            <i class="fas fa-save me-2"></i> Save & Restart Tunnel
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </div>
