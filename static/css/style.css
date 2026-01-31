@@ -88,9 +88,9 @@ h1, h2, h3, h4, h5, h6 {
 
 /* --- FORMS & INPUTS --- */
 .form-control, .form-select {
-    background: rgba(0, 0, 0, 0.2); /* Darker background for inputs */
+    background: rgba(0, 0, 0, 0.2); 
     border: 1px solid var(--glass-border);
-    color: #fff !important; /* Always white text in inputs for readability */
+    color: #fff !important; 
     border-radius: 12px;
     padding: 12px 15px;
     transition: all 0.3s;
@@ -182,7 +182,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* --- MODALS --- */
 .modal-content {
-    background: #1a1a2e; /* Solid background for readability inside modal */
+    background: #1a1a2e; 
     border: 1px solid var(--glass-border);
     border-radius: 20px;
     color: #fff;
