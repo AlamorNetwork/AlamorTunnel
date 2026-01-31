@@ -10,54 +10,49 @@
 </head>
 <body>
 
-    <button class="btn btn-dark d-md-none position-fixed top-0 start-0 m-3 z-3" onclick="document.querySelector('.sidebar').classList.toggle('show')">
-        <i class="fa-solid fa-bars"></i>
-    </button>
-
     <div class="d-flex">
         <nav class="sidebar p-4 d-flex flex-column">
             <div class="d-flex align-items-center mb-5 px-2">
-                <div class="rounded bg-primary p-2 me-3">
-                    <i class="fa-solid fa-network-wired text-white"></i>
-                </div>
-                <div>
-                    <h5 class="m-0 fw-bold tracking-tight text-white">Alamor</h5>
-                    <small class="text-muted">Tunnel Manager</small>
-                </div>
+                <i class="fa-solid fa-shield-halved fa-2x me-2" style="color: var(--primary);"></i>
+                <h4 class="m-0 fw-bold tracking-tight">Alamor</h4>
             </div>
             
-            <ul class="nav flex-column gap-2 flex-grow-1">
+            <ul class="nav flex-column flex-grow-1">
                 <li class="nav-item">
                     <a href="{{ url_for('dashboard.index') }}" class="nav-link {{ 'active' if request.endpoint == 'dashboard.index' else '' }}">
-                        <i class="fa-solid fa-grid-2"></i> Dashboard
+                        <i class="fa-solid fa-gauge-high me-3"></i> Dashboard
                     </a>
                 </li>
                 <li class="nav-item">
                     <a href="{{ url_for('tunnels.list_tunnels') }}" class="nav-link {{ 'active' if 'tunnels' in request.endpoint else '' }}">
-                        <i class="fa-solid fa-layer-group"></i> Active Tunnels
+                        <i class="fa-solid fa-network-wired me-3"></i> Tunnels
                     </a>
                 </li>
                 <li class="nav-item">
                     <a href="{{ url_for('settings.index') }}" class="nav-link {{ 'active' if 'settings' in request.endpoint else '' }}">
-                        <i class="fa-solid fa-sliders"></i> Settings
+                        <i class="fa-solid fa-gear me-3"></i> Settings
                     </a>
                 </li>
             </ul>
 
-            <div class="mt-auto border-top border-secondary pt-3">
-                <a href="{{ url_for('auth.logout') }}" class="nav-link text-danger">
-                    <i class="fa-solid fa-arrow-right-from-bracket"></i> Logout
+            <div class="mt-auto pt-3 border-top border-theme">
+                <div class="d-flex justify-content-between align-items-center mb-3 px-2">
+                    <span class="small text-muted">Theme</span>
+                    <i class="fa-solid fa-sun theme-toggle text-main" id="themeBtn"></i>
+                </div>
+                <a href="{{ url_for('auth.logout') }}" class="nav-link text-danger bg-transparent">
+                    <i class="fa-solid fa-power-off me-3"></i> Logout
                 </a>
             </div>
         </nav>
 
-        <main class="main-content flex-grow-1 w-100">
+        <main class="flex-grow-1 p-4" style="margin-left: 260px;">
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
-                        <div class="alert alert-{{ category }} alert-dismissible fade show glass-panel text-white border-0 mb-4" role="alert">
-                            <i class="fa-solid fa-circle-info me-2"></i> {{ message }}
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
+                        <div class="alert alert-{{ category }} alert-dismissible fade show glass-panel border-0 mb-4 text-main" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
                     {% endfor %}
                 {% endif %}
@@ -68,5 +63,34 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Theme Logic
+        const html = document.documentElement;
+        const themeBtn = document.getElementById('themeBtn');
+        const icon = themeBtn;
+
+        // Load Saved Theme
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        html.setAttribute('data-theme', savedTheme);
+        updateIcon(savedTheme);
+
+        themeBtn.addEventListener('click', () => {
+            const current = html.getAttribute('data-theme');
+            const newTheme = current === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateIcon(newTheme);
+        });
+
+        function updateIcon(theme) {
+            if(theme === 'dark') {
+                icon.classList.remove('fa-moon');
+                icon.classList.add('fa-sun');
+            } else {
+                icon.classList.remove('fa-sun');
+                icon.classList.add('fa-moon');
+            }
+        }
+    </script>
 </body>
 </html>

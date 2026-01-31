@@ -3,14 +3,12 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h2 class="fw-bold text-white mb-0">Deployment</h2>
-        <p class="text-muted small mb-0">Manage servers and install tunnels</p>
+        <h2 class="fw-bold mb-0">Dashboard</h2>
+        <p class="text-muted small">Server Management</p>
     </div>
     <div class="glass-panel px-3 py-2 d-flex align-items-center">
-        <div class="d-flex align-items-center gap-2">
-            <span class="badge bg-primary bg-opacity-25 text-primary border border-primary">Server IP</span>
-            <span class="font-monospace text-white small">{{ current_ip }}</span>
-        </div>
+        <span class="badge bg-primary me-2">IP</span>
+        <span class="font-monospace text-main">{{ current_ip }}</span>
     </div>
 </div>
 
@@ -19,62 +17,46 @@
         <div class="glass-panel p-4">
             <div class="d-flex justify-content-between align-items-center">
                 <div class="d-flex align-items-center gap-4">
-                    <div class="rounded-circle p-3 bg-dark border border-secondary">
+                    <div class="p-3 rounded bg-surface border-theme">
                         <i class="fa-solid fa-server fa-xl text-muted"></i>
                     </div>
                     <div>
-                        <h5 class="mb-1 text-white">Foreign Server Status</h5>
-                        {% if server %}
-                            <div class="d-flex align-items-center text-success small">
-                                <i class="fa-solid fa-circle-check me-2"></i> Connected to {{ server[0] }}
-                            </div>
-                        {% else %}
-                            <div class="text-danger small">
-                                <i class="fa-solid fa-circle-xmark me-2"></i> Not Connected
-                            </div>
-                        {% endif %}
+                        <h5 class="mb-1 fw-bold">Foreign Server</h5>
+                        <div class="text-muted small">
+                            {% if server %}
+                                <span class="text-success"><i class="fa-solid fa-link me-1"></i> Connected to {{ server[0] }}</span>
+                            {% else %}
+                                <span class="text-danger"><i class="fa-solid fa-unlink me-1"></i> Disconnected</span>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
-                
                 {% if not server %}
-                    <button class="btn btn-primary-custom" data-bs-toggle="modal" data-bs-target="#connectModal">
-                        <i class="fa-solid fa-link me-2"></i>Connect Server
-                    </button>
-                {% else %}
-                    <button class="btn btn-outline-light btn-sm" disabled>Active</button>
+                    <button class="btn btn-alamor" data-bs-toggle="modal" data-bs-target="#connectModal">Connect</button>
                 {% endif %}
             </div>
         </div>
     </div>
 
     <div class="col-12">
-        <h5 class="text-white mb-3">Install Modules</h5>
+        <h5 class="mb-3 fw-bold">Install Tunnels</h5>
         <div class="accordion" id="tunnelModules">
             
-            <div class="accordion-item glass-panel mb-3 border-0">
+            <div class="accordion-item glass-panel mb-3 border-theme">
                 <h2 class="accordion-header">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#modBackhaul">
-                        <div class="d-flex align-items-center">
-                            <span class="badge bg-warning text-dark me-3">Backhaul</span>
-                            <span>Reverse TCP Tunnel (High Performance)</span>
-                        </div>
+                    <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#modBackhaul">
+                        <i class="fa-solid fa-bolt text-warning me-2"></i> Backhaul Tunnel
                     </button>
                 </h2>
                 <div id="modBackhaul" class="accordion-collapse collapse" data-bs-parent="#tunnelModules">
-                    <div class="accordion-body border-top border-secondary pt-4">
+                    <div class="accordion-body border-top border-theme pt-4">
                         <form action="{{ url_for('tunnels.install_backhaul') }}" method="POST">
-                            <div class="row mb-4">
-                                <div class="col-12">
-                                    <label class="small text-muted mb-1">Iran Server IP (Detected)</label>
-                                    <input type="text" name="iran_ip_manual" class="form-control font-monospace" value="{{ current_ip }}">
-                                    <div class="form-text text-white-50 small">This IP is used by the foreign server to connect back to Iran.</div>
-                                </div>
-                            </div>
+                            <input type="hidden" name="iran_ip_manual" value="{{ current_ip }}">
 
                             <div class="row g-3 mb-3">
                                 <div class="col-md-4">
-                                    <label class="small text-muted">Transport</label>
-                                    <select name="transport" id="transportSelect" class="form-select" onchange="toggleMuxFields()">
+                                    <label class="small text-muted mb-1">Transport</label>
+                                    <select name="transport" class="form-select">
                                         <option value="tcp">TCP</option>
                                         <option value="tcpmux">TCP MUX</option>
                                         <option value="ws">WebSocket</option>
@@ -82,28 +64,27 @@
                                     </select>
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="small text-muted">Tunnel Port</label>
+                                    <label class="small text-muted mb-1">Tunnel Port</label>
                                     <input type="number" name="tunnel_port" class="form-control" value="3080">
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="small text-muted">Edge IP (Optional)</label>
-                                    <input type="text" name="edge_ip" class="form-control" placeholder="CDN IP">
+                                    <label class="small text-muted mb-1">Edge IP (Optional)</label>
+                                    <input type="text" name="edge_ip" class="form-control">
                                 </div>
                             </div>
 
-                            <div class="mb-4">
-                                <label class="small text-muted">Port Forwarding Rules</label>
-                                <textarea name="port_rules" class="form-control font-monospace" rows="3" placeholder="8080=80&#10;443"></textarea>
-                                <div class="form-text text-white-50">Format: <code>local=remote</code> or <code>port</code></div>
+                            <div class="mb-3">
+                                <label class="small text-muted mb-1">Port Forwarding Rules</label>
+                                <textarea name="port_rules" class="form-control font-monospace" rows="3" placeholder="8080=80"></textarea>
                             </div>
 
                             <div class="mb-3">
-                                <a class="text-primary text-decoration-none small" data-bs-toggle="collapse" href="#advBackhaulSettings">
-                                    <i class="fa-solid fa-sliders me-1"></i> Show Advanced Settings
+                                <a class="text-primary text-decoration-none small" data-bs-toggle="collapse" href="#advBackhaul">
+                                    Show Advanced Settings
                                 </a>
-                                <div class="collapse mt-3" id="advBackhaulSettings">
-                                    <div class="p-3 rounded bg-dark bg-opacity-50 border border-secondary">
-                                        <div class="row g-3">
+                                <div class="collapse mt-2" id="advBackhaul">
+                                    <div class="p-3 rounded bg-surface border-theme">
+                                        <div class="row g-2">
                                             <div class="col-6 col-md-3"><label class="small text-muted">Mux Ver</label><input type="number" name="mux_version" class="form-control form-control-sm" value="1"></div>
                                             <div class="col-6 col-md-3"><label class="small text-muted">Concurrency</label><input type="number" name="mux_con" class="form-control form-control-sm" value="8"></div>
                                             <div class="col-6 col-md-3"><label class="small text-muted">Keepalive</label><input type="number" name="keepalive_period" class="form-control form-control-sm" value="75"></div>
@@ -111,59 +92,57 @@
                                             <div class="col-12 pt-2 d-flex gap-3">
                                                 <div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="nodelay"><label class="small text-muted">NoDelay</label></div>
                                                 <div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="sniffer"><label class="small text-muted">Sniffer</label></div>
+                                                <div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="accept_udp"><label class="small text-muted">UDP</label></div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <button type="submit" class="btn btn-primary-custom w-100">Deploy Backhaul Tunnel</button>
+                            <button type="submit" class="btn btn-alamor w-100">Deploy Backhaul</button>
                         </form>
                     </div>
                 </div>
             </div>
 
-            <div class="accordion-item glass-panel mb-3 border-0">
+            <div class="accordion-item glass-panel mb-3 border-theme">
                 <h2 class="accordion-header">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#modRathole">
-                        <div class="d-flex align-items-center">
-                            <span class="badge bg-info text-dark me-3">Rathole</span>
-                            <span>Secure Rust Tunnel (Low Resource)</span>
-                        </div>
+                    <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#modRathole">
+                        <i class="fa-solid fa-dharmachakra text-info me-2"></i> Rathole Tunnel
                     </button>
                 </h2>
                 <div id="modRathole" class="accordion-collapse collapse" data-bs-parent="#tunnelModules">
-                    <div class="accordion-body border-top border-secondary pt-4">
+                    <div class="accordion-body border-top border-theme pt-4">
                         <form action="{{ url_for('tunnels.install_rathole') }}" method="POST">
                             <input type="hidden" name="iran_ip_manual" value="{{ current_ip }}">
 
                             <div class="row g-3 mb-3">
                                 <div class="col-md-4">
-                                    <label class="small text-muted">Tunnel Port</label>
+                                    <label class="small text-muted mb-1">Tunnel Port</label>
                                     <input type="number" name="tunnel_port" class="form-control" placeholder="5000" required>
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="small text-muted">Transport</label>
+                                    <label class="small text-muted mb-1">Transport</label>
                                     <select name="transport" class="form-select">
                                         <option value="tcp">TCP</option>
                                         <option value="udp">UDP</option>
                                     </select>
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="small text-muted">Token (Optional)</label>
+                                    <label class="small text-muted mb-1">Token</label>
                                     <input type="text" name="token" class="form-control" placeholder="Auto">
                                 </div>
                             </div>
 
-                            <div class="mb-4">
-                                <label class="small text-muted">Forward Ports (Comma Separated)</label>
-                                <input type="text" name="forward_ports" class="form-control font-monospace" placeholder="2080, 2090, 443" required>
+                            <div class="mb-3">
+                                <label class="small text-muted mb-1">Forward Ports</label>
+                                <input type="text" name="forward_ports" class="form-control font-monospace" placeholder="2080, 2090" required>
                             </div>
 
-                            <div class="d-flex gap-4 mb-4 p-3 rounded bg-dark bg-opacity-50">
+                            <div class="d-flex gap-4 mb-3 p-3 rounded bg-surface border-theme">
                                 <div class="form-check form-switch">
                                     <input class="form-check-input" type="checkbox" name="ipv6">
-                                    <label class="text-muted small">IPv6 Listen</label>
+                                    <label class="text-muted small">IPv6</label>
                                 </div>
                                 <div class="form-check form-switch">
                                     <input class="form-check-input" type="checkbox" name="nodelay" checked>
@@ -175,7 +154,7 @@
                                 </div>
                             </div>
 
-                            <button type="submit" class="btn btn-primary-custom w-100">Deploy Rathole Tunnel</button>
+                            <button type="submit" class="btn btn-info text-white fw-bold w-100">Deploy Rathole</button>
                         </form>
                     </div>
                 </div>
@@ -188,36 +167,28 @@
 <div class="modal fade" id="connectModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content glass-panel border-0">
-            <div class="modal-header border-bottom border-secondary">
-                <h5 class="modal-title text-white">Connect Foreign Server</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            <div class="modal-header border-bottom border-theme">
+                <h5 class="modal-title">Connect Server</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-4">
                 <form action="{{ url_for('dashboard.connect_server') }}" method="POST">
                     <div class="mb-3">
-                        <label class="small text-muted">IP ADDRESS</label>
-                        <input type="text" name="ip" class="form-control" placeholder="x.x.x.x" required>
+                        <label class="small text-muted mb-1">IP</label>
+                        <input type="text" name="ip" class="form-control" required>
                     </div>
                     <div class="mb-3">
-                        <label class="small text-muted">SSH PORT</label>
+                        <label class="small text-muted mb-1">Port</label>
                         <input type="number" name="port" class="form-control" value="22">
                     </div>
-                    <div class="mb-4">
-                        <label class="small text-muted">ROOT PASSWORD</label>
+                    <div class="mb-3">
+                        <label class="small text-muted mb-1">Password</label>
                         <input type="password" name="password" class="form-control" required>
                     </div>
-                    <button type="submit" class="btn btn-primary-custom w-100">Establish Connection</button>
+                    <button type="submit" class="btn btn-alamor w-100">Connect</button>
                 </form>
             </div>
         </div>
     </div>
 </div>
-
-<script>
-    function toggleMuxFields() {
-        // Logic to show/hide fields based on selection can be added here
-        const select = document.getElementById('transportSelect');
-        // Example: Only show Mux settings if 'mux' is in value
-    }
-</script>
 {% endblock %}
