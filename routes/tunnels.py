@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, redirect, session, url_fo
 from core.database import get_connected_server, add_tunnel, get_all_tunnels, get_tunnel_by_id, delete_tunnel_by_id, update_tunnel_config
 from core.backhaul_manager import install_local_backhaul, install_remote_backhaul, generate_token, stop_and_delete_backhaul
 from core.rathole_manager import install_local_rathole, install_remote_rathole
+from core.hysteria_manager import install_hysteria_server_remote, install_hysteria_client_local, generate_pass
 import json
 import os
 import subprocess
@@ -48,7 +49,78 @@ def list_tunnels():
         })
         
     return render_template('tunnels.html', tunnels=tunnels_list)
+@tunnels_bp.route('/install-hysteria', methods=['POST'])
+def install_hysteria():
+    if not is_logged_in(): return redirect(url_for('auth.login'))
+    
+    server = get_connected_server()
+    if not server:
+        flash('No foreign server connected.', 'danger')
+        return redirect(url_for('dashboard.index'))
 
+    # گرفتن پورت‌ها
+    raw_ports = request.form.get('forward_ports', '')
+    ports_list = [p.strip() for p in raw_ports.split(',') if p.strip().isdigit()]
+    
+    if not ports_list:
+        flash('Valid ports required.', 'warning')
+        return redirect(url_for('dashboard.index'))
+
+    config_data = {
+        'tunnel_port': request.form.get('tunnel_port'), # پورت UDP خود هیستریا (مثلا 443)
+        'password': request.form.get('password') or generate_pass(),
+        'obfs_pass': request.form.get('obfs_pass') or generate_pass(),
+        'up_mbps': request.form.get('up_mbps', '100'),
+        'down_mbps': request.form.get('down_mbps', '100'),
+        'ports': ports_list
+    }
+
+    # 1. نصب سرور روی خارج
+    success_remote, msg_remote = install_hysteria_server_remote(server[0], config_data)
+    if not success_remote:
+        flash(f'Remote Hysteria Failed: {msg_remote}', 'danger')
+        return redirect(url_for('dashboard.index'))
+
+    # 2. نصب کلاینت روی ایران
+    try:
+        install_hysteria_client_local(server[0], config_data)
+        
+        # ذخیره در دیتابیس
+        add_tunnel(f"Hysteria2-{config_data['tunnel_port']}", "hysteria", config_data['tunnel_port'], config_data['password'], config_data)
+        
+        flash(f'Hysteria 2 Tunnel Established on UDP/{config_data["tunnel_port"]}!', 'success')
+        return redirect(url_for('tunnels.list_tunnels'))
+    except Exception as e:
+        flash(f'Local Hysteria Failed: {str(e)}', 'danger')
+        return redirect(url_for('dashboard.index'))
+
+# همچنین در تابع delete_tunnel باید لاجیک حذف هیستریا را هم اضافه کنیم:
+@tunnels_bp.route('/delete-tunnel/<int:tunnel_id>')
+def delete_tunnel(tunnel_id):
+    if not is_logged_in(): return redirect(url_for('auth.login'))
+    
+    tunnel = get_tunnel_by_id(tunnel_id)
+    if tunnel:
+        transport = tunnel[2] # یا name
+        
+        if "rathole" in transport:
+            svc = f"rathole-iran{tunnel[3]}"
+            os.system(f"systemctl stop {svc} && systemctl disable {svc} && rm /etc/systemd/system/{svc}.service")
+            os.system(f"rm /root/rathole-core/iran{tunnel[3]}.toml")
+            
+        elif "hysteria" in transport:
+            # حذف هیستریا
+            os.system("systemctl stop hysteria-client && systemctl disable hysteria-client")
+            os.system("rm /root/hysteria/client.yaml")
+            
+        else: # Backhaul
+            stop_and_delete_backhaul()
+            
+        delete_tunnel_by_id(tunnel_id)
+        os.system("systemctl daemon-reload")
+        flash('Tunnel Deleted.', 'success')
+        
+    return redirect(url_for('tunnels.list_tunnels'))
 # --- EDIT TUNNEL ---
 @tunnels_bp.route('/edit-tunnel/<int:tunnel_id>', methods=['GET', 'POST'])
 def edit_tunnel(tunnel_id):

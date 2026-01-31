@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-5">
     <div>
-        <h2 class="fw-bold mb-0">Edit Tunnel</h2>
-        <p class="text-muted small">Update configuration & restart services</p>
+        <h2 class="fw-bold text-white mb-1">Edit Tunnel</h2>
+        <p class="text-muted mb-0">Modify configuration and restart services.</p>
     </div>
-    <a href="{{ url_for('tunnels.list_tunnels') }}" class="btn btn-outline-light btn-sm">
+    <a href="{{ url_for('tunnels.list_tunnels') }}" class="btn btn-outline-light btn-sm px-3">
         <i class="fa-solid fa-arrow-left me-2"></i>Back
     </a>
 </div>
@@ -17,86 +17,68 @@
             
             <form method="POST">
                 <div class="mb-4">
-                    <label class="small text-muted mb-1">Iran Server IP</label>
-                    <input type="text" name="iran_ip_manual" class="form-control font-monospace" value="{{ current_ip }}">
+                    <label class="text-xs text-muted mb-1 text-uppercase">Iran Server IP</label>
+                    <input type="text" name="iran_ip_manual" class="form-control font-mono" value="{{ current_ip }}">
                 </div>
 
-                <div class="row g-3 mb-3">
+                <div class="row g-3 mb-4">
                     <div class="col-md-6">
-                        <label class="small text-muted mb-1">Tunnel Port (Bind)</label>
+                        <label class="text-xs text-muted mb-1 text-uppercase">Tunnel Port</label>
                         <input type="number" name="tunnel_port" class="form-control" value="{{ config.tunnel_port }}">
                     </div>
                     <div class="col-md-6">
-                        <label class="small text-muted mb-1">Transport</label>
-                        <select name="transport" class="form-select">
-                            <option value="tcp" {% if config.transport == 'tcp' %}selected{% endif %}>TCP</option>
-                            {% if 'rathole' in tunnel[2] or 'Rathole' in tunnel[1] %}
-                                <option value="udp" {% if config.transport == 'udp' %}selected{% endif %}>UDP</option>
-                            {% else %}
-                                <option value="tcpmux" {% if config.transport == 'tcpmux' %}selected{% endif %}>TCP MUX</option>
-                                <option value="ws" {% if config.transport == 'ws' %}selected{% endif %}>WebSocket</option>
-                                <option value="wsmux" {% if config.transport == 'wsmux' %}selected{% endif %}>WS MUX</option>
-                            {% endif %}
+                        <label class="text-xs text-muted mb-1 text-uppercase">Transport</label>
+                        <select name="transport" class="form-select" readonly disabled>
+                            <option selected>{{ config.transport|upper }}</option>
                         </select>
+                        <input type="hidden" name="transport" value="{{ config.transport }}">
                     </div>
                 </div>
 
-                {% if 'rathole' in tunnel[2] or 'Rathole' in tunnel[1] %}
-                    <div class="mb-3">
-                        <label class="small text-muted mb-1">Forward Ports (Comma Separated)</label>
-                        <input type="text" name="forward_ports" class="form-control font-monospace" 
-                               value="{{ config.ports | join(', ') }}">
+                {% if 'Hysteria' in tunnel[1] or 'hysteria' in tunnel[2] %}
+                    <div class="row g-3 mb-3">
+                        <div class="col-6">
+                            <label class="text-xs text-muted mb-1">Upload (Mbps)</label>
+                            <input type="number" name="up_mbps" class="form-control" value="{{ config.up_mbps }}">
+                        </div>
+                        <div class="col-6">
+                            <label class="text-xs text-muted mb-1">Download (Mbps)</label>
+                            <input type="number" name="down_mbps" class="form-control" value="{{ config.down_mbps }}">
+                        </div>
                     </div>
-                    
-                    <div class="d-flex gap-4 mb-3 p-3 rounded bg-surface border-theme">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" name="ipv6" {% if config.ipv6 %}checked{% endif %}>
-                            <label class="text-muted small">IPv6</label>
-                        </div>
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" name="nodelay" {% if config.nodelay %}checked{% endif %}>
-                            <label class="text-muted small">NoDelay</label>
-                        </div>
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" name="heartbeat" {% if config.heartbeat %}checked{% endif %}>
-                            <label class="text-muted small">Heartbeat</label>
-                        </div>
+                    <div class="mb-4">
+                        <label class="text-xs text-muted mb-1 text-uppercase">Forward Ports</label>
+                        <input type="text" name="forward_ports" class="form-control font-mono" value="{{ config.ports | join(', ') }}">
+                    </div>
+
+                {% elif 'rathole' in tunnel[2] or 'Rathole' in tunnel[1] %}
+                    <div class="mb-4">
+                        <label class="text-xs text-muted mb-1 text-uppercase">Forward Ports</label>
+                        <input type="text" name="forward_ports" class="form-control font-mono" value="{{ config.ports | join(', ') }}">
+                    </div>
+                    <div class="d-flex gap-4 mb-4 p-3 rounded bg-dark border border-secondary border-opacity-25">
+                        <div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="ipv6" {% if config.ipv6 %}checked{% endif %}><label class="text-xs text-muted">IPv6</label></div>
+                        <div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="nodelay" {% if config.nodelay %}checked{% endif %}><label class="text-xs text-muted">NoDelay</label></div>
                     </div>
 
                 {% else %}
                     <div class="mb-3">
-                        <label class="small text-muted mb-1">Edge IP (Optional)</label>
+                        <label class="text-xs text-muted mb-1 text-uppercase">Edge IP</label>
                         <input type="text" name="edge_ip" class="form-control" value="{{ config.edge_ip }}">
                     </div>
-
-                    <div class="mb-3">
-                        <label class="small text-muted mb-1">Port Rules</label>
-                        <textarea name="port_rules" class="form-control font-monospace" rows="4">{{ config.port_rules | join('\n') }}</textarea>
-                    </div>
-
-                    <div class="d-flex gap-4 mb-3 p-3 rounded bg-surface border-theme">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" name="nodelay" {% if config.nodelay %}checked{% endif %}>
-                            <label class="text-muted small">NoDelay</label>
-                        </div>
-                        <div class="col-4">
-                            <label class="small text-muted">Heartbeat (s)</label>
-                            <input type="number" name="heartbeat" class="form-control form-control-sm" value="{{ config.heartbeat }}">
-                        </div>
-                        <div class="col-4">
-                            <label class="small text-muted">Mux Ver</label>
-                            <input type="number" name="mux_version" class="form-control form-control-sm" value="{{ config.mux_version }}">
-                        </div>
+                    <div class="mb-4">
+                        <label class="text-xs text-muted mb-1 text-uppercase">Port Rules</label>
+                        <textarea name="port_rules" class="form-control font-mono" rows="4">{{ config.port_rules | join('\n') }}</textarea>
                     </div>
                 {% endif %}
 
-                <div class="alert alert-warning small border-0 bg-warning bg-opacity-10 text-warning">
-                    <i class="fa-solid fa-triangle-exclamation me-2"></i>
-                    Saving will restart the tunnel service on both servers.
+                <div class="alert alert-dark border border-warning border-opacity-25 text-warning small d-flex align-items-center">
+                    <i class="fa-solid fa-triangle-exclamation me-3 fs-5"></i>
+                    <div>Saving changes will restart the service on both local and remote servers briefly.</div>
                 </div>
 
-                <button type="submit" class="btn btn-alamor w-100 py-2 fw-bold">
-                    <i class="fa-solid fa-save me-2"></i> Save Changes & Restart
+                <button type="submit" class="btn btn-primary-glow w-100 py-2 fw-bold">
+                    <i class="fa-solid fa-rotate me-2"></i> Save & Restart
                 </button>
             </form>
 
