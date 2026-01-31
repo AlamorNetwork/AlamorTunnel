@@ -168,21 +168,57 @@ def install_rathole():
 @login_required
 def install_backhaul():
     try:
+        from core.database import get_connected_server, add_tunnel
         server = get_connected_server()
         if not server:
             flash('Foreign server not connected.', 'warning')
             return redirect(url_for('dashboard.index'))
 
-        iran_ip = request.form.get('iran_ip_manual') or get_server_public_ip()
+        iran_ip = request.form.get('iran_ip_manual') or "YOUR_IRAN_IP" # بهتر است از IP واقعی استفاده شود
+
+        # دریافت تمام پارامترها از فرم
         config_data = {
             'transport': request.form.get('transport', 'tcp'),
             'tunnel_port': request.form.get('tunnel_port'),
             'token': generate_token(),
             'edge_ip': request.form.get('edge_ip'),
+            'port_rules': [line.strip() for line in request.form.get('port_rules', '').split('\n') if line.strip()],
+            
+            # Boolean Flags
             'accept_udp': request.form.get('accept_udp') == 'on',
             'nodelay': request.form.get('nodelay') == 'on',
             'sniffer': request.form.get('sniffer') == 'on',
-            'port_rules': [line.strip() for line in request.form.get('port_rules', '').split('\n') if line.strip()]
+            'skip_optz': request.form.get('skip_optz') == 'on',
+            'aggressive_pool': request.form.get('aggressive_pool') == 'on',
+
+            # Advanced Integers / Strings
+            'keepalive_period': int(request.form.get('keepalive_period', 75)),
+            'heartbeat': int(request.form.get('heartbeat', 40)),
+            'channel_size': int(request.form.get('channel_size', 2048)),
+            'mux_con': int(request.form.get('mux_con', 8)),
+            'mux_version': int(request.form.get('mux_version', 1)),
+            'mux_framesize': int(request.form.get('mux_framesize', 32768)),
+            'mux_recievebuffer': int(request.form.get('mux_recievebuffer', 4194304)),
+            'mux_streambuffer': int(request.form.get('mux_streambuffer', 65536)),
+            'connection_pool': int(request.form.get('connection_pool', 8)),
+            'retry_interval': int(request.form.get('retry_interval', 3)),
+            'dial_timeout': int(request.form.get('dial_timeout', 10)),
+            'mss': int(request.form.get('mss', 1360)),
+            'web_port': int(request.form.get('web_port', 2060)),
+            'sniffer_log': request.form.get('sniffer_log', '/root/log.json'),
+            'log_level': request.form.get('log_level', 'info'),
+
+            # Buffers (Server)
+            'so_rcvbuf': int(request.form.get('so_rcvbuf', 4194304)),
+            'so_sndbuf': int(request.form.get('so_sndbuf', 1048576)),
+
+            # Buffers (Client)
+            'client_so_rcvbuf': int(request.form.get('client_so_rcvbuf', 1048576)),
+            'client_so_sndbuf': int(request.form.get('client_so_sndbuf', 4194304)),
+
+            # Paths
+            'tls_cert': '/root/certs/server.crt',
+            'tls_key': '/root/certs/server.key'
         }
         
         success_remote, msg_remote = install_remote_backhaul(server[0], iran_ip, config_data)
@@ -193,11 +229,13 @@ def install_backhaul():
         install_local_backhaul(config_data)
         add_tunnel("Backhaul Tunnel", config_data['transport'], 
                    config_data['tunnel_port'], config_data['token'], config_data)
-        flash('Backhaul Tunnel Configured.', 'success')
+        
+        flash('Backhaul Tunnel Configured with Advanced Settings.', 'success')
+
     except Exception as e:
         flash(f'Error: {str(e)}', 'danger')
-    return redirect(url_for('tunnels.list_tunnels'))
 
+    return redirect(url_for('tunnels.list_tunnels'))
 @tunnels_bp.route('/delete-tunnel/<int:tunnel_id>')
 @login_required
 def delete_tunnel(tunnel_id):

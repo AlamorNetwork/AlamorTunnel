@@ -9,57 +9,101 @@
 </div>
 
 <div class="glass-card p-0 overflow-hidden">
-    <div class="table-responsive">
-        <table class="table table-glass align-middle mb-0">
-            <thead>
-                <tr>
-                    <th class="ps-4 py-3">ID</th>
-                    <th class="py-3">PROTOCOL</th>
-                    <th class="py-3">TUNNEL PORT</th>
-                    <th class="py-3">CONFIGURATION</th>
-                    <th class="text-end pe-4 py-3">CONTROLS</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for tunnel in tunnels %}
-                <tr>
-                    <td class="ps-4 fw-bold text-muted">#{{ tunnel.id }}</td>
-                    <td>
-                        {% if 'hysteria' in tunnel.transport %}
-                            <span class="badge bg-warning text-dark px-3 py-2 rounded-pill"><i class="fas fa-bolt me-1"></i>HYSTERIA 2</span>
-                        {% elif 'rathole' in tunnel.transport %}
-                            <span class="badge bg-success px-3 py-2 rounded-pill"><i class="fas fa-shield-alt me-1"></i>RATHOLE</span>
-                        {% elif 'slipstream' in tunnel.transport %}
-                            <span class="badge bg-info text-dark px-3 py-2 rounded-pill"><i class="fas fa-wind me-1"></i>SLIPSTREAM</span>
-                        {% else %}
-                            <span class="badge bg-primary px-3 py-2 rounded-pill"><i class="fas fa-network-wired me-1"></i>BACKHAUL</span>
-                        {% endif %}
-                    </td>
-                    <td class="font-monospace text-accent fs-5">{{ tunnel.port }}</td>
-                    <td>
-                        <div class="input-group input-group-sm" style="max-width: 250px;">
-                            <span class="input-group-text bg-transparent border-secondary text-white"><i class="fas fa-key"></i></span>
-                            <input type="text" class="form-control bg-transparent text-white-50" value="{{ tunnel.token }}" readonly id="tok-{{tunnel.id}}">
-                            <button class="btn btn-outline-light" onclick="copyToken('tok-{{tunnel.id}}')"><i class="fas fa-copy"></i></button>
-                        </div>
-                    </td>
-                    <td class="text-end pe-4">
-                        <a href="{{ url_for('tunnels.edit_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-info rounded-circle" style="width:32px;height:32px;padding:4px;" title="Details"><i class="fas fa-info"></i></a>
-                        <a href="{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-danger rounded-circle ms-2" style="width:32px;height:32px;padding:4px;" onclick="return confirm('Stop and delete this tunnel?')" title="Delete"><i class="fas fa-trash"></i></a>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="5" class="text-center py-5">
-                        <i class="fas fa-ghost fa-3x text-muted mb-3 opacity-50"></i>
-                        <p class="text-muted">No tunnels running. Start one from Dashboard.</p>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="d-flex bg-black bg-opacity-25 py-3 px-4 border-bottom border-secondary border-opacity-25 fw-bold text-muted small">
+        <div style="width: 50px;">ID</div>
+        <div style="width: 150px;">PROTOCOL</div>
+        <div style="flex: 1;">TUNNEL NAME</div>
+        <div style="width: 120px;" class="text-center">PORT</div>
+        <div style="width: 100px;" class="text-end">ACTIONS</div>
     </div>
+
+    {% for tunnel in tunnels %}
+    <div class="border-bottom border-secondary border-opacity-10">
+        <div class="d-flex align-items-center py-3 px-4 tunnel-row" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{tunnel.id}}" aria-expanded="false">
+            <div style="width: 50px;" class="text-muted fw-mono">#{{ tunnel.id }}</div>
+            <div style="width: 150px;">
+                {% if 'hysteria' in tunnel.transport %}
+                    <span class="badge bg-warning text-dark rounded-pill">HYSTERIA 2</span>
+                {% elif 'rathole' in tunnel.transport %}
+                    <span class="badge bg-success rounded-pill">RATHOLE</span>
+                {% elif 'slipstream' in tunnel.transport %}
+                    <span class="badge bg-info text-dark rounded-pill">SLIPSTREAM</span>
+                {% else %}
+                    <span class="badge bg-primary rounded-pill">BACKHAUL</span>
+                {% endif %}
+            </div>
+            <div style="flex: 1;" class="fw-bold text-white">{{ tunnel.name }}</div>
+            <div style="width: 120px;" class="text-center font-monospace text-accent">{{ tunnel.port }}</div>
+            <div style="width: 100px;" class="text-end">
+                <i class="fas fa-chevron-down text-muted transition-icon"></i>
+            </div>
+        </div>
+
+        <div class="collapse bg-black bg-opacity-10" id="collapse-{{tunnel.id}}">
+            <div class="p-4">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <h6 class="text-accent small fw-bold mb-3">FORWARDING RULES</h6>
+                        <div class="bg-dark bg-opacity-50 rounded p-3 font-monospace small text-white-50">
+                            {% if tunnel.config.get('port_rules') %}
+                                {% for rule in tunnel.config.port_rules %}
+                                    <div class="d-flex justify-content-between border-bottom border-secondary border-opacity-25 pb-1 mb-1">
+                                        <span><i class="fas fa-arrow-right me-2 text-success"></i>{{ rule }}</span>
+                                    </div>
+                                {% endfor %}
+                            {% elif tunnel.config.get('ports') %}
+                                {% for p in tunnel.config.ports %}
+                                    <div><i class="fas fa-arrow-right me-2 text-success"></i>{{ p }} <i class="fas fa-exchange-alt mx-2 text-muted"></i> {{ p }}</div>
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-muted">No explicit rules found.</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <h6 class="text-accent small fw-bold mb-3">MANAGEMENT</h6>
+                        <div class="mb-3">
+                            <label class="form-label small text-muted">Access Token</label>
+                            <div class="input-group input-group-sm">
+                                <input type="text" class="form-control bg-dark border-secondary text-white-50" value="{{ tunnel.token }}" readonly id="tok-{{tunnel.id}}">
+                                <button class="btn btn-outline-secondary" onclick="copyToken('tok-{{tunnel.id}}')"><i class="fas fa-copy"></i></button>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <a href="{{ url_for('tunnels.edit_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-glass flex-grow-1">
+                                <i class="fas fa-code me-2"></i>View Config
+                            </a>
+                            <a href="{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-glass-danger flex-grow-1" onclick="return confirm('Stop and delete?')">
+                                <i class="fas fa-trash me-2"></i>Delete
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="fas fa-wind fa-3x text-muted opacity-25 mb-3"></i>
+        <p class="text-muted">No active tunnels.</p>
+    </div>
+    {% endfor %}
 </div>
+
+<style>
+    /* چرخش آیکون هنگام باز شدن */
+    .tunnel-row[aria-expanded="true"] .transition-icon {
+        transform: rotate(180deg);
+    }
+    .transition-icon {
+        transition: transform 0.3s ease;
+    }
+    .tunnel-row:hover {
+        background: rgba(255,255,255,0.05);
+        cursor: pointer;
+    }
+</style>
 
 <script>
 function copyToken(id) {
