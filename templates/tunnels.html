@@ -2,86 +2,74 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="fas fa-network-wired me-2"></i>Active Tunnels</h2>
-    <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary"><i class="fas fa-plus me-2"></i>New Tunnel</a>
+    <h2>Active Tunnels</h2>
+    <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary">Add New Tunnel</a>
 </div>
 
-<div class="card bg-dark text-white border-0 shadow">
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-dark table-hover mb-0 align-middle">
-                <thead class="bg-secondary">
-                    <tr>
-                        <th class="py-3 ps-4">ID</th>
-                        <th class="py-3">Name</th>
-                        <th class="py-3">Type</th>
-                        <th class="py-3">Configuration</th>
-                        <th class="py-3">Status</th>
-                        <th class="py-3 text-end pe-4">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for tunnel in tunnels %}
-                    <tr>
-                        <td class="ps-4">#{{ tunnel.id }}</td>
-                        <td class="fw-bold">{{ tunnel.name }}</td>
-                        
-                        <td>
-                            {% if 'hysteria' in tunnel.transport %}
-                                <span class="badge btn-purple text-white px-3 py-2"><i class="fas fa-bolt me-1"></i> Hysteria 2</span>
-                            {% elif 'rathole' in tunnel.transport %}
-                                <span class="badge bg-success text-white px-3 py-2"><i class="fas fa-mouse me-1"></i> Rathole</span>
-                            {% elif 'slipstream' in tunnel.transport %}
-                                <span class="badge bg-info text-dark px-3 py-2"><i class="fas fa-wind me-1"></i> Slipstream</span>
-                            {% else %}
-                                <span class="badge bg-secondary px-3 py-2"><i class="fas fa-road me-1"></i> Backhaul</span>
-                            {% endif %}
-                        </td>
+<div class="card">
+    <div class="card-body">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Details</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tunnel in tunnels %}
+                <tr>
+                    <td>{{ tunnel.id }}</td>
+                    <td>{{ tunnel.name }}</td>
+                    
+                    <td>
+                        {% if 'hysteria' in tunnel.transport %}
+                            <span class="badge bg-primary">Hysteria 2</span>
+                        {% elif 'rathole' in tunnel.transport %}
+                            <span class="badge bg-success">Rathole</span>
+                        {% elif 'slipstream' in tunnel.transport %}
+                            <span class="badge bg-info text-dark">Slipstream</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Backhaul</span>
+                        {% endif %}
+                    </td>
 
-                        <td>
-                            {% if 'hysteria' in tunnel.transport %}
-                                <div class="small text-muted">Tunnel: <span class="text-white">{{ tunnel.port }} (UDP)</span></div>
-                                <div class="small text-muted">Pass: <span class="text-warning font-monospace">{{ tunnel.token }}</span></div>
-                            
-                            {% elif 'slipstream' in tunnel.transport %}
-                                <div class="small text-muted">Iran Port: <span class="text-white fw-bold">{{ tunnel.port }}</span></div>
-                                <div class="small text-muted">Tunnel: <span class="text-info">{{ tunnel.config.tunnel_port }} (DNS)</span></div>
-                                <div class="small text-muted">Dest: <span class="text-secondary">{{ tunnel.config.dest_port }}</span></div>
+                    <td>
+                        {% if 'hysteria' in tunnel.transport %}
+                            <small>Port: <b>{{ tunnel.port }} (UDP)</b></small><br>
+                            <small>Pass: {{ tunnel.token }}</small>
+                        {% elif 'slipstream' in tunnel.transport %}
+                            <small>Iran Port: <b>{{ tunnel.port }}</b></small><br>
+                            <small>Tunnel Port: {{ tunnel.config.tunnel_port }}</small>
+                        {% else %}
+                            <small>Listen: {{ tunnel.port }}</small><br>
+                            <small class="text-muted">Token: {{ tunnel.token[:10] }}...</small>
+                        {% endif %}
+                    </td>
 
-                            {% else %}
-                                <div class="small text-muted">Listen: <span class="text-white">{{ tunnel.port }}</span></div>
-                                <div class="small text-muted">Token: <span class="text-truncate d-inline-block text-secondary" style="max-width: 100px;">{{ tunnel.token }}</span></div>
-                            {% endif %}
-                        </td>
+                    <td>
+                        {% if tunnel.status == 'active' %}
+                            <span class="text-success fw-bold">Active</span>
+                        {% else %}
+                            <span class="text-danger fw-bold">Stopped</span>
+                        {% endif %}
+                    </td>
 
-                        <td>
-                            {% if tunnel.status == 'active' %}
-                                <span class="badge bg-success rounded-pill px-3">Active</span>
-                            {% else %}
-                                <span class="badge bg-danger rounded-pill px-3">Stopped</span>
-                            {% endif %}
-                        </td>
-
-                        <td class="text-end pe-4">
-                            <a href="{{ url_for('tunnels.edit_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-primary me-2">
-                                <i class="fas fa-cog"></i> Config
-                            </a>
-                            <a href="{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to delete this tunnel?')">
-                                <i class="fas fa-trash"></i>
-                            </a>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="6" class="text-center py-5 text-muted">
-                            <i class="fas fa-ghost fa-3x mb-3"></i><br>
-                            No tunnels found. Go to Dashboard to create one.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+                    <td>
+                        <a href="{{ url_for('tunnels.edit_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-primary">Config</a>
+                        <a href="{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this tunnel?')">Delete</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted">No tunnels yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 {% endblock %}

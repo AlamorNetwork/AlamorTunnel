@@ -1,46 +1,45 @@
-from flask import Blueprint, render_template, request, redirect, session, url_for, flash
-from core.database import get_connected_server, add_or_update_server
-from core.ssh_manager import setup_passwordless_ssh
-import subprocess
-import re
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+from core.database import get_connected_server, add_server, remove_server, get_admin_user
+from core.ssh_manager import verify_ssh_connection
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
 def is_logged_in():
     return 'user' in session
 
-def get_server_public_ip():
-    commands = ["curl -s --max-time 5 ifconfig.me", "curl -s --max-time 5 api.ipify.org"]
-    ip_pattern = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$')
-    for cmd in commands:
-        try:
-            output = subprocess.check_output(cmd, shell=True).decode().strip()
-            if ip_pattern.match(output): return output
-        except: continue
-    return "YOUR_SERVER_IP"
-
-@dashboard_bp.route('/dashboard')
+@dashboard_bp.route('/')
 def index():
-    if not is_logged_in(): return redirect(url_for('auth.login'))
+    if not is_logged_in():
+        return redirect(url_for('auth.login'))
     
-    server_info = get_connected_server()
-    current_ip = get_server_public_ip()
-    return render_template('dashboard.html', user=session['user'], server=server_info, current_ip=current_ip)
+    # اصلاح باگ نمایش وضعیت: همیشه از دیتابیس چک کن
+    server = get_connected_server()
+    server_ip = server[0] if server else None
+    
+    return render_template('index.html', server_ip=server_ip)
 
 @dashboard_bp.route('/connect-server', methods=['POST'])
 def connect_server():
     if not is_logged_in(): return redirect(url_for('auth.login'))
     
     ip = request.form.get('ip')
+    user = request.form.get('username')
     password = request.form.get('password')
     port = request.form.get('port', 22)
-    
-    success, message = setup_passwordless_ssh(ip, password, port)
-    
-    if success:
-        add_or_update_server(ip, port, 'root', 'connected')
-        flash(f'Connection Established: {message}', 'success')
+
+    if verify_ssh_connection(ip, user, password, port):
+        # ذخیره در دیتابیس
+        add_server(ip, user, password, port)
+        flash('Connected to Foreign Server successfully!', 'success')
     else:
-        flash(f'Connection Failed: {message}', 'danger')
+        flash('Connection Failed! Check IP/Password.', 'danger')
         
+    return redirect(url_for('dashboard.index'))
+
+@dashboard_bp.route('/disconnect-server')
+def disconnect_server():
+    if not is_logged_in(): return redirect(url_for('auth.login'))
+    
+    remove_server()
+    flash('Server disconnected.', 'info')
     return redirect(url_for('dashboard.index'))
