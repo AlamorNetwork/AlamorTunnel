@@ -1,10 +1,9 @@
-# AlamorTunnel/alamor_cli.py
 import os
 import sys
 import subprocess
 import time
 
-# --- رنگ‌بندی استاندارد و واضح ---
+# کلاس رنگ‌ها برای نمایش زیبا
 class Colors:
     HEADER = '\033[95m'
     BLUE = '\033[94m'
@@ -26,7 +25,7 @@ def show_banner():
   / _ \ | |/ _` | '_ ` _ \ / _ \| '__|     
  / ___ \| | (_| | | | | | | (_) | |        
 /_/   \_\_|\__,_|_| |_| |_|\___/|_|        
-    SERVER MANAGEMENT CLI v2.1 (Stable)
+    SERVER MANAGEMENT CLI v2.1
     """)
     print(f"{Colors.ENDC}")
 
@@ -57,11 +56,12 @@ def menu():
 
         if choice == '1':
             try:
-                # FIX: Import inside function to avoid circular imports if any
+                # LOCAL IMPORT: جلوگیری از خطای Circular Import
                 from core.database import update_password
+                
                 new_pass = input(f" {Colors.YELLOW}Enter new admin password: {Colors.ENDC}")
                 if new_pass:
-                    # FIX: Removed 'admin' argument
+                    # فراخوانی با یک آرگومان (طبق تعریف جدید database.py)
                     update_password(new_pass)
                     print(f"\n {Colors.GREEN}[✔] Password updated successfully.{Colors.ENDC}")
                 else:

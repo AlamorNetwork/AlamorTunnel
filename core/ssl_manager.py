@@ -1,43 +1,60 @@
-import os
-import subprocess
+# AlamorTunnel/core/ssh_manager.py
+import paramiko
+import time
+import socket
 
-CERT_DIR = "/root/certs"
-KEY_FILE = f"{CERT_DIR}/server.key"
-CSR_FILE = f"{CERT_DIR}/server.csr"
-CRT_FILE = f"{CERT_DIR}/server.crt"
+def create_client():
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    return client
 
-def generate_self_signed_cert(domain_or_ip="127.0.0.1"):
-    """
-    تولید سرتیفیکیت Self-Signed با OpenSSL برای WSS/WSSMUX
-    """
-    if not os.path.exists(CERT_DIR):
-        os.makedirs(CERT_DIR)
-
-    print("[+] Generating OpenSSL Certificates...")
-
+def verify_ssh_connection(ip, user, password, port=22):
+    client = create_client()
     try:
-        # Step 2: Generate Private Key
-        if not os.path.exists(KEY_FILE):
-            subprocess.run(
-                ["openssl", "genpkey", "-algorithm", "RSA", "-out", KEY_FILE, "-pkeyopt", "rsa_keygen_bits:2048"],
-                check=True
-            )
+        client.connect(ip, port=int(port), username=user, password=password, timeout=10)
+        client.close()
+        return True
+    except Exception as e:
+        print(f"[SSH Error] {e}")
+        return False
 
-        # Step 3: Generate CSR (Auto-filling prompts to avoid blocking)
-        subj = f"/C=US/ST=State/L=City/O=Alamor/CN={domain_or_ip}"
-        subprocess.run(
-            ["openssl", "req", "-new", "-key", KEY_FILE, "-out", CSR_FILE, "-subj", subj],
-            check=True
-        )
+def run_remote_command(ip, command, retries=2):
+    # ایمپورت داخل تابع برای جلوگیری از خطای Circular Import
+    from core.database import get_connected_server
+    
+    server = get_connected_server()
+    if not server: return False, "No server connected in database."
+    
+    # دیتابیس: (ip, user, password, port)
+    target_ip, user, password, port = server[0], server[1], server[2], int(server[3])
+    
+    # اگر IP ورودی با دیتابیس فرق داشت (برای اطمینان)
+    if ip and ip != target_ip:
+        print(f"[SSH Warning] IP Mismatch: Req={ip} vs DB={target_ip}")
+    
+    last_error = ""
+    for attempt in range(retries):
+        client = create_client()
+        try:
+            client.connect(target_ip, port=port, username=user, password=password, timeout=15)
+            
+            # اجرای دستور
+            stdin, stdout, stderr = client.exec_command(command, timeout=60)
+            
+            exit_status = stdout.channel.recv_exit_status()
+            output = stdout.read().decode().strip()
+            error = stderr.read().decode().strip()
+            
+            client.close()
+            
+            if exit_status == 0:
+                return True, output
+            else:
+                return False, error if error else output
 
-        # Step 4: Generate Self-Signed Certificate
-        subprocess.run(
-            ["openssl", "x509", "-req", "-in", CSR_FILE, "-signkey", KEY_FILE, "-out", CRT_FILE, "-days", "365"],
-            check=True
-        )
-        
-        print(f"[+] Certificates generated at {CERT_DIR}")
-        return True, CRT_FILE, KEY_FILE
-
-    except subprocess.CalledProcessError as e:
-        return False, str(e), None
+        except Exception as e:
+            last_error = str(e)
+            time.sleep(1)
+            continue
+            
+    return False, f"SSH Failed: {last_error}"

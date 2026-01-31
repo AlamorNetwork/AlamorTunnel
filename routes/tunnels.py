@@ -1,4 +1,3 @@
-# AlamorTunnel/routes/tunnels.py
 from flask import Blueprint, render_template, request, redirect, session, url_for, flash, jsonify
 from core.database import (get_connected_server, add_tunnel, get_all_tunnels, 
                            get_tunnel_by_id, delete_tunnel_by_id, update_tunnel_config)
@@ -13,21 +12,17 @@ from routes.auth import login_required
 import json
 import os
 import subprocess
-import socket
-import time
 import re
 
 tunnels_bp = Blueprint('tunnels', __name__)
 
 def get_server_public_ip():
-    """تلاش هوشمند برای پیدا کردن آی‌پی سرور ایران"""
     commands = [
         "curl -s --max-time 3 ifconfig.me", 
         "curl -s --max-time 3 api.ipify.org",
         "hostname -I | awk '{print $1}'"
     ]
     ip_pattern = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$')
-    
     for cmd in commands:
         try:
             output = subprocess.check_output(cmd, shell=True).decode().strip()
@@ -42,11 +37,9 @@ def list_tunnels():
     try:
         raw_tunnels = get_all_tunnels()
         tunnels_list = []
-        
         for t in raw_tunnels:
             try: config = json.loads(t[5])
             except: config = {}
-            
             tunnels_list.append({
                 'id': t[0], 
                 'name': t[1], 
@@ -61,15 +54,14 @@ def list_tunnels():
         flash(f'Error fetching tunnels: {str(e)}', 'danger')
         return render_template('tunnels.html', tunnels=[])
 
-# --- INSTALL ROUTES (MODULAR) ---
-
+# --- INSTALL ROUTES ---
 @tunnels_bp.route('/install-hysteria', methods=['POST'])
 @login_required
 def install_hysteria():
     try:
         server = get_connected_server()
         if not server:
-            flash('Foreign server not connected. Go to Dashboard.', 'warning')
+            flash('Foreign server not connected.', 'warning')
             return redirect(url_for('dashboard.index'))
 
         raw_ports = request.form.get('forward_ports', '')
@@ -88,26 +80,18 @@ def install_hysteria():
             'ports': ports_list
         }
         
-        # 1. Sync Time (Crucial for QUIC)
         os.system("apt-get install -y ntpdate && ntpdate pool.ntp.org")
-
-        # 2. Remote Install
         success_remote, msg_remote = install_hysteria_server_remote(server[0], config_data)
         if not success_remote:
             flash(f'Remote Installation Failed: {msg_remote}', 'danger')
             return redirect(url_for('dashboard.index'))
 
-        # 3. Local Install
         install_hysteria_client_local(server[0], config_data)
-        
         add_tunnel(f"Hysteria2-{config_data['tunnel_port']}", "hysteria", 
                    config_data['tunnel_port'], config_data['password'], config_data)
-        
-        flash(f'Hysteria 2 Tunnel successfully created on port {config_data["tunnel_port"]}', 'success')
-        
+        flash(f'Hysteria 2 Tunnel successfully created.', 'success')
     except Exception as e:
-        flash(f'Critical Error during installation: {str(e)}', 'danger')
-        
+        flash(f'Critical Error: {str(e)}', 'danger')
     return redirect(url_for('tunnels.list_tunnels'))
 
 @tunnels_bp.route('/install-slipstream', methods=['POST'])
@@ -126,25 +110,18 @@ def install_slipstream():
             'domain': request.form.get('domain', 'google.com')
         }
 
-        flash('Building Slipstream (Rust)... This may take 5-10 minutes. Do not close.', 'info')
-        
-        # Remote
+        flash('Building Slipstream (Rust)... This may take 5-10 minutes.', 'info')
         success_remote, msg_remote = install_slipstream_server_remote(server[0], config_data)
         if not success_remote:
             flash(f'Remote Build Failed: {msg_remote}', 'danger')
             return redirect(url_for('dashboard.index'))
 
-        # Local
         install_slipstream_client_local(server[0], config_data)
-        
         add_tunnel(f"Slipstream-{config_data['tunnel_port']}", "slipstream", 
                    config_data['client_port'], "N/A", config_data)
-        
-        flash('Slipstream Tunnel Installed & Optimized!', 'success')
-
+        flash('Slipstream Tunnel Installed!', 'success')
     except Exception as e:
         flash(f'Installation Error: {str(e)}', 'danger')
-
     return redirect(url_for('tunnels.list_tunnels'))
 
 @tunnels_bp.route('/install-rathole', methods=['POST'])
@@ -182,12 +159,9 @@ def install_rathole():
         install_local_rathole(config_data)
         add_tunnel(f"Rathole-{config_data['tunnel_port']}", "rathole", 
                    config_data['tunnel_port'], config_data['token'], config_data)
-        
         flash('Rathole Tunnel Created!', 'success')
-
     except Exception as e:
         flash(f'Error: {str(e)}', 'danger')
-
     return redirect(url_for('tunnels.list_tunnels'))
 
 @tunnels_bp.route('/install-backhaul', methods=['POST'])
@@ -200,7 +174,6 @@ def install_backhaul():
             return redirect(url_for('dashboard.index'))
 
         iran_ip = request.form.get('iran_ip_manual') or get_server_public_ip()
-
         config_data = {
             'transport': request.form.get('transport', 'tcp'),
             'tunnel_port': request.form.get('tunnel_port'),
@@ -212,12 +185,6 @@ def install_backhaul():
             'port_rules': [line.strip() for line in request.form.get('port_rules', '').split('\n') if line.strip()]
         }
         
-        # Default advanced settings to avoid clutter
-        config_data.update({
-            'keepalive_period': 75, 'channel_size': 2048, 'heartbeat': 40,
-            'mux_con': 8, 'mux_version': 1, 'retry_interval': 3
-        })
-
         success_remote, msg_remote = install_remote_backhaul(server[0], iran_ip, config_data)
         if not success_remote:
             flash(f'Remote Error: {msg_remote}', 'danger')
@@ -226,15 +193,10 @@ def install_backhaul():
         install_local_backhaul(config_data)
         add_tunnel("Backhaul Tunnel", config_data['transport'], 
                    config_data['tunnel_port'], config_data['token'], config_data)
-        
         flash('Backhaul Tunnel Configured.', 'success')
-
     except Exception as e:
         flash(f'Error: {str(e)}', 'danger')
-
     return redirect(url_for('tunnels.list_tunnels'))
-
-# --- EDIT & DELETE ---
 
 @tunnels_bp.route('/delete-tunnel/<int:tunnel_id>')
 @login_required
@@ -243,7 +205,6 @@ def delete_tunnel(tunnel_id):
         tunnel = get_tunnel_by_id(tunnel_id)
         if tunnel:
             transport = tunnel[2]
-            # توقف سرویس‌ها بر اساس نوع تانل
             if "rathole" in transport: 
                 svc = f"rathole-iran{tunnel[3]}"
                 os.system(f"systemctl stop {svc} && systemctl disable {svc} && rm /etc/systemd/system/{svc}.service")
@@ -253,13 +214,11 @@ def delete_tunnel(tunnel_id):
                 os.system("systemctl stop slipstream-client && systemctl disable slipstream-client")
             else:
                 stop_and_delete_backhaul()
-                
             delete_tunnel_by_id(tunnel_id)
             os.system("systemctl daemon-reload")
-            flash('Tunnel successfully deleted and services stopped.', 'success')
+            flash('Tunnel deleted.', 'success')
     except Exception as e:
         flash(f'Error deleting tunnel: {str(e)}', 'danger')
-        
     return redirect(url_for('tunnels.list_tunnels'))
 
 @tunnels_bp.route('/edit-tunnel/<int:tunnel_id>', methods=['GET', 'POST'])
@@ -269,14 +228,9 @@ def edit_tunnel(tunnel_id):
     if not tunnel:
         flash('Tunnel not found.', 'danger')
         return redirect(url_for('tunnels.list_tunnels'))
-
     try: current_config = json.loads(tunnel[5])
     except: current_config = {}
-
     if request.method == 'POST':
-        # فعلا فقط امکان ویرایش پورت و ری‌استارت را می‌گذاریم
-        # برای تغییرات عمیق، معمولا بهتر است تانل حذف و دوباره ساخته شود
-        flash('Edit functionality requires full reinstall. Please delete and recreate for major changes.', 'info')
+        flash('Edit functionality requires full reinstall. Please delete and recreate.', 'info')
         return redirect(url_for('tunnels.list_tunnels'))
-
     return render_template('edit_tunnel.html', tunnel=tunnel, config=current_config)
