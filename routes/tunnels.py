@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, session, url_for, flash, jsonify
 from core.database import (get_connected_server, add_tunnel, get_all_tunnels, 
                            get_tunnel_by_id, delete_tunnel_by_id, update_tunnel_config)
 from core.backhaul_manager import (install_local_backhaul, install_remote_backhaul, 
@@ -26,12 +26,10 @@ def get_server_public_ip():
         except: continue
     return "YOUR_IRAN_IP"
 
-# --- GENERATOR FUNCTIONS (مراحل نصب) ---
-# این توابع به جای اجرا، مراحل را "Yield" می‌کنند
+# --- GENERATOR FUNCTIONS (Yielding Progress) ---
 
 def process_hysteria(server_ip, config):
     yield 10, "Installing Remote Hysteria Server..."
-    # همگام‌سازی زمان
     os.system("apt-get install -y ntpdate && ntpdate pool.ntp.org")
     
     success, msg = install_hysteria_server_remote(server_ip, config)
@@ -50,7 +48,6 @@ def process_slipstream(server_ip, config):
     if not success: raise Exception(f"Remote Build Failed: {msg}")
     
     yield 40, "Building Local Client (This may take 5-10 mins)..."
-    # این مرحله سنگین است
     install_slipstream_client_local(server_ip, config)
     
     yield 90, "Finalizing..."
@@ -81,23 +78,20 @@ def process_backhaul(server_ip, iran_ip, config):
     add_tunnel("Backhaul Tunnel", config['transport'], config['tunnel_port'], config['token'], config)
     yield 100, "Done"
 
-# --- ROUTE FOR STARTING TASKS ---
+# --- ASYNC INSTALL ROUTE ---
 
 @tunnels_bp.route('/start-install/<protocol>', methods=['POST'])
 @login_required
 def start_install(protocol):
-    # ایمپورت لوکال برای جلوگیری از چرخه
     from app import task_queue
     
     server = get_connected_server()
     if not server:
         return jsonify({'status': 'error', 'message': 'Foreign server not connected'})
 
-    # پردازش داده‌های فرم
     form_data = request.form.to_dict()
     config = form_data.copy()
     
-    # تنظیم مقادیر خاص بر اساس پروتکل
     if protocol == 'hysteria':
         raw_ports = config.get('forward_ports', '')
         config['ports'] = [p.strip() for p in raw_ports.split(',') if p.strip().isdigit()]
@@ -109,15 +103,13 @@ def start_install(protocol):
         return jsonify({'status': 'started', 'task_id': task_id})
 
     elif protocol == 'slipstream':
-        # مقادیر دیفالت
         if not config.get('domain'): config['domain'] = 'dl.google.com'
-        
         task_id = str(uuid.uuid4())
         task_queue.put((task_id, process_slipstream, (server[0], config)))
         return jsonify({'status': 'started', 'task_id': task_id})
 
     elif protocol == 'rathole':
-        iran_ip = get_server_public_ip() # یا از فرم بگیریم
+        iran_ip = get_server_public_ip()
         raw_ports = config.get('forward_ports', '')
         config['ports'] = [p.strip() for p in raw_ports.split(',') if p.strip().isdigit()]
         config['token'] = config.get('token') or generate_token()
@@ -134,11 +126,9 @@ def start_install(protocol):
         config['token'] = generate_token()
         config['port_rules'] = [line.strip() for line in request.form.get('port_rules', '').split('\n') if line.strip()]
         
-        # هندل کردن چک‌باکس‌ها
         for field in ['accept_udp', 'nodelay', 'sniffer', 'skip_optz', 'aggressive_pool']:
             config[field] = request.form.get(field) == 'on'
             
-        # هندل کردن اعداد
         int_fields = ['keepalive_period', 'heartbeat', 'mux_con', 'channel_size', 'mss', 
                       'so_rcvbuf', 'so_sndbuf', 'client_so_rcvbuf', 'client_so_sndbuf']
         for field in int_fields:
@@ -153,7 +143,7 @@ def start_install(protocol):
 
     return jsonify({'status': 'error', 'message': 'Unknown protocol'})
 
-# --- OTHER ROUTES ---
+# --- LIST & EDIT ROUTES ---
 
 @tunnels_bp.route('/tunnels')
 @login_required
@@ -171,6 +161,24 @@ def list_tunnels():
     except Exception as e:
         flash(f'Error: {str(e)}', 'danger')
         return render_template('tunnels.html', tunnels=[])
+
+# این همان روتی است که گم شده بود! 👇
+@tunnels_bp.route('/edit-tunnel/<int:tunnel_id>', methods=['GET', 'POST'])
+@login_required
+def edit_tunnel(tunnel_id):
+    tunnel = get_tunnel_by_id(tunnel_id)
+    if not tunnel:
+        flash('Tunnel not found.', 'danger')
+        return redirect(url_for('tunnels.list_tunnels'))
+
+    try: current_config = json.loads(tunnel[5])
+    except: current_config = {}
+
+    if request.method == 'POST':
+        flash('To change core settings, please delete and recreate the tunnel.', 'info')
+        return redirect(url_for('tunnels.list_tunnels'))
+
+    return render_template('edit_tunnel.html', tunnel=tunnel, config=current_config)
 
 @tunnels_bp.route('/delete-tunnel/<int:tunnel_id>')
 @login_required
@@ -192,5 +200,5 @@ def delete_tunnel(tunnel_id):
             os.system("systemctl daemon-reload")
             flash('Tunnel deleted.', 'success')
     except Exception as e:
-        flash(f'Error: {str(e)}', 'danger')
+        flash(f'Error deleting tunnel: {str(e)}', 'danger')
     return redirect(url_for('tunnels.list_tunnels'))
