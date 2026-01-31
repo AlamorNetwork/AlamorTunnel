@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Alamor Panel</title>
+    <title>Login | AlamorHub</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
@@ -13,67 +13,65 @@
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            background: var(--bg-body);
         }
-        .login-card {
+        .login-container {
             width: 100%;
-            max-width: 400px;
-            padding: 2.5rem;
-            border-radius: 20px;
-        }
-        .brand-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            background: -webkit-linear-gradient(45deg, var(--accent), var(--accent-hover));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            max-width: 420px;
+            padding: 20px;
         }
     </style>
 </head>
 <body>
-    <div class="card-modern login-card text-center">
-        <div class="brand-icon">
-            <i class="fas fa-shield-alt"></i>
-        </div>
-        <h3 class="fw-bold mb-1" style="color: var(--text-primary)">ALAMOR</h3>
-        <p class="text-secondary mb-4 small">Enterprise Tunnel Orchestrator</p>
-
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} text-start py-2 small rounded-3">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <form method="POST">
-            <div class="mb-3 text-start">
-                <label class="form-label small text-secondary fw-bold ms-1">USERNAME</label>
-                <div class="input-group">
-                    <span class="input-group-text bg-transparent border-end-0" style="border-color: var(--border-color) !important;">
-                        <i class="fas fa-user text-secondary"></i>
-                    </span>
-                    <input type="text" name="username" class="form-control border-start-0 ps-0" placeholder="admin" required>
+    <div class="login-container">
+        <div class="glass-card text-center p-5 border-top border-4 border-primary">
+            <div class="mb-4">
+                <div class="d-inline-flex align-items-center justify-content-center bg-white bg-opacity-10 rounded-circle" style="width: 80px; height: 80px;">
+                    <i class="fas fa-fingerprint fa-3x text-accent"></i>
                 </div>
             </div>
             
-            <div class="mb-4 text-start">
-                <label class="form-label small text-secondary fw-bold ms-1">PASSWORD</label>
-                <div class="input-group">
-                    <span class="input-group-text bg-transparent border-end-0" style="border-color: var(--border-color) !important;">
-                        <i class="fas fa-lock text-secondary"></i>
-                    </span>
-                    <input type="password" name="password" class="form-control border-start-0 ps-0" placeholder="••••••" required>
-                </div>
-            </div>
+            <h2 class="fw-bold mb-1">Welcome Back</h2>
+            <p class="text-muted small mb-4">Authenticate to access AlamorHub</p>
 
-            <button type="submit" class="btn btn-accent w-100 py-2 fw-bold shadow-sm">
-                ENTER PANEL <i class="fas fa-arrow-right ms-2"></i>
-            </button>
-        </form>
-        
-        <div class="mt-4 pt-3 border-top border-secondary opacity-25">
-            <small class="text-muted">v2.1 Stable Build</small>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} py-2 small bg-opacity-25 border-0 text-white mb-4 rounded-3">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST">
+                <div class="mb-3 text-start">
+                    <label class="form-label ps-1">Username</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-end-0 border-secondary text-secondary">
+                            <i class="fas fa-user"></i>
+                        </span>
+                        <input type="text" name="username" class="form-control border-start-0 ps-0" placeholder="Enter username" required>
+                    </div>
+                </div>
+                
+                <div class="mb-4 text-start">
+                    <label class="form-label ps-1">Password</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-end-0 border-secondary text-secondary">
+                            <i class="fas fa-lock"></i>
+                        </span>
+                        <input type="password" name="password" class="form-control border-start-0 ps-0" placeholder="••••••••" required>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-glass w-100 py-3 fw-bold shadow-lg">
+                    SECURE LOGIN <i class="fas fa-arrow-right ms-2"></i>
+                </button>
+            </form>
+
+            <div class="mt-4 pt-3 border-top border-secondary border-opacity-25">
+                <small class="text-muted opacity-75">AlamorTunnel Enterprise v2.1</small>
+            </div>
         </div>
     </div>
 </body>

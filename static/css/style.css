@@ -1,128 +1,195 @@
-/* Update for static/css/style.css */
+/* AlamorTunnel/static/css/style.css */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
+
 :root {
-    /* --- DARK THEME (High Contrast) --- */
-    --bg-body: #0f172a;       /* Slate 900 */
-    --bg-card: #1e293b;       /* Slate 800 */
+    /* --- DARK THEME VARIABLES (Default) --- */
+    --bg-body: #0f0c29;
+    --bg-gradient: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
     
-    /* Text Colors - روشن‌تر کردن متن‌ها برای دارک مود */
-    --text-primary: #ffffff;  /* سفید مطلق برای تیترها */
-    --text-secondary: #e2e8f0;/* Slate 200 - خیلی روشن برای متن‌های فرعی */
+    /* Glass Effect Colors (Dark) */
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
     
-    --border-color: #334155;
-    --accent: #3b82f6;
-    --input-bg: #0f172a;
+    /* Text Colors */
+    --text-primary: #ffffff;
+    --text-secondary: #a0a0a0;
+    --text-accent: #00d2ff;
+    
+    /* Brand Colors */
+    --primary: #3a7bd5;
+    --secondary: #00d2ff;
+    --danger: #ff416c;
+    --success: #00b09b;
+    --warning: #f7b733;
 }
 
 [data-theme="light"] {
-    /* --- LIGHT THEME (High Contrast) --- */
-    --bg-body: #f8fafc;       /* Slate 50 */
-    --bg-card: #ffffff;       /* White */
+    /* --- LIGHT THEME VARIABLES --- */
+    --bg-body: #f0f2f5;
+    --bg-gradient: linear-gradient(135deg, #e0eafc, #cfdef3);
     
-    /* Text Colors - تیره کردن متن‌ها برای لایت مود */
-    --text-primary: #020617;  /* Slate 950 - مشکی عمیق برای تیترها */
-    --text-secondary: #334155;/* Slate 700 - خاکستری تیره برای متن‌های فرعی */
+    /* Glass Effect Colors (Light) */
+    --glass-bg: rgba(255, 255, 255, 0.65);
+    --glass-border: rgba(255, 255, 255, 0.4);
+    --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
     
-    --border-color: #cbd5e1;  /* Slate 300 - خطوط دور واضح‌تر */
-    --accent: #2563eb;        /* آبی تیره‌تر برای روی سفید */
-    --input-bg: #f1f5f9;
+    /* Text Colors */
+    --text-primary: #1a1a1a;
+    --text-secondary: #555555;
+    --text-accent: #2c3e50;
+    
+    --primary: #2c3e50; 
 }
 
 body {
-    background-color: var(--bg-body);
+    background: var(--bg-body);
+    background-image: var(--bg-gradient);
+    background-attachment: fixed;
+    background-size: cover;
     color: var(--text-primary);
-    font-family: 'Inter', system-ui, sans-serif;
-    transition: background-color 0.3s ease, color 0.3s ease;
+    font-family: 'Outfit', sans-serif;
     min-height: 100vh;
+    transition: all 0.3s ease;
 }
 
-/* --- کامپوننت‌های مدرن --- */
-.card-modern {
-    background-color: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 16px;
-    box-shadow: var(--shadow);
-    transition: transform 0.2s ease, border-color 0.3s ease;
+/* --- GLASSMORPHISM CARDS --- */
+.glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    box-shadow: var(--glass-shadow);
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.card-modern:hover {
-    transform: translateY(-2px);
-    border-color: var(--accent);
+.glass-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.45);
+    border-color: var(--text-accent);
 }
 
-/* --- ورودی‌ها --- */
-.form-control, .form-select {
-    background-color: var(--input-bg) !important;
-    border: 1px solid var(--border-color) !important;
+/* --- TYPOGRAPHY --- */
+h1, h2, h3, h4, h5, h6 {
     color: var(--text-primary) !important;
-    border-radius: 10px;
-    padding: 12px;
+    font-weight: 700;
+}
+
+.text-muted {
+    color: var(--text-secondary) !important;
+}
+
+.text-accent {
+    color: var(--text-accent) !important;
+}
+
+/* --- FORMS & INPUTS --- */
+.form-control, .form-select {
+    background: rgba(0, 0, 0, 0.2); /* Darker background for inputs */
+    border: 1px solid var(--glass-border);
+    color: #fff !important; /* Always white text in inputs for readability */
+    border-radius: 12px;
+    padding: 12px 15px;
+    transition: all 0.3s;
+}
+
+[data-theme="light"] .form-control, 
+[data-theme="light"] .form-select {
+    background: rgba(255, 255, 255, 0.8);
+    color: #333 !important;
+    border-color: #ccc;
 }
 
 .form-control:focus {
-    border-color: var(--accent) !important;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+    background: rgba(0, 0, 0, 0.3);
+    border-color: var(--secondary);
+    box-shadow: 0 0 15px rgba(0, 210, 255, 0.3);
+    color: #fff;
 }
 
-/* --- دکمه‌ها --- */
-.btn-accent {
-    background-color: var(--accent);
-    color: white;
-    border-radius: 10px;
-    padding: 10px 20px;
+.form-label {
+    color: var(--text-primary);
     font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+/* --- BUTTONS --- */
+.btn-glass {
+    background: linear-gradient(45deg, var(--primary), var(--secondary));
     border: none;
-    transition: all 0.2s;
+    color: white;
+    padding: 12px 25px;
+    border-radius: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s;
 }
 
-.btn-accent:hover {
-    background-color: var(--accent-hover);
+.btn-glass:hover {
+    filter: brightness(1.2);
     transform: scale(1.02);
+    color: white;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
 
-/* --- Navbar & Sidebar --- */
-.navbar-custom {
-    background-color: var(--bg-card);
-    border-bottom: 1px solid var(--border-color);
+.btn-glass-danger {
+    background: linear-gradient(45deg, #ff416c, #ff4b2b);
+    color: white;
+    border: none;
+    border-radius: 12px;
+}
+
+/* --- NAVBAR --- */
+.navbar-glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(15px);
+    border-bottom: 1px solid var(--glass-border);
     padding: 1rem 0;
+    margin-bottom: 2rem;
 }
 
 .navbar-brand {
-    color: var(--text-primary) !important;
+    font-size: 1.8rem;
     font-weight: 800;
-    font-size: 1.5rem;
-    letter-spacing: -0.5px;
+    background: -webkit-linear-gradient(45deg, var(--secondary), var(--success));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
-/* --- Theme Toggler --- */
-.theme-switch {
-    background: var(--input-bg);
-    border: 1px solid var(--border-color);
+/* --- TABLE --- */
+.table-glass {
     color: var(--text-primary);
-    width: 40px; height: 40px;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s;
+    border-color: var(--glass-border);
 }
-.theme-switch:hover {
-    border-color: var(--accent);
-    color: var(--accent);
+.table-glass th {
+    background: rgba(0,0,0,0.2);
+    color: var(--text-accent);
+    border-bottom: 2px solid var(--glass-border);
+}
+[data-theme="light"] .table-glass th {
+    background: rgba(255,255,255,0.5);
+}
+.table-glass td {
+    background: transparent;
+    border-bottom: 1px solid var(--glass-border);
+    color: var(--text-primary);
 }
 
-/* --- جدول‌ها --- */
-.table {
-    color: var(--text-primary) !important;
-    border-color: var(--border-color) !important;
+/* --- MODALS --- */
+.modal-content {
+    background: #1a1a2e; /* Solid background for readability inside modal */
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    color: #fff;
 }
-.table thead th {
-    background-color: var(--input-bg);
-    color: var(--text-secondary);
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 0.85rem;
-    border-bottom: 2px solid var(--border-color);
+[data-theme="light"] .modal-content {
+    background: #fff;
+    color: #333;
 }
-.table td {
-    border-bottom: 1px solid var(--border-color);
-    vertical-align: middle;
-}
+.modal-header { border-bottom: 1px solid var(--glass-border); }
+.modal-footer { border-top: 1px solid var(--glass-border); }

@@ -1,53 +1,68 @@
 {% extends "base.html" %}
-{% block content %}
-<div class="row">
-    <div class="col-md-6 mb-4">
-        <div class="card-modern p-4 h-100">
-            <div class="d-flex align-items-center mb-4">
-                <div class="bg-primary bg-opacity-10 p-3 rounded-circle me-3">
-                    <i class="fas fa-lock text-primary fa-lg"></i>
-                </div>
-                <div>
-                    <h5 class="fw-bold mb-0">Security</h5>
-                    <small class="text-secondary">Manage access credentials</small>
-                </div>
-            </div>
-            
-            <form method="POST">
-                <div class="mb-3">
-                    <label class="form-label small text-secondary fw-bold">NEW PASSWORD</label>
-                    <input type="password" name="new_password" class="form-control" required>
-                </div>
-                <div class="mb-4">
-                    <label class="form-label small text-secondary fw-bold">CONFIRM PASSWORD</label>
-                    <input type="password" name="confirm_password" class="form-control" required>
-                </div>
-                <button type="submit" class="btn btn-accent w-100">
-                    <i class="fas fa-save me-2"></i>Update Password
-                </button>
-            </form>
-        </div>
-    </div>
 
-    <div class="col-md-6 mb-4">
-        <div class="card-modern p-4 h-100">
-            <div class="d-flex align-items-center mb-4">
-                <div class="bg-danger bg-opacity-10 p-3 rounded-circle me-3">
-                    <i class="fas fa-server text-danger fa-lg"></i>
-                </div>
-                <div>
-                    <h5 class="fw-bold mb-0">System Actions</h5>
-                    <small class="text-secondary">Power operations</small>
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <h2 class="fw-bold text-white mb-4"><i class="fas fa-cogs me-2"></i>System Settings</h2>
+
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="glass-card h-100">
+                    <div class="d-flex align-items-center mb-4 border-bottom border-secondary border-opacity-25 pb-3">
+                        <div class="bg-primary bg-opacity-25 p-3 rounded-circle me-3 text-primary">
+                            <i class="fas fa-user-shield fa-lg"></i>
+                        </div>
+                        <div>
+                            <h4 class="mb-0">Admin Security</h4>
+                            <small class="text-muted">Update your access credentials</small>
+                        </div>
+                    </div>
+                    
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label class="form-label">New Password</label>
+                            <input type="password" name="new_password" class="form-control" placeholder="Enter strong password" required>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label">Confirm Password</label>
+                            <input type="password" name="confirm_password" class="form-control" placeholder="Repeat password" required>
+                        </div>
+                        <button type="submit" class="btn btn-glass w-100">
+                            <i class="fas fa-save me-2"></i>Update Password
+                        </button>
+                    </form>
                 </div>
             </div>
-            
-            <p class="text-secondary small">
-                Restarting the panel service will not affect active tunnels, but the web interface will be briefly unavailable.
-            </p>
-            
-            <button class="btn btn-outline-danger w-100 disabled" disabled>
-                <i class="fas fa-sync me-2"></i>Restart Panel (Coming Soon)
-            </button>
+
+            <div class="col-md-6">
+                <div class="glass-card h-100 d-flex flex-column">
+                    <div class="d-flex align-items-center mb-4 border-bottom border-secondary border-opacity-25 pb-3">
+                        <div class="bg-danger bg-opacity-25 p-3 rounded-circle me-3 text-danger">
+                            <i class="fas fa-power-off fa-lg"></i>
+                        </div>
+                        <div>
+                            <h4 class="mb-0">Power Controls</h4>
+                            <small class="text-muted">Manage panel service</small>
+                        </div>
+                    </div>
+                    
+                    <div class="flex-grow-1">
+                        <p class="text-muted small">
+                            <i class="fas fa-info-circle me-1 text-info"></i>
+                            Restarting the panel will apply core updates and refresh the database connection. Active tunnels will <strong>not</strong> be interrupted.
+                        </p>
+                    </div>
+                    
+                    <div class="mt-auto">
+                        <button class="btn btn-glass-danger w-100 opacity-50" disabled title="Use CLI to restart service">
+                            <i class="fas fa-sync-alt me-2"></i>Restart Service (CLI Only)
+                        </button>
+                        <div class="text-center mt-2">
+                            <small class="text-muted fst-italic">Use SSH menu to restart</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
