@@ -1,23 +1,18 @@
 import os
 import secrets
-import json
 from core.ssh_manager import run_remote_command
 from core.ssl_manager import generate_self_signed_cert
 
 INSTALL_DIR = "/root/backhaul"
 BIN_URL = "https://github.com/Musixal/Backhaul/releases/latest/download/backhaul_linux_amd64.tar.gz"
 
-def generate_token():
-    return secrets.token_hex(16)
-
 def install_local_backhaul(config_data):
     """
-    نصب روی سرور ایران (Server Mode)
-    config_data: دیکشنری شامل تمام تنظیمات
+    نصب روی سرور ایران (Server Mode) - دقیقاً طبق تمپلت درخواستی
     """
     print(f"[+] Configuring Local Backhaul (Iran) | Transport: {config_data['transport']}")
     
-    # 1. دانلود و نصب (اگر وجود نداشت)
+    # 1. دانلود و نصب
     if not os.path.exists(f"{INSTALL_DIR}/backhaul"):
         cmds = [
             f"mkdir -p {INSTALL_DIR}",
@@ -28,60 +23,50 @@ def install_local_backhaul(config_data):
         for cmd in cmds:
             os.system(cmd)
 
-    # 2. مدیریت SSL (فقط اگر WSS/WSSMUX بود)
-    tls_config = ""
+    # 2. مدیریت SSL
+    # اگر پروتکل امن بود، فایل‌ها ساخته می‌شوند، در غیر این صورت مسیرها در کانفیگ می‌مانند (طبق درخواست)
     if config_data['transport'] in ["wss", "wssmux"]:
-        success, crt, key = generate_self_signed_cert(domain_or_ip="localhost")
-        if success:
-            tls_config = f'tls_cert = "{crt}"\ntls_key = "{key}"'
-        else:
-            print("[-] SSL Generation Failed!")
+        generate_self_signed_cert(domain_or_ip="127.0.0.1")
 
-    # 3. مدیریت پارامترهای اختیاری Mux
-    mux_settings = ""
-    if config_data['transport'] in ["tcpmux", "wsmux", "wssmux"]:
-        mux_settings = f"""
-mux_version = {config_data.get('mux_version', 1)}
-mux_framesize = {config_data.get('mux_framesize', 32768)}
-mux_recievebuffer = {config_data.get('mux_recievebuffer', 4194304)}
-mux_streambuffer = {config_data.get('mux_streambuffer', 65536)}
-"""
-
-    # 4. فرمت کردن پورت‌ها
+    # 3. فرمت کردن پورت‌ها
     port_rules = config_data.get('port_rules', [])
-    formatted_ports = ",\n    ".join([f'"{p.strip()}"' for p in port_rules if p.strip()])
+    formatted_ports = ",\n".join([f'"{p.strip()}"' for p in port_rules if p.strip()])
 
-    # 5. ساخت کانفیگ ایران
+    # 4. ساخت کانفیگ ایران (Server)
     config_content = f"""
 [server]
 bind_addr = "0.0.0.0:{config_data['tunnel_port']}"
 transport = "{config_data['transport']}"
-accept_udp = {str(config_data.get('accept_udp', 'false')).lower()}
+accept_udp = {str(config_data.get('accept_udp', False)).lower()}
 token = "{config_data['token']}"
 keepalive_period = {config_data.get('keepalive_period', 75)}
-nodelay = {str(config_data.get('nodelay', 'false')).lower()}
+nodelay = {str(config_data.get('nodelay', False)).lower()}
 channel_size = {config_data.get('channel_size', 2048)}
 heartbeat = {config_data.get('heartbeat', 40)}
 mux_con = {config_data.get('mux_con', 8)}
-sniffer = {str(config_data.get('sniffer', 'false')).lower()}
+mux_version = {config_data.get('mux_version', 1)}
+mux_framesize = {config_data.get('mux_framesize', 32768)}
+mux_recievebuffer = {config_data.get('mux_recievebuffer', 4194304)}
+mux_streambuffer = {config_data.get('mux_streambuffer', 65536)}
+sniffer = {str(config_data.get('sniffer', False)).lower()}
 web_port = 2060
-sniffer_log = "/root/backhaul.json"
-log_level = "{config_data.get('log_level', 'info')}"
-skip_optz = {str(config_data.get('skip_optz', 'true')).lower()}
+sniffer_log = "/root/log.json"
+tls_cert = "/root/certs/server.crt"
+tls_key = "/root/certs/server.key"
+log_level = "info"
+skip_optz = {str(config_data.get('skip_optz', True)).lower()}
 mss = {config_data.get('mss', 1360)}
 so_rcvbuf = {config_data.get('so_rcvbuf', 4194304)}
 so_sndbuf = {config_data.get('so_sndbuf', 1048576)}
-{tls_config}
-{mux_settings}
 
 ports = [
-    {formatted_ports}
+{formatted_ports}
 ]
 """
     with open(f"{INSTALL_DIR}/config.toml", "w") as f:
         f.write(config_content)
 
-    # 6. سرویس و اجرا
+    # 5. سرویس و اجرا
     service_content = f"""
 [Unit]
 Description=Backhaul Server (Alamor)
@@ -105,20 +90,14 @@ WantedBy=multi-user.target
 
 def install_remote_backhaul(ssh_target_ip, iran_connect_ip, config_data):
     """
-    نصب روی سرور خارج (Client Mode)
+    نصب روی سرور خارج (Client Mode) - دقیقاً طبق تمپلت درخواستی
     """
     print(f"[+] Configuring Remote Backhaul on {ssh_target_ip}")
     
-    # تنظیمات Mux برای کلاینت
-    mux_settings = ""
-    if config_data['transport'] in ["tcpmux", "wsmux", "wssmux"]:
-        mux_settings = f"""
-mux_version = {config_data.get('mux_version', 1)}
-mux_framesize = {config_data.get('mux_framesize', 32768)}
-mux_recievebuffer = {config_data.get('mux_recievebuffer', 4194304)}
-mux_streambuffer = {config_data.get('mux_streambuffer', 65536)}
-"""
-
+    # اطمینان از اینکه آی‌پی ایران تمیز است (جلوگیری از باگ HTML)
+    clean_iran_ip = iran_connect_ip.strip()
+    
+    # ساخت اسکریپت ریموت
     remote_script = f"""
     mkdir -p {INSTALL_DIR}
     curl -L -o {INSTALL_DIR}/backhaul.tar.gz {BIN_URL}
@@ -127,23 +106,28 @@ mux_streambuffer = {config_data.get('mux_streambuffer', 65536)}
     
     cat > {INSTALL_DIR}/config.toml <<EOL
 [client]
-remote_addr = "{iran_connect_ip}:{config_data['tunnel_port']}"
+remote_addr = "{clean_iran_ip}:{config_data['tunnel_port']}"
+edge_ip = "{config_data.get('edge_ip', '188.114.96.0')}"
 transport = "{config_data['transport']}"
 token = "{config_data['token']}"
 connection_pool = {config_data.get('connection_pool', 8)}
-aggressive_pool = {str(config_data.get('aggressive_pool', 'false')).lower()}
+aggressive_pool = {str(config_data.get('aggressive_pool', False)).lower()}
 keepalive_period = {config_data.get('keepalive_period', 75)}
-nodelay = {str(config_data.get('nodelay', 'false')).lower()}
+nodelay = {str(config_data.get('nodelay', False)).lower()}
 retry_interval = {config_data.get('retry_interval', 3)}
 dial_timeout = {config_data.get('dial_timeout', 10)}
-sniffer = {str(config_data.get('sniffer', 'false')).lower()}
+mux_version = {config_data.get('mux_version', 1)}
+mux_framesize = {config_data.get('mux_framesize', 32768)}
+mux_recievebuffer = {config_data.get('mux_recievebuffer', 4194304)}
+mux_streambuffer = {config_data.get('mux_streambuffer', 65536)}
+sniffer = {str(config_data.get('sniffer', False)).lower()}
 web_port = 2060
-log_level = "{config_data.get('log_level', 'info')}"
-skip_optz = {str(config_data.get('skip_optz', 'true')).lower()}
+sniffer_log = "/root/log.json"
+log_level = "info"
+skip_optz = {str(config_data.get('skip_optz', True)).lower()}
 mss = {config_data.get('mss', 1360)}
 so_rcvbuf = {config_data.get('so_rcvbuf', 1048576)}
 so_sndbuf = {config_data.get('so_sndbuf', 4194304)}
-{mux_settings}
 EOL
 
     cat > /etc/systemd/system/backhaul.service <<EOL
@@ -171,7 +155,6 @@ EOL
     return success, output
 
 def stop_and_delete_backhaul():
-    """حذف تانل"""
     os.system("systemctl stop backhaul && systemctl disable backhaul")
     os.system(f"rm {INSTALL_DIR}/config.toml")
     return True

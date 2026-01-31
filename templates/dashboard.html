@@ -3,8 +3,11 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center pt-3 pb-2 mb-4">
     <h2 class="h3 fw-bold" style="color: var(--primary-color);">Deployment Center</h2>
-    <div class="d-flex gap-3">
-        <i class="fa-solid fa-circle-half-stroke theme-switch" id="themeToggle"></i>
+    <div class="d-flex align-items-center gap-3">
+        <i class="fa-solid fa-circle-half-stroke theme-switch" id="themeToggle" title="Switch Theme"></i>
+        <div class="badge p-2" style="background: var(--input-bg); color: var(--primary-color); border: 1px solid var(--glass-border);">
+            <i class="fa-solid fa-tower-broadcast me-1"></i> Control Node
+        </div>
     </div>
 </div>
 
@@ -12,26 +15,49 @@
     <div class="col-12">
         <div class="glass-panel p-3 d-flex justify-content-between align-items-center">
             <div class="d-flex align-items-center gap-3">
-                <i class="fa-solid fa-server fa-2x text-muted"></i>
+                <div class="rounded-circle p-2" style="background: rgba(255,255,255,0.05);">
+                    <i class="fa-solid fa-server fa-2x text-muted"></i>
+                </div>
                 <div>
-                    <h6 class="mb-0 text-main">Foreign Server Connection</h6>
-                    <small class="text-muted">{{ server[0] if server else 'Disconnected' }}</small>
+                    <h6 class="mb-0" style="color: var(--text-main);">Foreign Server Connection</h6>
+                    <small class="font-monospace" style="color: var(--text-muted);">
+                        {{ server[0] if server else 'Not Connected' }}
+                    </small>
                 </div>
             </div>
             {% if not server %}
-                <button class="btn btn-sm btn-alamor" data-bs-toggle="modal" data-bs-target="#connectModal">Connect</button>
+                <button class="btn btn-sm btn-alamor px-4" data-bs-toggle="modal" data-bs-target="#connectModal">
+                    <i class="fa-solid fa-link me-2"></i>Connect via SSH
+                </button>
             {% else %}
-                <span class="badge bg-success">Connected</span>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="status-dot status-active"></span>
+                    <span class="badge bg-success bg-opacity-25 text-success border border-success">SSH Connected</span>
+                </div>
             {% endif %}
         </div>
     </div>
 
     <div class="col-12">
         <div class="glass-panel p-4">
-            <h4 class="mb-4 border-bottom pb-2" style="border-color: var(--glass-border) !important;">Create New Tunnel</h4>
+            <h4 class="mb-4 border-bottom pb-2" style="border-color: var(--glass-border) !important; color: var(--text-main);">
+                <i class="fa-solid fa-bolt text-warning me-2"></i>Tunnel Configuration
+            </h4>
             
             <form action="{{ url_for('install_backhaul') }}" method="POST">
                 
+                <div class="alert alert-dark d-flex align-items-center mb-4 border-secondary p-3" style="background: rgba(0,0,0,0.3);">
+                    <i class="fa-solid fa-network-wired me-3 fs-4 text-info"></i>
+                    <div class="w-100">
+                        <label class="small text-muted mb-1 fw-bold">IRAN SERVER IP (Must be accurate)</label>
+                        <input type="text" name="iran_ip_manual" class="form-control form-control-sm bg-black text-white border-secondary font-monospace" 
+                               value="{{ current_ip }}" placeholder="x.x.x.x">
+                        <div class="form-text text-white-50" style="font-size: 0.7rem;">
+                            The foreign server will connect to this IP. Edit if incorrect.
+                        </div>
+                    </div>
+                </div>
+
                 <div class="row g-3 mb-4">
                     <div class="col-md-4">
                         <label class="form-label small text-muted">Protocol</label>
@@ -45,7 +71,7 @@
                         </select>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label small text-muted">Tunnel Port (Bind)</label>
+                        <label class="form-label small text-muted">Tunnel Port (Communication)</label>
                         <input type="number" name="tunnel_port" class="form-control" value="3080">
                     </div>
                     <div class="col-md-4">
@@ -55,38 +81,44 @@
                 </div>
 
                 <div class="mb-4">
-                    <label class="form-label small text-muted">Port Forwarding Rules</label>
-                    <textarea name="port_rules" class="form-control font-monospace" rows="4" placeholder="443&#10;8080=80&#10;443-600&#10;127.0.0.1:443=1.1.1.1:5201"></textarea>
+                    <label class="form-label small text-muted">Port Forwarding Rules (One per line)</label>
+                    <textarea name="port_rules" class="form-control font-monospace" rows="5" placeholder="Examples:&#10;443&#10;8080=80&#10;443-600&#10;127.0.0.1:443=1.1.1.1:5201"></textarea>
                 </div>
 
                 <div class="accordion mb-4" id="advAccordion">
                     <div class="accordion-item" style="background: transparent; border: 1px solid var(--glass-border);">
                         <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#advCollapse" style="background: var(--input-bg); color: var(--text-main);">
-                                Advanced Configuration
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#advCollapse" 
+                                    style="background: var(--input-bg); color: var(--text-main); box-shadow: none;">
+                                <i class="fa-solid fa-sliders me-2"></i> Advanced Configuration
                             </button>
                         </h2>
                         <div id="advCollapse" class="accordion-collapse collapse" data-bs-parent="#advAccordion">
                             <div class="accordion-body">
                                 <div class="row g-3">
-                                    <div class="col-md-12 mux-field" style="display:none;">
-                                        <div class="p-3 border rounded border-secondary">
-                                            <h6 class="text-warning mb-3">Multiplexing Settings</h6>
+                                    
+                                    <div class="col-12 mux-field" style="display:none;">
+                                        <div class="p-3 rounded border border-secondary" style="background: rgba(255, 193, 7, 0.05);">
+                                            <h6 class="text-warning mb-3 small fw-bold">MULTIPLEXING SETTINGS</h6>
                                             <div class="row g-3">
                                                 <div class="col-md-3">
-                                                    <label class="small text-muted">Mux Version</label>
-                                                    <select name="mux_version" class="form-select">
+                                                    <label class="small text-muted">Version</label>
+                                                    <select name="mux_version" class="form-select form-select-sm">
                                                         <option value="1">v1</option>
                                                         <option value="2">v2</option>
                                                     </select>
                                                 </div>
                                                 <div class="col-md-3">
-                                                    <label class="small text-muted">Mux Concurrency</label>
-                                                    <input type="number" name="mux_con" class="form-control" value="8">
+                                                    <label class="small text-muted">Concurrency</label>
+                                                    <input type="number" name="mux_con" class="form-control form-control-sm" value="8">
                                                 </div>
                                                 <div class="col-md-3">
                                                     <label class="small text-muted">Frame Size</label>
-                                                    <input type="number" name="mux_framesize" class="form-control" value="32768">
+                                                    <input type="number" name="mux_framesize" class="form-control form-control-sm" value="32768">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="small text-muted">Stream Buf</label>
+                                                    <input type="number" name="mux_streambuffer" class="form-control form-control-sm" value="65536">
                                                 </div>
                                             </div>
                                         </div>
@@ -94,43 +126,60 @@
 
                                     <div class="col-md-3">
                                         <label class="small text-muted">Keepalive (s)</label>
-                                        <input type="number" name="keepalive_period" class="form-control" value="75">
+                                        <input type="number" name="keepalive_period" class="form-control form-control-sm" value="75">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="small text-muted">Heartbeat (s)</label>
+                                        <input type="number" name="heartbeat" class="form-control form-control-sm" value="40">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="small text-muted">Retry Interval (s)</label>
+                                        <input type="number" name="retry_interval" class="form-control form-control-sm" value="3">
                                     </div>
                                     <div class="col-md-3">
                                         <label class="small text-muted">Channel Size</label>
-                                        <input type="number" name="channel_size" class="form-control" value="2048">
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="small text-muted">Socket Recv Buf</label>
-                                        <input type="number" name="so_rcvbuf" class="form-control" value="4194304">
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="small text-muted">Socket Send Buf</label>
-                                        <input type="number" name="so_sndbuf" class="form-control" value="1048576">
+                                        <input type="number" name="channel_size" class="form-control form-control-sm" value="2048">
                                     </div>
 
-                                    <div class="col-md-12 d-flex gap-4 mt-3">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" name="nodelay">
-                                            <label class="form-check-label text-muted">TCP NoDelay</label>
-                                        </div>
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" name="accept_udp">
-                                            <label class="form-check-label text-muted">Accept UDP</label>
-                                        </div>
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" name="aggressive_pool">
-                                            <label class="form-check-label text-muted">Aggressive Pool</label>
+                                    <div class="col-md-6">
+                                        <label class="small text-muted">Socket Recv Buf</label>
+                                        <input type="number" name="so_rcvbuf" class="form-control form-control-sm" value="4194304">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="small text-muted">Socket Send Buf</label>
+                                        <input type="number" name="so_sndbuf" class="form-control form-control-sm" value="1048576">
+                                    </div>
+
+                                    <div class="col-12 mt-3 pt-3 border-top border-secondary">
+                                        <div class="d-flex flex-wrap gap-4">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" name="nodelay">
+                                                <label class="form-check-label text-muted small">TCP NoDelay</label>
+                                            </div>
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" name="accept_udp">
+                                                <label class="form-check-label text-muted small">Accept UDP</label>
+                                            </div>
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" name="aggressive_pool">
+                                                <label class="form-check-label text-muted small">Aggressive Pool</label>
+                                            </div>
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" name="sniffer">
+                                                <label class="form-check-label text-muted small">Sniffer (Log)</label>
+                                            </div>
                                         </div>
                                     </div>
+                                    
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <button type="submit" class="btn btn-alamor w-100 py-3 fw-bold {{ 'disabled' if not server }}">
-                    {{ 'Waiting for Server Connection...' if not server else 'Deploy Tunnel Configuration' }}
+                <button type="submit" class="btn btn-alamor w-100 py-3 fw-bold shadow-lg {{ 'disabled' if not server }}">
+                    <i class="fa-solid fa-rocket me-2"></i>
+                    {{ 'Waiting for SSH Connection...' if not server else 'Deploy Configuration' }}
                 </button>
             </form>
         </div>
@@ -140,11 +189,28 @@
 <div class="modal fade" id="connectModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content glass-panel" style="background: var(--sidebar-bg);">
+            <div class="modal-header border-bottom" style="border-color: var(--glass-border) !important;">
+                <h5 class="modal-title" style="color: var(--text-main);">Secure Connection Setup</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" style="filter: invert(1);"></button>
+            </div>
             <div class="modal-body">
                 <form action="{{ url_for('connect_server') }}" method="POST">
-                    <div class="mb-3"><label class="small text-muted">IP</label><input type="text" name="ip" class="form-control" required></div>
-                    <div class="mb-3"><label class="small text-muted">Pass</label><input type="password" name="password" class="form-control" required></div>
-                    <button type="submit" class="btn btn-alamor w-100">Connect</button>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">REMOTE IP ADDRESS</label>
+                        <input type="text" name="ip" class="form-control" placeholder="45.x.x.x" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">SSH PORT</label>
+                        <input type="number" name="port" class="form-control" value="22">
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label small text-muted">ROOT PASSWORD</label>
+                        <input type="password" name="password" class="form-control" required>
+                    </div>
+                    <div class="alert alert-info bg-opacity-10 border-0 fs-6 small text-white-50">
+                        <i class="fa-solid fa-key me-2"></i> SSH Keys will be generated automatically.
+                    </div>
+                    <button type="submit" class="btn btn-alamor w-100 py-2">Initialize Connection</button>
                 </form>
             </div>
         </div>
@@ -152,6 +218,7 @@
 </div>
 
 <script>
+    // Show/Hide Mux fields based on transport selection
     function toggleMuxFields() {
         const proto = document.getElementById('transportSelect').value;
         const muxFields = document.querySelectorAll('.mux-field');
@@ -161,16 +228,20 @@
             el.style.display = isMux ? 'block' : 'none';
         });
     }
-    // Run on load
-    toggleMuxFields();
+    // Run initially
+    document.addEventListener("DOMContentLoaded", toggleMuxFields);
 
-    // Theme logic
+    // Theme Switcher Logic
     const toggleBtn = document.getElementById('themeToggle');
     const htmlTag = document.documentElement;
-    if (localStorage.getItem('theme') === 'light') htmlTag.setAttribute('data-theme', 'light');
+
+    if (localStorage.getItem('theme') === 'light') {
+        htmlTag.setAttribute('data-theme', 'light');
+    }
+
     toggleBtn.addEventListener('click', () => {
-        const current = htmlTag.getAttribute('data-theme');
-        if (current === 'light') {
+        const currentTheme = htmlTag.getAttribute('data-theme');
+        if (currentTheme === 'light') {
             htmlTag.removeAttribute('data-theme');
             localStorage.setItem('theme', 'dark');
         } else {
