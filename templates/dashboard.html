@@ -108,10 +108,7 @@
                 <form action="{{ url_for('dashboard.connect_server') }}" method="POST">
                     <div class="mb-3">
                         <label class="form-label text-muted small">SERVER IP ADDRESS</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-dark border-secondary text-secondary"><i class="fas fa-globe"></i></span>
-                            <input name="ip" class="form-control" placeholder="e.g. 192.168.1.1" required>
-                        </div>
+                        <input name="ip" class="form-control" placeholder="e.g. 192.168.1.1" required>
                     </div>
                     <div class="row g-2 mb-3">
                         <div class="col-6">
@@ -125,10 +122,7 @@
                     </div>
                     <div class="mb-4">
                         <label class="form-label text-muted small">PASSWORD</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-dark border-secondary text-secondary"><i class="fas fa-key"></i></span>
-                            <input name="password" type="password" class="form-control" required>
-                        </div>
+                        <input name="password" type="password" class="form-control" required>
                     </div>
                     <button class="btn btn-primary-glow w-100 py-2">Establish Connection</button>
                 </form>
@@ -139,9 +133,9 @@
 
 <div class="modal fade" id="hysteriaModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-        <form action="{{ url_for('tunnels.install_hysteria') }}" method="POST" class="modal-content glass-panel border-0 p-0">
+        <form id="hysteriaForm" class="modal-content glass-panel border-0 p-0">
             <div class="modal-header border-0 border-bottom border-secondary">
-                <h5 class="modal-title fw-bold text-hysteria"><i class="fas fa-bolt me-2"></i>Configure Hysteria 2</h5>
+                <h5 class="modal-title fw-bold text-hysteria">Configure Hysteria 2</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-4">
@@ -153,7 +147,6 @@
                     <div class="col-12">
                         <label class="form-label text-muted small">PORTS TO FORWARD</label>
                         <input type="text" name="forward_ports" class="form-control" placeholder="e.g. 8080, 8443" required>
-                        <div class="form-text text-white-50 small">Comma separated ports.</div>
                     </div>
                     <div class="col-6">
                         <label class="form-label text-muted small">UPLOAD (Mbps)</label>
@@ -166,7 +159,7 @@
                 </div>
             </div>
             <div class="modal-footer border-0 p-4 pt-0">
-                <button class="btn btn-primary-glow w-100 py-2">Install Hysteria</button>
+                <button type="button" class="btn btn-primary-glow w-100 py-2" onclick="startInstall('hysteria', 'hysteriaForm')">Install (Async)</button>
             </div>
         </form>
     </div>
@@ -174,9 +167,9 @@
 
 <div class="modal fade" id="slipstreamModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-        <form action="{{ url_for('tunnels.install_slipstream') }}" method="POST" class="modal-content glass-panel border-0 p-0">
+        <form id="slipstreamForm" class="modal-content glass-panel border-0 p-0">
             <div class="modal-header border-0 border-bottom border-secondary">
-                <h5 class="modal-title fw-bold" style="color: #a855f7;"><i class="fas fa-wind me-2"></i>Configure Slipstream</h5>
+                <h5 class="modal-title fw-bold" style="color: #a855f7;">Configure Slipstream</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-4">
@@ -203,7 +196,7 @@
                 </div>
             </div>
             <div class="modal-footer border-0 p-4 pt-0">
-                <button class="btn btn-primary-glow w-100 py-2">Build & Install</button>
+                <button type="button" class="btn btn-primary-glow w-100 py-2" onclick="startInstall('slipstream', 'slipstreamForm')">Build & Install (Async)</button>
             </div>
         </form>
     </div>
@@ -211,9 +204,9 @@
 
 <div class="modal fade" id="ratholeModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-        <form action="{{ url_for('tunnels.install_rathole') }}" method="POST" class="modal-content glass-panel border-0 p-0">
+        <form id="ratholeForm" class="modal-content glass-panel border-0 p-0">
             <div class="modal-header border-0 border-bottom border-secondary">
-                <h5 class="modal-title fw-bold text-rathole"><i class="fas fa-shield-alt me-2"></i>Configure Rathole</h5>
+                <h5 class="modal-title fw-bold text-rathole">Configure Rathole</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-4">
@@ -238,7 +231,7 @@
                 </div>
             </div>
             <div class="modal-footer border-0 p-4 pt-0">
-                <button class="btn btn-primary-glow w-100 py-2">Install Rathole</button>
+                <button type="button" class="btn btn-primary-glow w-100 py-2" onclick="startInstall('rathole', 'ratholeForm')">Install (Async)</button>
             </div>
         </form>
     </div>
@@ -246,23 +239,22 @@
 
 <div class="modal fade" id="backhaulModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-lg">
-        <form action="{{ url_for('tunnels.install_backhaul') }}" method="POST" class="modal-content glass-panel border-0 p-0">
+        <form id="backhaulForm" class="modal-content glass-panel border-0 p-0">
             <div class="modal-header border-0 border-bottom border-secondary">
-                <h5 class="modal-title fw-bold text-backhaul"><i class="fas fa-network-wired me-2"></i>Backhaul Enterprise</h5>
+                <h5 class="modal-title fw-bold text-backhaul">Backhaul Enterprise</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             
             <div class="modal-body p-4" style="max-height: 75vh; overflow-y: auto;">
-                
-                <h6 class="text-accent text-uppercase mb-3 small fw-bold text-white"><i class="fas fa-sliders-h me-2"></i>Basic Configuration</h6>
+                <h6 class="text-accent text-uppercase mb-3 small fw-bold text-white">Basic Configuration</h6>
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
                         <label class="form-label text-muted small">TRANSPORT</label>
                         <select name="transport" class="form-select">
-                            <option value="tcp" selected>TCP (Recommended)</option>
-                            <option value="tcpmux">TCP Mux (Multi-Stream)</option>
+                            <option value="tcp">TCP</option>
+                            <option value="tcpmux">TCP Mux</option>
                             <option value="ws">WebSocket</option>
-                            <option value="wss">WebSocket Secure (TLS)</option>
+                            <option value="wss">WebSocket Secure</option>
                         </select>
                     </div>
                     <div class="col-md-6">
@@ -271,8 +263,7 @@
                     </div>
                     <div class="col-12">
                         <label class="form-label text-muted small">PORT RULES</label>
-                        <textarea name="port_rules" class="form-control font-mono" rows="3" placeholder="443&#10;8080=8080&#10;443-600=1.1.1.1:5201"></textarea>
-                        <div class="form-text text-white-50 small mt-1">One rule per line. Supports ranges (80-90) and redirection (=).</div>
+                        <textarea name="port_rules" class="form-control font-mono" rows="3" placeholder="443&#10;8080=8080"></textarea>
                     </div>
                 </div>
 
@@ -284,83 +275,123 @@
 
                 <div class="collapse" id="advSettings">
                     <div class="p-3 bg-black bg-opacity-25 rounded border border-secondary border-opacity-25">
-                        
-                        <h6 class="text-white small fw-bold mb-3 pb-1 border-bottom border-secondary border-opacity-25">Network Optimization</h6>
+                        <h6 class="text-white small fw-bold mb-3 pb-1 border-bottom border-secondary border-opacity-25">Optimization</h6>
                         <div class="row g-3 mb-3">
-                            <div class="col-md-4">
-                                <label class="form-label text-muted small" style="font-size: 0.75rem;">KEEPALIVE (s)</label>
-                                <input type="number" name="keepalive_period" class="form-control form-control-sm" value="75">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label text-muted small" style="font-size: 0.75rem;">HEARTBEAT (s)</label>
-                                <input type="number" name="heartbeat" class="form-control form-control-sm" value="40">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label text-muted small" style="font-size: 0.75rem;">MUX CONCURRENCY</label>
-                                <input type="number" name="mux_con" class="form-control form-control-sm" value="8">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label text-muted small" style="font-size: 0.75rem;">CHANNEL SIZE</label>
-                                <input type="number" name="channel_size" class="form-control form-control-sm" value="2048">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label text-muted small" style="font-size: 0.75rem;">MSS</label>
-                                <input type="number" name="mss" class="form-control form-control-sm" value="1360">
-                            </div>
+                            <div class="col-md-4"><label class="form-label text-muted small">KEEPALIVE</label><input type="number" name="keepalive_period" class="form-control form-control-sm" value="75"></div>
+                            <div class="col-md-4"><label class="form-label text-muted small">HEARTBEAT</label><input type="number" name="heartbeat" class="form-control form-control-sm" value="40"></div>
+                            <div class="col-md-4"><label class="form-label text-muted small">MUX CON</label><input type="number" name="mux_con" class="form-control form-control-sm" value="8"></div>
                         </div>
-
-                        <h6 class="text-white small fw-bold mb-3 pb-1 border-bottom border-secondary border-opacity-25">Buffer Sizes (Bytes)</h6>
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label text-info small" style="font-size: 0.75rem;">SERVER RCV BUF</label>
-                                <input type="number" name="so_rcvbuf" class="form-control form-control-sm" value="4194304">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label text-info small" style="font-size: 0.75rem;">SERVER SND BUF</label>
-                                <input type="number" name="so_sndbuf" class="form-control form-control-sm" value="1048576">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label text-warning small" style="font-size: 0.75rem;">CLIENT RCV BUF</label>
-                                <input type="number" name="client_so_rcvbuf" class="form-control form-control-sm" value="1048576">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label text-warning small" style="font-size: 0.75rem;">CLIENT SND BUF</label>
-                                <input type="number" name="client_so_sndbuf" class="form-control form-control-sm" value="4194304">
-                            </div>
-                        </div>
-
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <div class="form-check form-switch mb-2">
-                                    <input class="form-check-input" type="checkbox" name="nodelay" checked>
-                                    <label class="form-check-label text-white small">TCP NoDelay</label>
-                                </div>
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" name="skip_optz" checked>
-                                    <label class="form-check-label text-white small">Skip Optimizations</label>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-check form-switch mb-2">
-                                    <input class="form-check-input" type="checkbox" name="sniffer">
-                                    <label class="form-check-label text-white small">Enable Sniffer</label>
-                                </div>
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" name="accept_udp">
-                                    <label class="form-check-label text-white small">Accept UDP</label>
-                                </div>
+                                <div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="nodelay" checked><label class="form-check-label text-white small">TCP NoDelay</label></div>
                             </div>
                         </div>
-                        
                     </div>
                 </div>
-
             </div>
             <div class="modal-footer border-0 p-4 pt-0">
-                <button class="btn btn-primary-glow w-100 py-2">Deploy Configuration</button>
+                <button type="button" class="btn btn-primary-glow w-100 py-2" onclick="startInstall('backhaul', 'backhaulForm')">Deploy Configuration (Async)</button>
             </div>
         </form>
     </div>
 </div>
+
+<div class="modal fade" id="progressModal" data-bs-backdrop="static" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-panel border-0">
+            <div class="modal-body p-5 text-center">
+                <div class="mb-4">
+                    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
+                </div>
+                <h4 class="text-white fw-bold mb-2">Installing Tunnel...</h4>
+                <p class="text-muted small mb-4" id="progressLog">Initializing installation process...</p>
+                <div class="progress bg-dark border border-secondary" style="height: 25px; border-radius: 12px;">
+                    <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 5%">5%</div>
+                </div>
+                <div id="completionActions" class="mt-4 d-none">
+                    <p class="text-success fw-bold"><i class="fas fa-check-circle me-2"></i>Installation Complete!</p>
+                    <button class="btn btn-primary-glow px-4" onclick="location.reload()">Refresh Dashboard</button>
+                </div>
+                <div id="errorActions" class="mt-4 d-none">
+                    <p class="text-danger fw-bold"><i class="fas fa-times-circle me-2"></i>Installation Failed!</p>
+                    <button class="btn btn-outline-light px-4" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function startInstall(protocol, formId) {
+    const form = document.getElementById(formId);
+    const formData = new FormData(form);
+    
+    // بستن مودال کانفیگ
+    const configModalEl = form.closest('.modal');
+    const configModal = bootstrap.Modal.getInstance(configModalEl);
+    configModal.hide();
+
+    // باز کردن مودال پیشرفت
+    const progressModal = new bootstrap.Modal(document.getElementById('progressModal'));
+    progressModal.show();
+
+    // ریست کردن وضعیت مودال
+    document.getElementById('progressBar').style.width = '5%';
+    document.getElementById('progressBar').classList.remove('bg-success', 'bg-danger');
+    document.getElementById('progressBar').classList.add('bg-primary');
+    document.querySelector('.spinner-border').classList.remove('d-none');
+    document.getElementById('completionActions').classList.add('d-none');
+    document.getElementById('errorActions').classList.add('d-none');
+
+    // ارسال درخواست
+    fetch(`/start-install/${protocol}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.status === 'started') {
+            trackProgress(data.task_id);
+        } else {
+            alert('Error: ' + data.message);
+            progressModal.hide();
+        }
+    })
+    .catch(err => {
+        alert('Network Error');
+        progressModal.hide();
+    });
+}
+
+function trackProgress(taskId) {
+    const bar = document.getElementById('progressBar');
+    const log = document.getElementById('progressLog');
+    const successDiv = document.getElementById('completionActions');
+    const errorDiv = document.getElementById('errorActions');
+    const spinner = document.querySelector('.spinner-border');
+
+    const interval = setInterval(() => {
+        fetch(`/task-status/${taskId}`)
+        .then(res => res.json())
+        .then(data => {
+            bar.style.width = data.progress + '%';
+            bar.innerText = data.progress + '%';
+            log.innerText = data.log;
+
+            if(data.status === 'completed') {
+                clearInterval(interval);
+                bar.classList.replace('bg-primary', 'bg-success');
+                spinner.classList.add('d-none');
+                successDiv.classList.remove('d-none');
+            } else if(data.status === 'error') {
+                clearInterval(interval);
+                bar.classList.replace('bg-primary', 'bg-danger');
+                spinner.classList.add('d-none');
+                errorDiv.classList.remove('d-none');
+            }
+        });
+    }, 1000);
+}
+</script>
 
 {% endblock %}
