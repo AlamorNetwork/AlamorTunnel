@@ -12,9 +12,14 @@ tunnels_bp = Blueprint('tunnels', __name__)
 def is_logged_in(): return 'user' in session
 
 def get_server_public_ip():
-    # Helper simple function needed here too or imported
-    try: return subprocess.check_output("curl -s ifconfig.me", shell=True).decode().strip()
-    except: return "YOUR_SERVER_IP"
+    commands = ["curl -s --max-time 5 ifconfig.me", "curl -s --max-time 5 api.ipify.org"]
+    ip_pattern = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$')
+    for cmd in commands:
+        try:
+            output = subprocess.check_output(cmd, shell=True).decode().strip()
+            if ip_pattern.match(output): return output
+        except: continue
+    return "YOUR_SERVER_IP"
 
 @tunnels_bp.route('/tunnels')
 def list_tunnels():
@@ -34,6 +39,7 @@ def list_tunnels():
             'name': t[1],
             'transport': t[2],
             'port': t[3],
+            'token': t[4],  # <--- این خط جا افتاده بود که اضافه شد
             'config': config,
             'status': t[6]
         })
@@ -50,6 +56,10 @@ def install_backhaul():
         return redirect(url_for('dashboard.index'))
 
     iran_ip = request.form.get('iran_ip_manual') or get_server_public_ip()
+    
+    if iran_ip == "YOUR_SERVER_IP":
+         flash('Error: Invalid Iran Server IP.', 'danger')
+         return redirect(url_for('dashboard.index'))
 
     config_data = {
         'transport': request.form.get('transport'),
@@ -139,12 +149,10 @@ def delete_tunnel(tunnel_id):
     
     tunnel = get_tunnel_by_id(tunnel_id)
     if tunnel:
-        # Rathole Deletion
-        if "rathole" in tunnel[2]: # check transport type or name
+        if "rathole" in tunnel[2] or "Rathole" in tunnel[1]: 
             svc = f"rathole-iran{tunnel[3]}"
             os.system(f"systemctl stop {svc} && systemctl disable {svc} && rm /etc/systemd/system/{svc}.service")
             os.system(f"rm /root/rathole-core/iran{tunnel[3]}.toml")
-        # Backhaul Deletion
         else:
             stop_and_delete_backhaul()
             
