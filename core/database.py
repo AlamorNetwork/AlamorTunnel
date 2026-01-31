@@ -108,3 +108,16 @@ def delete_tunnel_by_id(tunnel_id):
     c.execute("DELETE FROM tunnels WHERE id=?", (tunnel_id,))
     conn.commit()
     conn.close()
+
+def update_tunnel_config(tunnel_id, name, transport, tunnel_port, config_dict):
+    """آپدیت کردن تنظیمات یک تانل موجود"""
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    config_json = json.dumps(config_dict)
+    c.execute("""
+        UPDATE tunnels 
+        SET name=?, transport=?, tunnel_port=?, config_json=?
+        WHERE id=?
+    """, (name, transport, tunnel_port, config_json, tunnel_id))
+    conn.commit()
+    conn.close()

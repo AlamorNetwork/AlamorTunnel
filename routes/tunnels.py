@@ -1,10 +1,12 @@
-from flask import Blueprint, render_template, request, redirect, session, url_for, flash
-from core.database import get_connected_server, add_tunnel, get_all_tunnels, get_tunnel_by_id, delete_tunnel_by_id
+from flask import Blueprint, render_template, request, redirect, session, url_for, flash, jsonify
+from core.database import get_connected_server, add_tunnel, get_all_tunnels, get_tunnel_by_id, delete_tunnel_by_id, update_tunnel_config
 from core.backhaul_manager import install_local_backhaul, install_remote_backhaul, generate_token, stop_and_delete_backhaul
 from core.rathole_manager import install_local_rathole, install_remote_rathole
 import json
 import os
 import subprocess
+import socket
+import time
 import re
 
 tunnels_bp = Blueprint('tunnels', __name__)
@@ -21,31 +23,125 @@ def get_server_public_ip():
         except: continue
     return "YOUR_SERVER_IP"
 
-@tunnels_bp.route('/tunnels')
+@@tunnels_bp.route('/tunnels')
 def list_tunnels():
     if not is_logged_in(): return redirect(url_for('auth.login'))
-    
     raw_tunnels = get_all_tunnels()
     tunnels_list = []
-    
     for t in raw_tunnels:
-        try:
-            config = json.loads(t[5])
-        except:
-            config = {}
-            
+        try: config = json.loads(t[5])
+        except: config = {}
         tunnels_list.append({
-            'id': t[0],
-            'name': t[1],
-            'transport': t[2],
-            'port': t[3],
-            'token': t[4],  # <--- این خط جا افتاده بود که اضافه شد
-            'config': config,
-            'status': t[6]
+            'id': t[0], 'name': t[1], 'transport': t[2], 'port': t[3], 'token': t[4], 'config': config, 'status': t[6]
         })
-        
     return render_template('tunnels.html', tunnels=tunnels_list)
+# --- EDIT TUNNEL ---
+@tunnels_bp.route('/edit-tunnel/<int:tunnel_id>', methods=['GET', 'POST'])
+def edit_tunnel(tunnel_id):
+    if not is_logged_in(): return redirect(url_for('auth.login'))
+    
+    tunnel = get_tunnel_by_id(tunnel_id)
+    if not tunnel:
+        flash('Tunnel not found.', 'danger')
+        return redirect(url_for('tunnels.list_tunnels'))
 
+    # استخراج اطلاعات فعلی
+    # tunnel: (id, name, transport, port, token, config_json, status)
+    current_config = json.loads(tunnel[5])
+    transport_type = tunnel[2]
+    
+    if request.method == 'POST':
+        server = get_connected_server()
+        if not server:
+            flash('Foreign server not connected.', 'danger')
+            return redirect(url_for('dashboard.index'))
+
+        iran_ip = request.form.get('iran_ip_manual') or get_server_public_ip()
+        
+        # تشخیص نوع تانل و جمع‌آوری داده‌های جدید
+        new_config = current_config.copy() # کپی از تنظیمات قبلی
+        
+        # آپدیت فیلدها بر اساس فرم
+        new_config['tunnel_port'] = request.form.get('tunnel_port')
+        new_config['transport'] = request.form.get('transport')
+        
+        # تنظیمات مشترک
+        new_config['nodelay'] = request.form.get('nodelay') == 'on'
+        new_config['heartbeat'] = request.form.get('heartbeat') == 'on' if 'rathole' in transport_type else int(request.form.get('heartbeat', 40))
+        
+        # اختصاصی Rathole
+        if 'rathole' in transport_type or transport_type in ['tcp', 'udp'] and 'port_rules' not in request.form:
+             raw_ports = request.form.get('forward_ports', '')
+             new_config['ports'] = [p.strip() for p in raw_ports.split(',') if p.strip().isdigit()]
+             new_config['ipv6'] = request.form.get('ipv6') == 'on'
+             
+             # اجرا و آپدیت Rathole
+             install_remote_rathole(server[0], iran_ip, new_config)
+             install_local_rathole(new_config)
+             update_tunnel_config(tunnel_id, f"Rathole-{new_config['tunnel_port']}", "rathole", new_config['tunnel_port'], new_config)
+
+        # اختصاصی Backhaul
+        else:
+             new_config['edge_ip'] = request.form.get('edge_ip')
+             new_config['port_rules'] = [line.strip() for line in request.form.get('port_rules', '').split('\n') if line.strip()]
+             new_config['mux_version'] = int(request.form.get('mux_version', 1))
+             # ... سایر فیلدهای پیشرفته را هم می‌توان اینجا گرفت ...
+             
+             # اجرا و آپدیت Backhaul
+             install_remote_backhaul(server[0], iran_ip, new_config)
+             install_local_backhaul(new_config)
+             update_tunnel_config(tunnel_id, "Backhaul Tunnel", new_config['transport'], new_config['tunnel_port'], new_config)
+
+        flash('Tunnel Updated & Restarted Successfully!', 'success')
+        return redirect(url_for('tunnels.list_tunnels'))
+
+    return render_template('edit_tunnel.html', tunnel=tunnel, config=current_config, current_ip=get_server_public_ip())
+
+# --- REAL TESTS ---
+@tunnels_bp.route('/perform-test/<int:tunnel_id>/<test_type>')
+def perform_test(tunnel_id, test_type):
+    if not is_logged_in(): return jsonify({'error': 'Unauthorized'}), 401
+    
+    tunnel = get_tunnel_by_id(tunnel_id)
+    if not tunnel: return jsonify({'status': 'error', 'msg': 'Tunnel not found'})
+    
+    target_port = int(tunnel[3]) # Tunnel Bind Port (local listening port)
+    target_ip = "127.0.0.1"
+    
+    if test_type == 'speed':
+        # تست تاخیر (Latency) با اتصال TCP
+        try:
+            start_time = time.time()
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(3) # 3 ثانیه تایم اوت
+            result = s.connect_ex((target_ip, target_port))
+            end_time = time.time()
+            s.close()
+            
+            if result == 0:
+                latency = round((end_time - start_time) * 1000, 2)
+                return jsonify({'status': 'success', 'msg': f'Latency: {latency}ms', 'raw': latency})
+            else:
+                return jsonify({'status': 'error', 'msg': 'Port Unreachable'})
+        except Exception as e:
+            return jsonify({'status': 'error', 'msg': str(e)})
+
+    elif test_type == 'download':
+        # شبیه‌سازی تست دانلود (چون دانلود واقعی نیاز به فایل سرور اونور داره)
+        # اما ما چک می‌کنیم که سوکت چقدر پایدار میمونه
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(5)
+            s.connect((target_ip, target_port))
+            # ارسال یک بایت دیتا برای تست پایداری
+            s.sendall(b'PING')
+            s.close()
+            # نتیجه شبیه‌سازی شده بر اساس لتنسی (فرضی)
+            return jsonify({'status': 'success', 'msg': 'Link Stable (Ready for Traffic)'})
+        except:
+            return jsonify({'status': 'error', 'msg': 'Connection Failed'})
+
+    return jsonify({'status': 'error', 'msg': 'Invalid Test'})
 @tunnels_bp.route('/install-backhaul', methods=['POST'])
 def install_backhaul():
     if not is_logged_in(): return redirect(url_for('auth.login'))

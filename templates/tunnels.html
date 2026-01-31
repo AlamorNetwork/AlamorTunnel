@@ -4,7 +4,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h2 class="fw-bold mb-0">Active Tunnels</h2>
-        <p class="text-muted small">Monitoring Status</p>
+        <p class="text-muted small mb-0">Monitoring & Management</p>
     </div>
     <a href="{{ url_for('dashboard.index') }}" class="btn btn-alamor btn-sm">
         <i class="fa-solid fa-plus me-2"></i>New Tunnel
@@ -27,24 +27,37 @@
                         </div>
                         <div>
                             <h6 class="mb-0 fw-bold">{{ tunnel.name }}</h6>
-                            <div class="d-flex gap-2 align-items-center">
-                                <span class="badge bg-secondary text-light font-monospace small">
-                                    {{ tunnel.transport|upper }} : {{ tunnel.port }}
-                                </span>
-                            </div>
+                            <span class="badge bg-secondary text-light font-monospace small">
+                                {{ tunnel.transport|upper }} : {{ tunnel.port }}
+                            </span>
                         </div>
                     </div>
-                    <div class="dropdown">
-                        <button class="btn btn-sm text-muted" data-bs-toggle="dropdown">
-                            <i class="fa-solid fa-ellipsis-vertical"></i>
+                    
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('tunnels.edit_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-primary" title="Edit">
+                            <i class="fa-solid fa-pen"></i>
+                        </a>
+                        <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete('{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel.id) }}')">
+                            <i class="fa-solid fa-trash"></i>
                         </button>
-                        <ul class="dropdown-menu dropdown-menu-end glass-panel border-theme shadow">
-                            <li>
-                                <a class="dropdown-item text-danger" href="{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel.id) }}" onclick="return confirm('Delete this tunnel?')">
-                                    <i class="fa-solid fa-trash me-2"></i> Delete
-                                </a>
-                            </li>
-                        </ul>
+                    </div>
+                </div>
+
+                <div class="p-3 border-bottom border-theme">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <button class="btn btn-sm btn-outline-success w-100" onclick="runRealTest({{ tunnel.id }}, 'speed', this)">
+                                <i class="fa-solid fa-gauge me-1"></i> Latency
+                            </button>
+                        </div>
+                        <div class="col-6">
+                            <button class="btn btn-sm btn-outline-info w-100" onclick="runRealTest({{ tunnel.id }}, 'download', this)">
+                                <i class="fa-solid fa-download me-1"></i> Check
+                            </button>
+                        </div>
+                        <div class="col-12 mt-2">
+                            <div id="test-result-{{ tunnel.id }}" class="small text-center text-muted fst-italic">Ready to test</div>
+                        </div>
                     </div>
                 </div>
 
@@ -53,38 +66,62 @@
                         {% if tunnel.config.port_rules %}
                             <div class="small fw-bold text-muted mb-2">Forwarding Rules:</div>
                             {% for rule in tunnel.config.port_rules %}
-                                <div class="text-main font-monospace small ps-2 border-start border-primary mb-1">
-                                    {{ rule }}
-                                </div>
+                                <div class="text-main font-monospace small ps-2 border-start border-warning mb-1">{{ rule }}</div>
                             {% endfor %}
                         {% elif tunnel.config.ports %}
-                             <div class="small fw-bold text-muted mb-2">Active Ports:</div>
-                             <div class="text-main font-monospace small ps-2 border-start border-info">
-                                 {{ tunnel.config.ports | join(', ') }}
-                             </div>
+                             <div class="small fw-bold text-muted mb-2">Rathole Ports:</div>
+                             <div class="text-main font-monospace small ps-2 border-start border-info">{{ tunnel.config.ports | join(', ') }}</div>
                         {% endif %}
                     </div>
                 </div>
 
                 <div class="px-4 py-2 border-top border-theme bg-surface d-flex justify-content-between align-items-center">
-                    <span class="text-success small fw-bold">
-                        <i class="fa-solid fa-circle me-1" style="font-size: 8px;"></i> Active
-                    </span>
-                    <small class="text-muted font-monospace" style="font-size: 0.75rem;">
-                        TOKEN: {{ tunnel.token[:6] }}...
-                    </small>
+                    <span class="text-success small fw-bold"><i class="fa-solid fa-circle me-1"></i> Active</span>
+                    <small class="text-muted font-monospace" style="font-size: 0.7rem;">ID: {{ tunnel.token[:6] }}...</small>
                 </div>
             </div>
         </div>
         {% endfor %}
     {% else %}
-        <div class="col-12">
-            <div class="glass-panel p-5 text-center">
-                <i class="fa-solid fa-ghost fa-3x text-muted mb-3"></i>
-                <h5 class="text-main">No Tunnels Found</h5>
-                <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-primary btn-sm mt-3">Create Tunnel</a>
-            </div>
-        </div>
+        <div class="col-12"><div class="glass-panel p-5 text-center"><h5 class="text-main">No Tunnels Found</h5></div></div>
     {% endif %}
 </div>
+
+<script>
+    function confirmDelete(url) {
+        if(confirm('Are you sure you want to delete this tunnel? This will stop the service.')) {
+            window.location.href = url;
+        }
+    }
+
+    function runRealTest(id, type, btn) {
+        const resultDiv = document.getElementById(`test-result-${id}`);
+        const originalText = btn.innerHTML;
+        
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        btn.disabled = true;
+        resultDiv.className = 'small text-center text-warning fw-bold';
+        resultDiv.innerText = 'Testing connection...';
+
+        fetch(`/perform-test/${id}/${type}`)
+            .then(res => res.json())
+            .then(data => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                
+                if(data.status === 'success') {
+                    resultDiv.className = 'small text-center text-success fw-bold';
+                    resultDiv.innerText = data.msg;
+                } else {
+                    resultDiv.className = 'small text-center text-danger fw-bold';
+                    resultDiv.innerText = data.msg;
+                }
+            })
+            .catch(err => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                resultDiv.innerText = 'Network Error';
+            });
+    }
+</script>
 {% endblock %}
