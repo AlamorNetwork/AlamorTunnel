@@ -1,32 +1,86 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="d-flex justify-content-between mb-4">
-    <h2>Active Tunnels</h2>
-    <a href="{{ url_for('dashboard.index') }}" class="btn btn-warning">New Tunnel</a>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-0" style="color: var(--text-primary)">Active Tunnels</h2>
+        <p class="text-secondary small">Manage your running infrastructure</p>
+    </div>
+    <a href="{{ url_for('dashboard.index') }}" class="btn btn-accent shadow-sm">
+        <i class="fas fa-plus me-2"></i>New Tunnel
+    </a>
 </div>
-<div class="card bg-dark border-secondary">
+
+<div class="card-modern overflow-hidden">
     <div class="table-responsive">
-        <table class="table table-dark table-hover mb-0">
-            <thead>
-                <tr><th>ID</th><th>Name</th><th>Type</th><th>Details</th><th>Actions</th></tr>
+        <table class="table mb-0 align-middle">
+            <thead class="bg-light">
+                <tr>
+                    <th class="ps-4">ID</th>
+                    <th>NAME</th>
+                    <th>PROTOCOL</th>
+                    <th>PORT (TUNNEL)</th>
+                    <th>CONFIG / TOKEN</th>
+                    <th class="text-end pe-4">ACTIONS</th>
+                </tr>
             </thead>
             <tbody>
                 {% for tunnel in tunnels %}
                 <tr>
-                    <td>#{{ tunnel.id }}</td>
-                    <td class="fw-bold">{{ tunnel.name }}</td>
-                    <td><span class="badge bg-secondary">{{ tunnel.transport }}</span></td>
-                    <td>Port: {{ tunnel.port }}</td>
+                    <td class="ps-4 text-muted fw-mono">#{{ tunnel.id }}</td>
                     <td>
-                        <a href="{{ url_for('tunnels.edit_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-info">Edit</a>
-                        <a href="{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-danger">Del</a>
+                        <span class="fw-bold" style="color: var(--text-primary)">{{ tunnel.name }}</span>
+                    </td>
+                    <td>
+                        {% if 'hysteria' in tunnel.transport %}
+                            <span class="badge rounded-pill bg-warning text-dark border border-warning">HYSTERIA 2</span>
+                        {% elif 'rathole' in tunnel.transport %}
+                            <span class="badge rounded-pill bg-success border border-success">RATHOLE</span>
+                        {% elif 'slipstream' in tunnel.transport %}
+                            <span class="badge rounded-pill bg-info text-dark border border-info">SLIPSTREAM</span>
+                        {% else %}
+                            <span class="badge rounded-pill bg-primary border border-primary">BACKHAUL</span>
+                        {% endif %}
+                    </td>
+                    <td class="fw-mono text-secondary">{{ tunnel.port }}</td>
+                    <td>
+                        <div class="input-group input-group-sm" style="max-width: 200px;">
+                            <input type="text" class="form-control bg-transparent" value="{{ tunnel.token }}" readonly id="token-{{tunnel.id}}">
+                            <button class="btn btn-outline-secondary" onclick="copyToken('token-{{tunnel.id}}')">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </td>
+                    <td class="text-end pe-4">
+                        <a href="{{ url_for('tunnels.edit_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-info me-1" title="View Config">
+                            <i class="fas fa-cog"></i>
+                        </a>
+                        <a href="{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure? This will stop the service.')" title="Delete">
+                            <i class="fas fa-trash-alt"></i>
+                        </a>
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="5" class="text-center p-4">No tunnels.</td></tr>
+                <tr>
+                    <td colspan="6" class="text-center py-5">
+                        <div class="text-secondary opacity-50">
+                            <i class="fas fa-box-open fa-3x mb-3"></i>
+                            <p>No active tunnels found.</p>
+                        </div>
+                    </td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
+
+<script>
+function copyToken(id) {
+    var copyText = document.getElementById(id);
+    copyText.select();
+    navigator.clipboard.writeText(copyText.value);
+    alert("Token copied to clipboard!");
+}
+</script>
 {% endblock %}

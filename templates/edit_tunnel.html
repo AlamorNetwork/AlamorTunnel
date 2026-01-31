@@ -1,13 +1,33 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card bg-dark border-secondary p-4 text-white">
-    <h4>Edit Tunnel: {{ tunnel[1] }}</h4>
-    <form method="POST">
-        <div class="mb-3">
-            <label>Tunnel Port</label>
-            <input type="number" name="tunnel_port" class="form-control bg-secondary text-white border-0" value="{{ config.tunnel_port }}">
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="d-flex align-items-center mb-4">
+            <a href="{{ url_for('tunnels.list_tunnels') }}" class="btn btn-outline-secondary me-3">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <div>
+                <h3 class="fw-bold mb-0" style="color: var(--text-primary)">Tunnel Details</h3>
+                <span class="text-secondary small">{{ tunnel[1] }}</span>
+            </div>
         </div>
-        <button type="submit" class="btn btn-warning">Save</button>
-    </form>
+
+        <div class="card-modern p-4">
+            <h5 class="fw-bold mb-3 border-bottom pb-2" style="border-color: var(--border-color) !important;">Configuration Dump</h5>
+            
+            <div class="mb-3">
+                <label class="form-label text-secondary small fw-bold">RAW CONFIGURATION (JSON)</label>
+                <textarea class="form-control font-monospace" rows="10" readonly style="font-size: 0.85rem;">{{ config | tojson(indent=2) }}</textarea>
+            </div>
+
+            <div class="alert alert-info d-flex align-items-center mt-4">
+                <i class="fas fa-info-circle me-3 fa-2x"></i>
+                <div>
+                    <strong>Note:</strong>
+                    To change core settings (ports, transport type), it is safer to delete this tunnel and create a new one to ensure remote and local servers remain in sync.
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}

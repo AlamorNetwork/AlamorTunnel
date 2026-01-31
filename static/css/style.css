@@ -1,192 +1,131 @@
+/* AlamorTunnel/static/css/style.css */
 :root {
-    /* پس‌زمینه اصلی: سرمه‌ای بسیار تیره (تقریبا مشکی) */
-    --bg-body: #020617;
-    
-    /* پنل‌ها: مات و تیره برای خوانایی حداکثری */
-    --bg-panel: #0f172a; 
-    --bg-panel-hover: #1e293b;
-    
-    /* ورودی‌ها: کمی روشن‌تر از پنل */
-    --bg-input: #1e293b; 
-    
-    /* بوردرها: واضح و مشخص */
-    --border-color: #334155;
-    
-    /* رنگ‌های اصلی */
-    --primary: #3b82f6;       /* آبی روشن */
-    --primary-hover: #2563eb;
-    
-    /* متن‌ها - اصلاح شده برای خوانایی */
-    --text-main: #ffffff;     /* سفید خالص */
-    --text-muted: #cbd5e1;    /* خاکستری بسیار روشن (Slate 300) */
-    
-    /* رنگ پروتکل‌ها (روشن‌تر شده برای دیده شدن روی مشکی) */
-    --color-backhaul: #fbbf24; /* Amber 400 */
-    --color-rathole: #38bdf8;  /* Sky 400 */
-    --color-hysteria: #f87171; /* Red 400 */
-    
-    --sidebar-width: 260px;
-    --card-radius: 12px;
+    /* --- تم پیش‌فرض (Dark) --- */
+    --bg-body: #0f172a;       /* Slate 900 */
+    --bg-card: #1e293b;       /* Slate 800 */
+    --bg-sidebar: #020617;    /* Slate 950 */
+    --text-primary: #f8fafc;  /* Slate 50 */
+    --text-secondary: #94a3b8;/* Slate 400 */
+    --border-color: #334155;  /* Slate 700 */
+    --accent: #3b82f6;        /* Blue 500 */
+    --accent-hover: #2563eb;
+    --success: #10b981;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --input-bg: #0f172a;
+    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] {
+    /* --- تم روشن (Light) --- */
+    --bg-body: #f1f5f9;       /* Slate 100 */
+    --bg-card: #ffffff;       /* White */
+    --bg-sidebar: #ffffff;    /* White */
+    --text-primary: #0f172a;  /* Slate 900 */
+    --text-secondary: #64748b;/* Slate 500 */
+    --border-color: #e2e8f0;  /* Slate 200 */
+    --accent: #2563eb;        /* Blue 600 (تیره‌تر برای کنتراست) */
+    --accent-hover: #1d4ed8;
+    --input-bg: #f8fafc;
+    --shadow: 0 4px 6px -1px rgba(148, 163, 184, 0.2);
 }
 
 body {
     background-color: var(--bg-body);
-    /* یک گرادینت بسیار محو در پس‌زمینه برای عمق دادن (مزاحم متن نیست) */
-    background-image: radial-gradient(circle at 50% 0%, #1e1b4b 0%, transparent 70%);
-    color: var(--text-main);
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--text-primary);
+    font-family: 'Inter', system-ui, sans-serif;
+    transition: background-color 0.3s ease, color 0.3s ease;
     min-height: 100vh;
-    line-height: 1.6;
 }
 
-/* --- Panel Styles --- */
-.glass-panel {
-    background-color: var(--bg-panel);
+/* --- کامپوننت‌های مدرن --- */
+.card-modern {
+    background-color: var(--bg-card);
     border: 1px solid var(--border-color);
-    border-radius: var(--card-radius);
-    /* حذف بلور زیاد که باعث ناخوانایی می‌شد */
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    transition: transform 0.2s ease, border-color 0.3s ease;
 }
 
-/* --- Sidebar --- */
-.sidebar {
-    width: var(--sidebar-width);
-    background-color: #0f172a; /* Slate 900 */
-    border-right: 1px solid var(--border-color);
-    position: fixed; top: 0; bottom: 0; left: 0; z-index: 1000;
+.card-modern:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
 }
 
-.nav-link {
-    color: var(--text-muted); /* رنگ پیش‌فرض روشن‌تر شده */
-    padding: 12px 16px;
-    border-radius: 8px;
-    margin-bottom: 4px;
-    font-weight: 500;
-    transition: all 0.2s;
-    display: flex; align-items: center;
-}
-
-.nav-link i { width: 24px; text-align: center; margin-right: 12px; opacity: 0.8; }
-
-.nav-link:hover {
-    background-color: rgba(59, 130, 246, 0.1);
-    color: #fff;
-}
-
-.nav-link.active {
-    background-color: var(--primary);
-    color: #fff !important;
-    box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
-}
-
-/* --- Typography Fixes --- */
-h1, h2, h3, h4, h5, h6 {
-    color: #fff !important;
-    font-weight: 700;
-    letter-spacing: -0.025em;
-}
-
-.text-muted {
-    color: #94a3b8 !important; /* Slate 400 - خواناتر */
-}
-
-.text-white-50 {
-    color: rgba(255, 255, 255, 0.7) !important;
-}
-
-/* --- Inputs & Forms (High Contrast) --- */
+/* --- ورودی‌ها --- */
 .form-control, .form-select {
-    background-color: var(--bg-input);
-    border: 1px solid var(--border-color);
-    color: #fff !important; /* متن اینپوت همیشه سفید */
-    padding: 10px 14px;
-    border-radius: 8px;
-    font-size: 0.95rem;
+    background-color: var(--input-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-primary) !important;
+    border-radius: 10px;
+    padding: 12px;
 }
 
-.form-control:focus, .form-select:focus {
-    background-color: #334155; /* کمی روشن‌تر هنگام فوکوس */
-    border-color: var(--primary);
-    color: #fff;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
-    outline: none;
+.form-control:focus {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
 }
 
-.form-control::placeholder {
-    color: #64748b; /* Slate 500 */
-}
-
-/* --- Buttons --- */
-.btn-primary-glow {
-    background-color: var(--primary);
-    border: 1px solid var(--primary);
+/* --- دکمه‌ها --- */
+.btn-accent {
+    background-color: var(--accent);
     color: white;
+    border-radius: 10px;
+    padding: 10px 20px;
     font-weight: 600;
+    border: none;
     transition: all 0.2s;
 }
-.btn-primary-glow:hover {
-    background-color: var(--primary-hover);
-    box-shadow: 0 0 12px rgba(59, 130, 246, 0.6);
-    color: white;
+
+.btn-accent:hover {
+    background-color: var(--accent-hover);
+    transform: scale(1.02);
 }
 
-.btn-outline-light {
-    border-color: var(--border-color);
-    color: var(--text-muted);
-}
-.btn-outline-light:hover {
-    background-color: var(--bg-input);
-    color: #fff;
-    border-color: var(--text-muted);
+/* --- Navbar & Sidebar --- */
+.navbar-custom {
+    background-color: var(--bg-card);
+    border-bottom: 1px solid var(--border-color);
+    padding: 1rem 0;
 }
 
-/* --- Protocol Accents (Vibrant) --- */
-.border-backhaul { border-color: var(--color-backhaul) !important; }
-.text-backhaul { color: var(--color-backhaul) !important; }
-
-.border-rathole { border-color: var(--color-rathole) !important; }
-.text-rathole { color: var(--color-rathole) !important; }
-
-.border-hysteria { border-color: var(--color-hysteria) !important; }
-.text-hysteria { color: var(--color-hysteria) !important; }
-
-/* --- Specific Elements --- */
-.accordion-button {
-    background-color: transparent !important;
-    color: white !important;
-    box-shadow: none !important;
-}
-.accordion-button::after {
-    filter: invert(1); /* آیکون سفید */
-}
-
-.dropdown-menu-dark {
-    background-color: var(--bg-panel);
-    border: 1px solid var(--border-color);
-}
-
-.modal-content {
-    background-color: #0f172a; /* سالید مشکی برای مودال */
-    border: 1px solid var(--border-color);
-}
-
-/* Code Blocks */
-.font-mono {
-    font-family: 'Fira Code', 'Consolas', monospace;
+.navbar-brand {
+    color: var(--text-primary) !important;
+    font-weight: 800;
+    font-size: 1.5rem;
     letter-spacing: -0.5px;
 }
 
-/* Mobile */
-@media (max-width: 768px) {
-    .sidebar { transform: translateX(-100%); }
-    .sidebar.show { transform: translateX(0); }
-    .main-content { margin-left: 0 !important; }
+/* --- Theme Toggler --- */
+.theme-switch {
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.theme-switch:hover {
+    border-color: var(--accent);
+    color: var(--accent);
 }
 
-
-#loadingOverlay {
-    transition: opacity 0.3s ease;
+/* --- جدول‌ها --- */
+.table {
+    color: var(--text-primary) !important;
+    border-color: var(--border-color) !important;
 }
-.progress-bar {
-    transition: width 0.5s ease;
+.table thead th {
+    background-color: var(--input-bg);
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    border-bottom: 2px solid var(--border-color);
+}
+.table td {
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
 }
