@@ -5,6 +5,7 @@ INSTALL_DIR = "/root/slipstream"
 REPO_URL = "https://github.com/Mygod/slipstream-rust.git"
 
 def install_remote_deps(ssh_ip):
+    # نصب پیش‌نیازها و Rust روی سرور خارج
     script = f"""
     apt-get update
     apt-get install -y cmake pkg-config libssl-dev git build-essential
@@ -15,7 +16,8 @@ def install_remote_deps(ssh_ip):
     if [ ! -d {INSTALL_DIR} ]; then
         git clone --recursive {REPO_URL} {INSTALL_DIR}
         cd {INSTALL_DIR}
-        cargo build --release -p slipstream-server -p slipstream-client
+        # بیلد کردن سرور
+        cargo build --release -p slipstream-server
     fi
     """
     return run_remote_command(ssh_ip, script)
@@ -51,7 +53,7 @@ EOL
     return run_remote_command(ssh_ip, script)
 
 def install_slipstream_client_local(remote_ip, config):
-    # Local deps
+    # نصب لوکال
     os.system("apt-get install -y cmake pkg-config libssl-dev git build-essential")
     if os.system("command -v cargo") != 0:
         os.system("curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y")
@@ -61,6 +63,7 @@ def install_slipstream_client_local(remote_ip, config):
     
     if not os.path.exists(INSTALL_DIR):
         os.system(f"git clone --recursive {REPO_URL} {INSTALL_DIR}")
+        # بیلد کلاینت
         os.system(f"export PATH=$PATH:{env_path} && cd {INSTALL_DIR} && cargo build --release -p slipstream-client")
 
     svc = f"""

@@ -11,16 +11,19 @@ def generate_pass():
 def install_hysteria_server_remote(ssh_ip, config):
     remote_script = f"""
     mkdir -p {INSTALL_DIR}
+    # دانلود هسته اگر نباشد
     if [ ! -f {INSTALL_DIR}/hysteria ]; then
         curl -L -o {INSTALL_DIR}/hysteria {BIN_URL}
         chmod +x {INSTALL_DIR}/hysteria
     fi
-    # Certs
+    
+    # تولید سرتیفیکیت فیک برای سرور
     if [ ! -f {INSTALL_DIR}/server.crt ]; then
         openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 \
             -subj "/CN=bing.com" -keyout {INSTALL_DIR}/server.key -out {INSTALL_DIR}/server.crt
     fi
-    # Config
+
+    # کانفیگ سرور
     cat > {INSTALL_DIR}/config.yaml <<EOL
 listen: :{config['tunnel_port']}
 tls:
@@ -34,7 +37,8 @@ obfs:
   salamander:
     password: "{config['obfs_pass']}"
 EOL
-    # Service
+
+    # سرویس
     cat > /etc/systemd/system/hysteria-server.service <<EOL
 [Unit]
 Description=Hysteria Server
@@ -46,8 +50,10 @@ LimitNOFILE=1048576
 [Install]
 WantedBy=multi-user.target
 EOL
-    # Firewall
+
+    # فایروال
     ufw allow {config['tunnel_port']}/udp
+    ufw allow {config['tunnel_port']}/tcp
     systemctl daemon-reload && systemctl enable hysteria-server && systemctl restart hysteria-server
     """
     return run_remote_command(ssh_ip, remote_script)
