@@ -1,101 +1,102 @@
 :root {
-    --bg-dark: #050505;
-    --card-glass: rgba(20, 20, 20, 0.7);
-    --slytherin-green: #10b981; /* سبز نئونی/مدرن */
-    --slytherin-dark: #064e3b;
-    --text-primary: #ecfdf5;
+    /* تم پیش‌فرض: Slytherin (Dark) */
+    --bg-color: #050505;
+    --glass-bg: rgba(20, 30, 20, 0.65);
+    --glass-border: rgba(16, 185, 129, 0.2);
+    --primary-color: #10b981; /* سبز زمردی */
+    --text-main: #e5e7eb;
     --text-muted: #9ca3af;
-    --border-color: rgba(16, 185, 129, 0.2);
+    --card-hover: rgba(16, 185, 129, 0.1);
+    --input-bg: rgba(0, 0, 0, 0.5);
+    --sidebar-bg: rgba(5, 20, 10, 0.85);
+    --btn-grad-1: #064e3b;
+    --btn-grad-2: #10b981;
+}
+
+[data-theme="light"] {
+    /* تم Hufflepuff (Light) */
+    --bg-color: #f3f4f6; /* خاکستری روشن */
+    --glass-bg: rgba(255, 255, 255, 0.6);
+    --glass-border: rgba(234, 179, 8, 0.4); /* زرد طلایی */
+    --primary-color: #d97706; /* نارنجی/قهوه‌ای */
+    --text-main: #372e29; /* قهوه‌ای سوخته */
+    --text-muted: #57534e;
+    --card-hover: rgba(251, 191, 36, 0.2);
+    --input-bg: rgba(255, 255, 255, 0.8);
+    --sidebar-bg: rgba(254, 243, 199, 0.9);
+    --btn-grad-1: #b45309;
+    --btn-grad-2: #fbbf24;
 }
 
 body {
-    background-color: var(--bg-dark);
+    background-color: var(--bg-color);
     background-image: 
-        radial-gradient(at 0% 0%, hsla(153,47%,20%,1) 0, transparent 50%), 
-        radial-gradient(at 100% 100%, hsla(0,0%,10%,1) 0, transparent 50%);
-    color: var(--text-primary);
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    min-height: 100vh;
+        radial-gradient(at 0% 0%, var(--glass-border) 0, transparent 50%), 
+        radial-gradient(at 100% 100%, var(--primary-color) 0, transparent 50%);
+    background-attachment: fixed;
+    color: var(--text-main);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    transition: background-color 0.5s ease, color 0.5s ease;
 }
 
-/* Glassmorphism Classes */
+/* Glassmorphism Cards */
 .glass-panel {
-    background: var(--card-glass);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid var(--border-color);
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
-}
-
-.card {
-    background: rgba(30, 30, 30, 0.4);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
     border-radius: 16px;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    transition: transform 0.3s ease, border-color 0.3s ease;
 }
 
-.card:hover {
+.glass-panel:hover {
     transform: translateY(-5px);
-    box-shadow: 0 10px 20px rgba(16, 185, 129, 0.1);
-    border-color: var(--slytherin-green);
+    border-color: var(--primary-color);
+    background: var(--card-hover);
 }
 
 /* Sidebar */
 .sidebar {
-    background: rgba(10, 10, 10, 0.8);
+    background: var(--sidebar-bg);
     backdrop-filter: blur(20px);
-    border-right: 1px solid var(--border-color);
+    border-right: 1px solid var(--glass-border);
 }
 
-.nav-link {
-    color: var(--text-muted);
-    transition: all 0.2s;
-    border-radius: 8px;
-    margin-bottom: 5px;
+/* Inputs & Forms */
+.form-control, .form-select {
+    background: var(--input-bg);
+    border: 1px solid var(--glass-border);
+    color: var(--text-main);
 }
 
-.nav-link:hover, .nav-link.active {
-    background: rgba(16, 185, 129, 0.1);
-    color: var(--slytherin-green);
-    border-left: 3px solid var(--slytherin-green);
+.form-control:focus, .form-select:focus {
+    background: var(--input-bg);
+    border-color: var(--primary-color);
+    color: var(--text-main);
+    box-shadow: 0 0 0 0.25rem rgba(var(--primary-color), 0.25);
 }
 
 /* Buttons */
 .btn-alamor {
-    background: linear-gradient(135deg, var(--slytherin-dark) 0%, var(--slytherin-green) 100%);
+    background: linear-gradient(135deg, var(--btn-grad-1) 0%, var(--btn-grad-2) 100%);
     border: none;
     color: white;
     font-weight: 600;
-    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
 }
 
 .btn-alamor:hover {
-    filter: brightness(1.2);
+    filter: brightness(1.1);
     color: white;
     transform: scale(1.02);
 }
 
-/* Inputs */
-.form-control {
-    background: rgba(0, 0, 0, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: white;
+/* Theme Toggle Button */
+.theme-switch {
+    cursor: pointer;
+    font-size: 1.5rem;
+    transition: transform 0.3s;
 }
-
-.form-control:focus {
-    background: rgba(0, 0, 0, 0.8);
-    border-color: var(--slytherin-green);
-    color: white;
-    box-shadow: 0 0 0 0.25rem rgba(16, 185, 129, 0.25);
+.theme-switch:hover {
+    transform: rotate(180deg);
 }
-
-/* Status Indicators */
-.status-dot {
-    height: 10px;
-    width: 10px;
-    border-radius: 50%;
-    display: inline-block;
-}
-.status-active { background-color: #10b981; box-shadow: 0 0 10px #10b981; }
-.status-inactive { background-color: #ef4444; box-shadow: 0 0 10px #ef4444; }

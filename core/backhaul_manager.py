@@ -2,19 +2,18 @@ import os
 import secrets
 from core.ssh_manager import run_remote_command
 
-# تنظیمات ثابت
 INSTALL_DIR = "/root/backhaul"
 BIN_URL = "https://github.com/Musixal/Backhaul/releases/latest/download/backhaul_linux_amd64.tar.gz"
 
 def generate_token():
-    """تولید توکن امن"""
     return secrets.token_hex(16)
 
-def install_local_backhaul(local_port, remote_port, tunnel_port, token, transport="tcp"):
+def install_local_backhaul(tunnel_port, token, transport, port_rules, mux_version):
     """
-    نصب روی سرور ایران (Mode: Server)
+    نصب سمت ایران (Server Mode)
+    port_rules: لیستی از رشته‌ها مثل ["443", "8080=80"]
     """
-    print(f"[+] Configuring Local Backhaul (Iran) with Transport: {transport}...")
+    print(f"[+] Iran Config | Transport: {transport} | Mux: v{mux_version}")
     
     # دانلود و نصب
     cmds = [
@@ -26,17 +25,15 @@ def install_local_backhaul(local_port, remote_port, tunnel_port, token, transpor
     for cmd in cmds:
         os.system(cmd)
 
-    # تنظیمات خاص پروتکل‌های امن
+    # تبدیل لیست پورت‌ها به فرمت آرایه TOML
+    # مثال خروجی: "443", "80=8080"
+    formatted_ports = ",\n    ".join([f'"{p.strip()}"' for p in port_rules if p.strip()])
+
+    # تنظیمات TLS (فعلا خالی)
     tls_config = ""
     if transport in ["wss", "wssmux"]:
-        # فرض بر این است که سرتیفیکیت‌ها در مسیر استاندارد هستند یا باید تولید شوند
-        # فعلا مسیر پیش‌فرض می‌گذاریم
-        tls_config = """
-tls_cert = "/root/server.crt"
-tls_key = "/root/server.key"
-"""
+        tls_config = 'tls_cert = "/root/server.crt"\ntls_key = "/root/server.key"'
 
-    # ساخت کانفیگ ایران (Server)
     config_content = f"""
 [server]
 bind_addr = "0.0.0.0:{tunnel_port}"
@@ -48,6 +45,7 @@ nodelay = false
 channel_size = 2048
 heartbeat = 40
 mux_con = 8
+mux_version = {mux_version}
 sniffer = false
 web_port = 2060
 sniffer_log = "/root/backhaul.json"
@@ -58,13 +56,12 @@ so_sndbuf = 1048576
 {tls_config}
 
 ports = [
-    "{local_port}=127.0.0.1:{remote_port}"
+    {formatted_ports}
 ]
 """
     with open(f"{INSTALL_DIR}/config.toml", "w") as f:
         f.write(config_content)
 
-    # ساخت سرویس
     service_content = f"""
 [Unit]
 Description=Backhaul Server (Alamor)
@@ -86,11 +83,11 @@ WantedBy=multi-user.target
     os.system("systemctl daemon-reload && systemctl enable backhaul && systemctl restart backhaul")
     return True
 
-def install_remote_backhaul(ssh_target_ip, iran_connect_ip, tunnel_port, token, transport="tcp"):
+def install_remote_backhaul(ssh_target_ip, iran_connect_ip, tunnel_port, token, transport, mux_version):
     """
-    نصب روی سرور خارج (Mode: Client)
+    نصب سمت خارج (Client Mode)
     """
-    print(f"[+] Configuring Remote Backhaul on {ssh_target_ip} with Transport: {transport}...")
+    print(f"[+] Foreign Config | Connect to: {iran_connect_ip}:{tunnel_port}")
     
     remote_script = f"""
     mkdir -p {INSTALL_DIR}
@@ -98,7 +95,6 @@ def install_remote_backhaul(ssh_target_ip, iran_connect_ip, tunnel_port, token, 
     tar -xzf {INSTALL_DIR}/backhaul.tar.gz -C {INSTALL_DIR}
     chmod +x {INSTALL_DIR}/backhaul
     
-    # ساخت کانفیگ خارج (Client)
     cat > {INSTALL_DIR}/config.toml <<EOL
 [client]
 remote_addr = "{iran_connect_ip}:{tunnel_port}"
@@ -110,6 +106,7 @@ keepalive_period = 75
 nodelay = false
 retry_interval = 3
 dial_timeout = 10
+mux_version = {mux_version}
 sniffer = false
 web_port = 2060
 log_level = "info"

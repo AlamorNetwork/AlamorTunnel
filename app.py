@@ -78,31 +78,39 @@ def install_backhaul():
         flash('Error: No connected foreign server found.', 'danger')
         return redirect(url_for('dashboard'))
     
-    # دریافت اطلاعات از فرم
+    # 1. دریافت اطلاعات فرم
     transport = request.form.get('transport', 'tcp')
+    tunnel_port = request.form.get('tunnel_port', '3080') # پورت ارتباطی
+    mux_version = request.form.get('mux_version', '1')    # ورژن مالتی‌پلکس
     
+    # دریافت قوانین پورت‌ها (Textarea)
+    raw_rules = request.form.get('port_rules', '')
+    # تبدیل متن چند خطی به لیست و حذف خطوط خالی
+    port_rules = [line.strip() for line in raw_rules.split('\n') if line.strip()]
+    
+    if not port_rules:
+        flash('Error: You must define at least one port forwarding rule!', 'warning')
+        return redirect(url_for('dashboard'))
+
     foreign_ip = server[0]
     iran_ip = get_server_public_ip()
-    
-    # پورت‌ها (فعلا هاردکد، بعدا می‌توان از فرم گرفت)
-    local_port = 8080
-    remote_port = 8080
-    tunnel_port = 3080
     token = generate_token()
     
-    print(f"[*] Starting Install. Transport: {transport} | Iran: {iran_ip} | Foreign: {foreign_ip}")
+    print(f"[*] Deploying Backhaul | Tunnel Port: {tunnel_port} | Mux: {mux_version}")
 
-    # 1. نصب روی سرور خارج
-    success_remote, msg_remote = install_remote_backhaul(foreign_ip, iran_ip, tunnel_port, token, transport)
+    # 2. نصب روی سرور خارج
+    success_remote, msg_remote = install_remote_backhaul(
+        foreign_ip, iran_ip, tunnel_port, token, transport, mux_version
+    )
     
     if not success_remote:
         flash(f'Remote Install Failed: {msg_remote}', 'danger')
         return redirect(url_for('dashboard'))
         
-    # 2. نصب روی سرور ایران
+    # 3. نصب روی سرور ایران
     try:
-        install_local_backhaul(local_port, remote_port, tunnel_port, token, transport)
-        flash(f'Tunnel Established ({transport.upper()})! Local Port: {local_port}', 'success')
+        install_local_backhaul(tunnel_port, token, transport, port_rules, mux_version)
+        flash(f'Tunnel Active! Forwarding {len(port_rules)} rules via port {tunnel_port}', 'success')
     except Exception as e:
         flash(f'Local Install Failed: {str(e)}', 'danger')
         
