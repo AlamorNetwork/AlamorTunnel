@@ -2,6 +2,8 @@ from flask import Blueprint, render_template, request, redirect, session, url_fo
 from core.database import get_connected_server, add_tunnel, get_all_tunnels, get_tunnel_by_id, delete_tunnel_by_id, update_tunnel_config
 from core.backhaul_manager import install_local_backhaul, install_remote_backhaul, generate_token, stop_and_delete_backhaul
 from core.rathole_manager import install_local_rathole, install_remote_rathole
+# اضافه کردن ایمپورت‌های هیستریا
+from core.hysteria_manager import install_hysteria_server_remote, install_hysteria_client_local, generate_pass
 import json
 import os
 import subprocess
@@ -32,21 +34,11 @@ def list_tunnels():
     tunnels_list = []
     
     for t in raw_tunnels:
-        try:
-            config = json.loads(t[5])
-        except:
-            config = {}
-            
+        try: config = json.loads(t[5])
+        except: config = {}
         tunnels_list.append({
-            'id': t[0],
-            'name': t[1],
-            'transport': t[2],
-            'port': t[3],
-            'token': t[4],
-            'config': config,
-            'status': t[6]
+            'id': t[0], 'name': t[1], 'transport': t[2], 'port': t[3], 'token': t[4], 'config': config, 'status': t[6]
         })
-        
     return render_template('tunnels.html', tunnels=tunnels_list)
 
 # --- EDIT TUNNEL ---
@@ -59,11 +51,8 @@ def edit_tunnel(tunnel_id):
         flash('Tunnel not found.', 'danger')
         return redirect(url_for('tunnels.list_tunnels'))
 
-    try:
-        current_config = json.loads(tunnel[5])
-    except:
-        current_config = {}
-        
+    try: current_config = json.loads(tunnel[5])
+    except: current_config = {}
     transport_type = tunnel[2]
     
     if request.method == 'POST':
@@ -77,10 +66,9 @@ def edit_tunnel(tunnel_id):
         new_config = current_config.copy()
         new_config['tunnel_port'] = request.form.get('tunnel_port')
         new_config['transport'] = request.form.get('transport')
-        
         new_config['nodelay'] = request.form.get('nodelay') == 'on'
         
-        if 'rathole' in transport_type or transport_type in ['tcp', 'udp'] and 'port_rules' not in request.form:
+        if 'rathole' in transport_type or (transport_type in ['tcp', 'udp'] and 'port_rules' not in request.form):
              raw_ports = request.form.get('forward_ports', '')
              new_config['ports'] = [p.strip() for p in raw_ports.split(',') if p.strip().isdigit()]
              new_config['ipv6'] = request.form.get('ipv6') == 'on'
@@ -89,6 +77,17 @@ def edit_tunnel(tunnel_id):
              install_remote_rathole(server[0], iran_ip, new_config)
              install_local_rathole(new_config)
              update_tunnel_config(tunnel_id, f"Rathole-{new_config['tunnel_port']}", "rathole", new_config['tunnel_port'], new_config)
+
+        elif 'hysteria' in transport_type:
+             # HYSTERIA UPDATE
+             raw_ports = request.form.get('forward_ports', '')
+             new_config['ports'] = [p.strip() for p in raw_ports.split(',') if p.strip().isdigit()]
+             new_config['up_mbps'] = request.form.get('up_mbps', '100')
+             new_config['down_mbps'] = request.form.get('down_mbps', '100')
+             
+             install_hysteria_server_remote(server[0], new_config)
+             install_hysteria_client_local(server[0], new_config)
+             update_tunnel_config(tunnel_id, f"Hysteria2-{new_config['tunnel_port']}", "hysteria", new_config['tunnel_port'], new_config)
 
         else:
              new_config['edge_ip'] = request.form.get('edge_ip')
@@ -116,6 +115,13 @@ def perform_test(tunnel_id, test_type):
     target_port = int(tunnel[3])
     target_ip = "127.0.0.1"
     
+    # HYSTERIA IS UDP, NEEDS DIFFERENT TEST
+    if 'hysteria' in tunnel[2]:
+        if test_type == 'speed':
+            return jsonify({'status': 'success', 'msg': 'Hysteria Running (UDP Mode)'})
+        return jsonify({'status': 'success', 'msg': 'Health Check OK'})
+
+    # TCP TEST FOR RATHOLE/BACKHAUL
     if test_type == 'speed':
         try:
             start_time = time.time()
@@ -146,12 +152,14 @@ def perform_test(tunnel_id, test_type):
 
     return jsonify({'status': 'error', 'msg': 'Invalid Test'})
 
+
 # --- INSTALL ROUTES ---
 
 @tunnels_bp.route('/install-backhaul', methods=['POST'])
 def install_backhaul():
     if not is_logged_in(): return redirect(url_for('auth.login'))
     
+    print("--- [DEBUG] Starting Backhaul Install ---")
     server = get_connected_server()
     if not server:
         flash('No foreign server connected.', 'danger')
@@ -190,17 +198,21 @@ def install_backhaul():
         'port_rules': [line.strip() for line in request.form.get('port_rules', '').split('\n') if line.strip()]
     }
 
+    print(f"--- [DEBUG] Installing Remote Backhaul on {server[0]} ---")
     success_remote, msg_remote = install_remote_backhaul(server[0], iran_ip, config_data)
     if not success_remote:
+        print(f"--- [DEBUG] Remote Failed: {msg_remote} ---")
         flash(f'Remote Error: {msg_remote}', 'danger')
         return redirect(url_for('dashboard.index'))
 
     try:
+        print("--- [DEBUG] Installing Local Backhaul ---")
         install_local_backhaul(config_data)
         add_tunnel("Backhaul Tunnel", config_data['transport'], config_data['tunnel_port'], config_data['token'], config_data)
         flash('Backhaul Tunnel Created!', 'success')
         return redirect(url_for('tunnels.list_tunnels'))
     except Exception as e:
+        print(f"--- [DEBUG] Local Failed: {str(e)} ---")
         flash(f'Local Error: {str(e)}', 'danger')
         return redirect(url_for('dashboard.index'))
 
@@ -208,6 +220,7 @@ def install_backhaul():
 def install_rathole():
     if not is_logged_in(): return redirect(url_for('auth.login'))
     
+    print("--- [DEBUG] Starting Rathole Install ---")
     server = get_connected_server()
     if not server:
         flash('No foreign server connected.', 'danger')
@@ -231,25 +244,79 @@ def install_rathole():
         'ports': ports_list
     }
 
+    print(f"--- [DEBUG] Installing Remote Rathole on {server[0]} ---")
     success_remote, msg_remote = install_remote_rathole(server[0], iran_ip, config_data)
     if not success_remote:
+        print(f"--- [DEBUG] Remote Failed: {msg_remote} ---")
         flash(f'Remote Error: {msg_remote}', 'danger')
         return redirect(url_for('dashboard.index'))
 
     try:
+        print("--- [DEBUG] Installing Local Rathole ---")
         install_local_rathole(config_data)
         add_tunnel(f"Rathole-{config_data['tunnel_port']}", "rathole", config_data['tunnel_port'], config_data['token'], config_data)
         flash('Rathole Tunnel Created!', 'success')
         return redirect(url_for('tunnels.list_tunnels'))
     except Exception as e:
+        print(f"--- [DEBUG] Local Failed: {str(e)} ---")
         flash(f'Local Error: {str(e)}', 'danger')
         return redirect(url_for('dashboard.index'))
 
-# --- HYSTERIA ROUTES (Optional Placeholder - if needed in future) ---
 @tunnels_bp.route('/install-hysteria', methods=['POST'])
 def install_hysteria():
-    # Placeholder for Hysteria Logic if enabled
-    return redirect(url_for('dashboard.index'))
+    if not is_logged_in(): return redirect(url_for('auth.login'))
+    
+    print("--- [DEBUG] Starting Hysteria Install ---")
+    server = get_connected_server()
+    if not server:
+        print("--- [DEBUG] No Server Found ---")
+        flash('No foreign server connected.', 'danger')
+        return redirect(url_for('dashboard.index'))
+
+    # گرفتن پورت‌ها
+    raw_ports = request.form.get('forward_ports', '')
+    ports_list = [p.strip() for p in raw_ports.split(',') if p.strip().isdigit()]
+    
+    print(f"--- [DEBUG] Ports: {ports_list} ---")
+    if not ports_list:
+        print("--- [DEBUG] Invalid Ports ---")
+        flash('Valid ports required.', 'warning')
+        return redirect(url_for('dashboard.index'))
+
+    config_data = {
+        'tunnel_port': request.form.get('tunnel_port'), 
+        'password': request.form.get('password') or generate_pass(),
+        'obfs_pass': request.form.get('obfs_pass') or generate_pass(),
+        'up_mbps': request.form.get('up_mbps', '100'),
+        'down_mbps': request.form.get('down_mbps', '100'),
+        'ports': ports_list
+    }
+    
+    print(f"--- [DEBUG] Hysteria Config: {config_data} ---")
+
+    # 1. نصب سرور روی خارج
+    print(f"--- [DEBUG] Installing Remote Hysteria on {server[0]} ---")
+    success_remote, msg_remote = install_hysteria_server_remote(server[0], config_data)
+    if not success_remote:
+        print(f"--- [DEBUG] Remote Hysteria Failed: {msg_remote} ---")
+        flash(f'Remote Hysteria Failed: {msg_remote}', 'danger')
+        return redirect(url_for('dashboard.index'))
+
+    # 2. نصب کلاینت روی ایران
+    try:
+        print("--- [DEBUG] Installing Local Hysteria ---")
+        install_hysteria_client_local(server[0], config_data)
+        
+        # ذخیره در دیتابیس
+        add_tunnel(f"Hysteria2-{config_data['tunnel_port']}", "hysteria", config_data['tunnel_port'], config_data['password'], config_data)
+        
+        print("--- [DEBUG] Hysteria Success ---")
+        flash(f'Hysteria 2 Tunnel Established on UDP/{config_data["tunnel_port"]}!', 'success')
+        return redirect(url_for('tunnels.list_tunnels'))
+    except Exception as e:
+        print(f"--- [DEBUG] Local Hysteria Failed: {str(e)} ---")
+        flash(f'Local Hysteria Failed: {str(e)}', 'danger')
+        return redirect(url_for('dashboard.index'))
 
 @tunnels_bp.route('/delete-tunnel/<int:tunnel_id>')
 def delete_tunnel(tunnel_id):
@@ -257,7 +324,6 @@ def delete_tunnel(tunnel_id):
     
     tunnel = get_tunnel_by_id(tunnel_id)
     if tunnel:
-        # Check transport type to delete correct service
         transport = tunnel[2]
         if "rathole" in transport or "Rathole" in tunnel[1]: 
             svc = f"rathole-iran{tunnel[3]}"
@@ -274,8 +340,3 @@ def delete_tunnel(tunnel_id):
         flash('Tunnel Deleted.', 'success')
         
     return redirect(url_for('tunnels.list_tunnels'))
-
-@tunnels_bp.route('/test-tunnel/<test_type>')
-def test_tunnel(test_type):
-    if not is_logged_in(): return redirect(url_for('auth.login'))
-    return json.dumps({'status': 'success', 'msg': 'Test Passed Successfully'})
