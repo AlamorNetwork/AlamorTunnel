@@ -1,78 +1,72 @@
 <!DOCTYPE html>
-<html lang="en" data-bs-theme="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AlamorTunnel | Infrastructure Manager</title>
+    <title>Alamor Panel</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
 
-<div class="container-fluid">
-    <div class="row flex-nowrap">
-        <div class="col-auto col-md-3 col-xl-2 px-sm-2 px-0 sidebar">
-            <div class="d-flex flex-column align-items-center align-items-sm-start px-3 pt-2 text-white min-vh-100">
-                <a href="/" class="d-flex align-items-center pb-3 mb-md-0 me-md-auto text-white text-decoration-none">
-                    <span class="fs-4 d-none d-sm-inline fw-bold" style="color: var(--slytherin-green); text-shadow: 0 0 10px #000;">
-                        <i class="fa-solid fa-snake"></i> AlamorTunnel
-                    </span>
-                </a>
-                <ul class="nav nav-pills flex-column mb-sm-auto mb-0 align-items-center align-items-sm-start w-100" id="menu">
-                    <li class="nav-item w-100">
-                        <a href="{{ url_for('dashboard') }}" class="nav-link align-middle px-0 text-white">
-                            <i class="fs-4 bi-speedometer2 fa-solid fa-gauge"></i> <span class="ms-1 d-none d-sm-inline">Dashboard</span>
-                        </a>
-                    </li>
-                    <li class="w-100">
-                        <a href="#" class="nav-link px-0 align-middle text-white">
-                            <i class="fs-4 bi-table fa-solid fa-network-wired"></i> <span class="ms-1 d-none d-sm-inline">Tunnels</span>
-                        </a>
-                    </li>
-                    <li class="w-100">
-                        <a href="#" class="nav-link px-0 align-middle text-white">
-                            <i class="fs-4 bi-bootstrap fa-solid fa-wand-magic-sparkles"></i> <span class="ms-1 d-none d-sm-inline">Tools (IP/DNS)</span>
-                        </a>
-                    </li>
-                    <li class="w-100">
-                        <a href="{{ url_for('settings') }}" class="nav-link px-0 align-middle text-white">
-                            <i class="fs-4 bi-grid fa-solid fa-gears"></i> <span class="ms-1 d-none d-sm-inline">Settings</span>
-                        </a>
-                    </li>
-                </ul>
-                <hr class="w-100 border-secondary">
-                <div class="dropdown pb-4">
-                    <a href="#" class="d-flex align-items-center text-white text-decoration-none dropdown-toggle" id="dropdownUser1" data-bs-toggle="dropdown" aria-expanded="false">
-                        <img src="https://ui-avatars.com/api/?name=Admin&background=1a472a&color=fff" alt="hugenerd" width="30" height="30" class="rounded-circle">
-                        <span class="d-none d-sm-inline mx-1">{{ user }}</span>
-                    </a>
-                    <ul class="dropdown-menu dropdown-menu-dark text-small shadow">
-                        <li><a class="dropdown-item" href="{{ url_for('settings') }}">Change Password</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}">Sign out</a></li>
-                    </ul>
+    <button class="btn btn-dark d-md-none position-fixed top-0 start-0 m-3 z-3" onclick="document.querySelector('.sidebar').classList.toggle('show')">
+        <i class="fa-solid fa-bars"></i>
+    </button>
+
+    <div class="d-flex">
+        <nav class="sidebar p-4 d-flex flex-column">
+            <div class="d-flex align-items-center mb-5 px-2">
+                <div class="rounded bg-primary p-2 me-3">
+                    <i class="fa-solid fa-network-wired text-white"></i>
+                </div>
+                <div>
+                    <h5 class="m-0 fw-bold tracking-tight text-white">Alamor</h5>
+                    <small class="text-muted">Tunnel Manager</small>
                 </div>
             </div>
-        </div>
+            
+            <ul class="nav flex-column gap-2 flex-grow-1">
+                <li class="nav-item">
+                    <a href="{{ url_for('dashboard.index') }}" class="nav-link {{ 'active' if request.endpoint == 'dashboard.index' else '' }}">
+                        <i class="fa-solid fa-grid-2"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('tunnels.list_tunnels') }}" class="nav-link {{ 'active' if 'tunnels' in request.endpoint else '' }}">
+                        <i class="fa-solid fa-layer-group"></i> Active Tunnels
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('settings.index') }}" class="nav-link {{ 'active' if 'settings' in request.endpoint else '' }}">
+                        <i class="fa-solid fa-sliders"></i> Settings
+                    </a>
+                </li>
+            </ul>
 
-        <div class="col py-3 content-area">
+            <div class="mt-auto border-top border-secondary pt-3">
+                <a href="{{ url_for('auth.logout') }}" class="nav-link text-danger">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i> Logout
+                </a>
+            </div>
+        </nav>
+
+        <main class="main-content flex-grow-1 w-100">
             {% with messages = get_flashed_messages(with_categories=true) %}
-              {% if messages %}
-                {% for category, message in messages %}
-                  <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                  </div>
-                {% endfor %}
-              {% endif %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show glass-panel text-white border-0 mb-4" role="alert">
+                            <i class="fa-solid fa-circle-info me-2"></i> {{ message }}
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
             {% endwith %}
             
             {% block content %}{% endblock %}
-        </div>
+        </main>
     </div>
-</div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

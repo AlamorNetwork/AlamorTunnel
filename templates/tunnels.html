@@ -1,51 +1,98 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center pt-3 pb-2 mb-4">
-    <h2 class="h3 fw-bold" style="color: var(--primary-color);">Active Tunnels</h2>
-    <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-alamor"><i class="fa-solid fa-plus me-1"></i> New Tunnel</a>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold text-white mb-0">Active Tunnels</h2>
+        <p class="text-muted small mb-0">Monitor and manage running services</p>
+    </div>
+    <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary-custom">
+        <i class="fa-solid fa-plus me-2"></i>New Tunnel
+    </a>
 </div>
 
 <div class="row g-4">
     {% if tunnels %}
         {% for tunnel in tunnels %}
         <div class="col-12 col-xl-6">
-            <div class="glass-panel p-0 overflow-hidden h-100 d-flex flex-column">
-                <div class="p-3 border-bottom d-flex justify-content-between align-items-center" style="background: rgba(0,0,0,0.2);">
+            <div class="glass-panel h-100 d-flex flex-column overflow-hidden">
+                <div class="p-3 border-bottom border-secondary bg-dark bg-opacity-25 d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center gap-3">
-                        <div class="rounded-circle p-2 bg-dark border border-secondary">
+                        <div class="rounded-circle p-2 border border-secondary bg-dark">
                             {% if 'Rathole' in tunnel.name %}
-                                <i class="fa-solid fa-dharmachakra text-info fs-4"></i>
+                                <i class="fa-solid fa-shield-halved text-info"></i>
                             {% else %}
-                                <i class="fa-solid fa-bolt text-warning fs-4"></i>
+                                <i class="fa-solid fa-bolt text-warning"></i>
                             {% endif %}
                         </div>
                         <div>
-                            <h5 class="mb-0 text-main">{{ tunnel.name }}</h5>
-                            <span class="badge bg-secondary font-monospace">Port: {{ tunnel.port }}</span>
-                            <span class="badge bg-primary">{{ tunnel.transport.upper() }}</span>
+                            <h6 class="mb-0 text-white fw-bold">{{ tunnel.name }}</h6>
+                            <span class="badge bg-secondary bg-opacity-50 border border-secondary text-light font-monospace" style="font-size: 0.7rem;">
+                                {{ tunnel.transport|upper }} : {{ tunnel.port }}
+                            </span>
                         </div>
                     </div>
-                    <a href="{{ url_for('delete_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash"></i></a>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-light border-0" data-bs-toggle="dropdown">
+                            <i class="fa-solid fa-ellipsis-vertical"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-dark glass-panel border-secondary">
+                            <li>
+                                <a class="dropdown-item text-danger" href="{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel.id) }}" onclick="return confirm('Delete this tunnel?')">
+                                    <i class="fa-solid fa-trash me-2"></i>Delete Service
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="p-4 flex-grow-1">
+                    <div class="row">
+                        <div class="col-12">
+                            <label class="small text-muted mb-2">Configuration Details</label>
+                            <div class="p-3 rounded bg-dark bg-opacity-50 border border-secondary font-monospace small">
+                                {% if tunnel.config.port_rules %}
+                                    <div class="text-warning mb-1">Backhaul Rules:</div>
+                                    {% for rule in tunnel.config.port_rules %}
+                                        <div class="text-muted ps-2 d-flex align-items-center">
+                                            <i class="fa-solid fa-arrow-right-long me-2" style="font-size: 0.6rem;"></i> {{ rule }}
+                                        </div>
+                                    {% endfor %}
+                                {% elif tunnel.config.ports %}
+                                     <div class="text-info mb-1">Forwarded Ports:</div>
+                                     <div class="text-white ps-2">{{ tunnel.config.ports | join(', ') }}</div>
+                                {% endif %}
+                                
+                                <div class="mt-3 pt-2 border-top border-secondary d-flex gap-2 flex-wrap">
+                                    {% if tunnel.config.ipv6 %}<span class="badge bg-dark border border-secondary text-muted">IPv6</span>{% endif %}
+                                    {% if tunnel.config.nodelay %}<span class="badge bg-dark border border-secondary text-muted">NoDelay</span>{% endif %}
+                                    {% if tunnel.config.edge_ip %}<span class="badge bg-dark border border-secondary text-muted">Edge: {{ tunnel.config.edge_ip }}</span>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
-                <div class="p-3 flex-grow-1">
-                    <h6 class="text-muted small mb-2">Details</h6>
-                    <div class="p-2 rounded bg-black bg-opacity-50 border border-secondary overflow-auto" style="max-height: 150px;">
-                        {% if tunnel.config.port_rules %}
-                            <div class="text-success small font-monospace">Backhaul Rules:</div>
-                            {% for rule in tunnel.config.port_rules %}<div class="text-muted small ps-2">- {{ rule }}</div>{% endfor %}
-                        {% elif tunnel.config.ports %}
-                             <div class="text-info small font-monospace">Rathole Ports: [{{ tunnel.config.ports | join(', ') }}]</div>
-                        {% endif %}
+                <div class="px-4 py-2 bg-dark bg-opacity-50 border-top border-secondary d-flex justify-content-between align-items-center">
+                    <small class="text-muted font-monospace" style="font-size: 0.75rem;">TOKEN: {{ tunnel.token[:6] }}...{{ tunnel.token[-4:] }}</small>
+                    <div class="d-flex align-items-center gap-1 text-success small">
+                        <span class="status-dot status-active" style="background: #10b981; width: 6px; height: 6px; border-radius: 50%; display: inline-block;"></span>
+                        Active
                     </div>
                 </div>
             </div>
         </div>
         {% endfor %}
     {% else %}
-        <div class="col-12 text-center p-5 glass-panel">
-            <h5 class="text-muted">No Tunnels Active</h5>
+        <div class="col-12">
+            <div class="glass-panel p-5 text-center">
+                <div class="mb-3 text-muted opacity-50">
+                    <i class="fa-solid fa-ghost fa-3x"></i>
+                </div>
+                <h5 class="text-white">No Active Tunnels</h5>
+                <p class="text-muted small">Deploy your first tunnel from the Dashboard.</p>
+                <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-light btn-sm mt-2">Go to Dashboard</a>
+            </div>
         </div>
     {% endif %}
 </div>
