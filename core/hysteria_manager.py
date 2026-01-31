@@ -23,11 +23,10 @@ def install_hysteria_core_local():
 def install_hysteria_server_remote(ssh_target_ip, config_data):
     """
     نصب و راه اندازی سرور روی خارج
-    شامل: دانلود، تولید سرتیفیکیت Self-Signed، ساخت کانفیگ و سرویس
+    شامل: دانلود، تولید سرتیفیکیت، کانفیگ و باز کردن فایروال
     """
     print(f"[+] Configuring Hysteria Server on {ssh_target_ip}...")
     
-    # دستورات نصب و تولید سرتیفیکیت در سرور خارج
     remote_script = f"""
     mkdir -p {INSTALL_DIR}
     
@@ -37,7 +36,7 @@ def install_hysteria_server_remote(ssh_target_ip, config_data):
         chmod +x {INSTALL_DIR}/hysteria
     fi
 
-    # 2. تولید سرتیفیکیت (اجباری برای Hysteria 2)
+    # 2. تولید سرتیفیکیت (Self-Signed)
     if [ ! -f {INSTALL_DIR}/server.crt ]; then
         openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 \
             -subj "/C=US/ST=CA/L=SF/O=Alamor/CN=bing.com" \
@@ -45,7 +44,7 @@ def install_hysteria_server_remote(ssh_target_ip, config_data):
             -out {INSTALL_DIR}/server.crt
     fi
 
-    # 3. ساخت کانفیگ سرور (YAML)
+    # 3. ساخت کانفیگ سرور (YAML) - بدون Masquerade (تضمین پایداری)
     cat > {INSTALL_DIR}/config.yaml <<EOL
 listen: :{config_data['tunnel_port']}
 
@@ -61,12 +60,6 @@ obfs:
   type: salamander
   salamander:
     password: "{config_data['obfs_pass']}"
-
-masquerade: 
-  type: proxy
-  proxy:
-    url: https://bing.com/
-    rewriteHost: true
 EOL
 
     # 4. ساخت سرویس
@@ -85,7 +78,14 @@ LimitNOFILE=1048576
 [Install]
 WantedBy=multi-user.target
 EOL
+    
+    # 5. باز کردن فایروال (UDP و TCP)
+    ufw allow {config_data['tunnel_port']}/udp
+    ufw allow {config_data['tunnel_port']}/tcp
+    iptables -I INPUT -p udp --dport {config_data['tunnel_port']} -j ACCEPT
+    iptables -I INPUT -p tcp --dport {config_data['tunnel_port']} -j ACCEPT
 
+    # 6. اجرای سرویس
     systemctl daemon-reload
     systemctl enable hysteria-server
     systemctl restart hysteria-server
@@ -96,19 +96,12 @@ EOL
 def install_hysteria_client_local(remote_ip, config_data):
     """
     نصب کلاینت روی سرور ایران
-    وظیفه: اتصال به خارج و پورت فورواردینگ (TCP/UDP)
     """
     install_hysteria_core_local()
     
     # ساخت لیست فورواردینگ
-    # فرمت Hysteria 2 Client برای فوروارد:
-    # tcpForwarding:
-    #   - listen: :2080
-    #     remote: 127.0.0.1:2080
-    
     forward_rules = ""
     for port in config_data['ports']:
-        # پورت لوکال ایران -> پورت لوکال خارج (معمولا یکی هستند)
         forward_rules += f"""
   - listen: :{port}
     remote: 127.0.0.1:{port}
@@ -118,13 +111,11 @@ def install_hysteria_client_local(remote_ip, config_data):
     config_content = f"""
 server: {remote_ip}:{config_data['tunnel_port']}
 
-auth:
-  type: password
-  password: "{config_data['password']}"
+auth: "{config_data['password']}"
 
 tls:
-  insecure: true 
-  # چون سرتیفیکیت Self-Signed است، باید insecure باشد
+  insecure: true
+  sni: bing.com
 
 obfs:
   type: salamander
