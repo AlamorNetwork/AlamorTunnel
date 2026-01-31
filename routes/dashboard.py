@@ -9,14 +9,12 @@ def is_logged_in():
 
 @dashboard_bp.route('/')
 def index():
-    if not is_logged_in():
-        return redirect(url_for('auth.login'))
+    if not is_logged_in(): return redirect(url_for('auth.login'))
     
-    # دریافت وضعیت سرور
     server = get_connected_server()
     server_ip = server[0] if server else None
     
-    # تغییر نام فایل به dashboard.html
+    # استفاده از dashboard.html (طبق درخواست شما)
     return render_template('dashboard.html', server_ip=server_ip)
 
 @dashboard_bp.route('/connect-server', methods=['POST'])
@@ -26,24 +24,19 @@ def connect_server():
     ip = request.form.get('ip')
     user = request.form.get('username')
     password = request.form.get('password')
-    
-    try:
-        port = int(request.form.get('port', 22))
-    except ValueError:
-        port = 22
+    try: port = int(request.form.get('port', 22))
+    except: port = 22
 
     if verify_ssh_connection(ip, user, password, port):
         add_server(ip, user, password, port)
-        flash('Connected to Foreign Server successfully!', 'success')
+        flash('Connected successfully!', 'success')
     else:
-        flash('Connection Failed! Check IP/Password.', 'danger')
+        flash('Connection failed.', 'danger')
         
     return redirect(url_for('dashboard.index'))
 
 @dashboard_bp.route('/disconnect-server')
 def disconnect_server():
     if not is_logged_in(): return redirect(url_for('auth.login'))
-    
     remove_server()
-    flash('Server disconnected.', 'info')
     return redirect(url_for('dashboard.index'))

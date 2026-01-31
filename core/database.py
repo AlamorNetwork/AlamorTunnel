@@ -1,5 +1,4 @@
 import sqlite3
-import os
 import json
 
 DB_PATH = "alamor.db"
@@ -11,13 +10,31 @@ def init_db():
     c.execute('''CREATE TABLE IF NOT EXISTS servers (ip TEXT PRIMARY KEY, user TEXT, password TEXT, port INTEGER)''')
     c.execute('''CREATE TABLE IF NOT EXISTS tunnels (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, transport TEXT, port TEXT, token TEXT, config TEXT, status TEXT DEFAULT 'active')''')
     
+    # یوزر پیش‌فرض
     c.execute("SELECT * FROM users WHERE username='admin'")
     if not c.fetchone():
         c.execute("INSERT INTO users VALUES ('admin', 'admin')")
     conn.commit()
     conn.close()
 
-# --- Server Functions ---
+# --- Users ---
+def check_user(username, password):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT * FROM users WHERE username=? AND password=?", (username, password))
+    user = c.fetchone()
+    conn.close()
+    return user
+
+def get_admin_user():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT * FROM users WHERE username='admin'")
+    data = c.fetchone()
+    conn.close()
+    return data
+
+# --- Servers ---
 def add_server(ip, user, password, port):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -41,7 +58,7 @@ def get_connected_server():
     conn.close()
     return data
 
-# --- Tunnel Functions ---
+# --- Tunnels ---
 def add_tunnel(name, transport, port, token, config_dict):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -80,30 +97,3 @@ def update_tunnel_config(tid, name, transport, port, config_dict):
     c.execute("UPDATE tunnels SET name=?, transport=?, port=?, config=? WHERE id=?", (name, transport, str(port), config_json, tid))
     conn.commit()
     conn.close()
-
-# --- User Functions ---
-def check_user(username, password):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT * FROM users WHERE username=? AND password=?", (username, password))
-    user = c.fetchone()
-    conn.close()
-    return user
-
-def get_admin_user():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT * FROM users WHERE username='admin'")
-    data = c.fetchone()
-    conn.close()
-    return data
-
-def update_password(new_pass):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("UPDATE users SET password=? WHERE username='admin'", (new_pass,))
-    conn.commit()
-    conn.close()
-
-if __name__ == "__main__":
-    init_db()

@@ -1,87 +1,39 @@
 {% extends "base.html" %}
-
 {% block content %}
-<div class="row mb-4">
-    <div class="col-md-12">
-        <div class="card p-4 bg-white">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h5 class="text-muted mb-1">Foreign Server Status</h5>
-                    {% if server_ip %}
-                        <h2 class="text-success fw-bold m-0"><i class="fas fa-check-circle me-2"></i>Connected</h2>
-                        <span class="badge bg-light text-dark mt-2 border">{{ server_ip }}</span>
-                    {% else %}
-                        <h2 class="text-danger fw-bold m-0"><i class="fas fa-times-circle me-2"></i>Disconnected</h2>
-                    {% endif %}
-                </div>
-                <div>
-                    {% if not server_ip %}
-                        <button class="btn btn-primary btn-lg btn-custom shadow-sm" data-bs-toggle="modal" data-bs-target="#connectModal">
-                            <i class="fas fa-plug me-2"></i>Connect Server
-                        </button>
-                    {% else %}
-                        <a href="{{ url_for('dashboard.disconnect_server') }}" class="btn btn-outline-danger btn-lg btn-custom">
-                            <i class="fas fa-unlink me-2"></i>Disconnect
-                        </a>
-                    {% endif %}
-                </div>
-            </div>
+<div class="card p-4 mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h5 class="text-muted">Foreign Server Status</h5>
+            {% if server_ip %}
+                <h2 class="text-success fw-bold"><i class="fas fa-check-circle"></i> Connected</h2>
+                <span class="badge bg-secondary">{{ server_ip }}</span>
+            {% else %}
+                <h2 class="text-danger fw-bold"><i class="fas fa-times-circle"></i> Disconnected</h2>
+            {% endif %}
+        </div>
+        <div>
+            {% if not server_ip %}
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#connectModal">Connect</button>
+            {% else %}
+                <a href="{{ url_for('dashboard.disconnect_server') }}" class="btn btn-outline-danger">Disconnect</a>
+            {% endif %}
         </div>
     </div>
 </div>
 
-<h4 class="mb-3 text-muted">Install New Tunnel</h4>
-<div class="row g-4">
-    
+<div class="row">
     <div class="col-md-3">
-        <div class="card h-100 text-center p-3 border-0 bg-white">
-            <div class="card-body">
-                <div class="rounded-circle bg-primary bg-opacity-10 p-3 d-inline-block mb-3">
-                    <i class="fas fa-bolt fa-2x text-primary"></i>
-                </div>
-                <h5>Hysteria 2</h5>
-                <p class="text-muted small">UDP / QUIC Protocol. Brutal speed.</p>
-                <button class="btn btn-primary w-100 btn-custom" data-bs-toggle="modal" data-bs-target="#hysteriaModal">Install</button>
-            </div>
+        <div class="card p-3 text-center h-100">
+            <i class="fas fa-bolt fa-3x text-primary mb-3"></i>
+            <h5>Hysteria 2</h5>
+            <button class="btn btn-primary w-100 mt-2" data-bs-toggle="modal" data-bs-target="#hysteriaModal">Install</button>
         </div>
     </div>
-
     <div class="col-md-3">
-        <div class="card h-100 text-center p-3 border-0 bg-white">
-            <div class="card-body">
-                <div class="rounded-circle bg-info bg-opacity-10 p-3 d-inline-block mb-3">
-                    <i class="fas fa-wind fa-2x text-info"></i>
-                </div>
-                <h5>Slipstream (Rust)</h5>
-                <p class="text-muted small">High-speed DNS Tunneling.</p>
-                <button class="btn btn-info text-white w-100 btn-custom" data-bs-toggle="modal" data-bs-target="#slipstreamModal">Install</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-3">
-        <div class="card h-100 text-center p-3 border-0 bg-white">
-            <div class="card-body">
-                <div class="rounded-circle bg-success bg-opacity-10 p-3 d-inline-block mb-3">
-                    <i class="fas fa-mouse fa-2x text-success"></i>
-                </div>
-                <h5>Rathole</h5>
-                <p class="text-muted small">Lightweight NAT traversal.</p>
-                <button class="btn btn-success w-100 btn-custom" data-bs-toggle="modal" data-bs-target="#ratholeModal">Install</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-3">
-        <div class="card h-100 text-center p-3 border-0 bg-white">
-            <div class="card-body">
-                <div class="rounded-circle bg-secondary bg-opacity-10 p-3 d-inline-block mb-3">
-                    <i class="fas fa-server fa-2x text-secondary"></i>
-                </div>
-                <h5>Backhaul</h5>
-                <p class="text-muted small">Standard TCP/WS Tunnel.</p>
-                <button class="btn btn-secondary w-100 btn-custom" data-bs-toggle="modal" data-bs-target="#backhaulModal">Install</button>
-            </div>
+        <div class="card p-3 text-center h-100">
+            <i class="fas fa-wind fa-3x text-info mb-3"></i>
+            <h5>Slipstream</h5>
+            <button class="btn btn-info text-white w-100 mt-2" data-bs-toggle="modal" data-bs-target="#slipstreamModal">Install</button>
         </div>
     </div>
 </div>
@@ -89,14 +41,13 @@
 <div class="modal fade" id="connectModal" tabindex="-1">
     <div class="modal-dialog">
         <form action="{{ url_for('dashboard.connect_server') }}" method="POST" class="modal-content">
-            <div class="modal-header"><h5 class="modal-title">Connect to Foreign Server</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-header"><h5>Connect Server</h5></div>
             <div class="modal-body">
-                <input type="text" name="ip" class="form-control mb-3" placeholder="IP Address" required>
-                <input type="text" name="username" class="form-control mb-3" placeholder="Username" value="root" required>
-                <input type="password" name="password" class="form-control mb-3" placeholder="Password" required>
-                <input type="number" name="port" class="form-control" placeholder="SSH Port" value="22" required>
+                <input name="ip" class="form-control mb-2" placeholder="IP" required>
+                <input name="username" class="form-control mb-2" value="root" required>
+                <input name="password" type="password" class="form-control mb-2" placeholder="Pass" required>
             </div>
-            <div class="modal-footer"><button type="submit" class="btn btn-primary">Connect</button></div>
+            <div class="modal-footer"><button class="btn btn-primary">Connect</button></div>
         </form>
     </div>
 </div>
@@ -104,28 +55,12 @@
 <div class="modal fade" id="hysteriaModal" tabindex="-1">
     <div class="modal-dialog">
         <form action="{{ url_for('tunnels.install_hysteria') }}" method="POST" class="modal-content">
-            <div class="modal-header"><h5 class="modal-title">Install Hysteria 2</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-header"><h5>Install Hysteria</h5></div>
             <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label">Tunnel Port (UDP)</label>
-                    <input type="number" name="tunnel_port" class="form-control" placeholder="e.g. 443" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Forward Ports (e.g. 8443, 2080)</label>
-                    <input type="text" name="forward_ports" class="form-control" placeholder="8443" required>
-                </div>
-                <div class="row">
-                    <div class="col">
-                        <label class="form-label">Up Mbps</label>
-                        <input type="number" name="up_mbps" class="form-control" value="100">
-                    </div>
-                    <div class="col">
-                        <label class="form-label">Down Mbps</label>
-                        <input type="number" name="down_mbps" class="form-control" value="100">
-                    </div>
-                </div>
+                <input type="number" name="tunnel_port" class="form-control mb-2" placeholder="Tunnel Port (UDP)" required>
+                <input type="text" name="forward_ports" class="form-control mb-2" placeholder="Forward Ports (e.g. 8443)" required>
             </div>
-            <div class="modal-footer"><button type="submit" class="btn btn-primary">Install</button></div>
+            <div class="modal-footer"><button class="btn btn-primary">Install</button></div>
         </form>
     </div>
 </div>
@@ -133,52 +68,15 @@
 <div class="modal fade" id="slipstreamModal" tabindex="-1">
     <div class="modal-dialog">
         <form action="{{ url_for('tunnels.install_slipstream') }}" method="POST" class="modal-content">
-            <div class="modal-header bg-info text-white"><h5 class="modal-title">Install Slipstream</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-header"><h5>Install Slipstream</h5></div>
             <div class="modal-body">
-                <div class="alert alert-warning small">Note: Installation takes 5-10 minutes (Building Rust).</div>
-                <div class="mb-2"><label>Tunnel Port (UDP/DNS)</label><input type="number" name="tunnel_port" class="form-control" value="8853" required></div>
-                <div class="mb-2"><label>Iran Listen Port</label><input type="number" name="client_port" class="form-control" value="8443" required></div>
-                <div class="mb-2"><label>Foreign Dest Port (Xray)</label><input type="number" name="dest_port" class="form-control" value="8443" required></div>
-                <div class="mb-2"><label>Fake Domain</label><input type="text" name="domain" class="form-control" value="update.googleapis.com" required></div>
+                <div class="alert alert-warning small">Build takes 5-10 mins.</div>
+                <input name="tunnel_port" class="form-control mb-2" value="8853" placeholder="Tunnel Port">
+                <input name="client_port" class="form-control mb-2" value="8443" placeholder="Client Port">
+                <input name="dest_port" class="form-control mb-2" value="8443" placeholder="Dest Port">
+                <input name="domain" class="form-control mb-2" value="update.googleapis.com">
             </div>
-            <div class="modal-footer"><button type="submit" class="btn btn-info text-white">Build & Install</button></div>
-        </form>
-    </div>
-</div>
-
-<div class="modal fade" id="ratholeModal" tabindex="-1">
-    <div class="modal-dialog">
-        <form action="{{ url_for('tunnels.install_rathole') }}" method="POST" class="modal-content">
-            <div class="modal-header"><h5 class="modal-title">Install Rathole</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-            <div class="modal-body">
-                <div class="mb-3"><label>Tunnel Port</label><input type="number" name="tunnel_port" class="form-control" required></div>
-                <div class="mb-3"><label>Forward Ports</label><input type="text" name="forward_ports" class="form-control" placeholder="8080" required></div>
-                <div class="mb-3"><label>Transport</label>
-                    <select name="transport" class="form-select">
-                        <option value="tcp">TCP</option>
-                        <option value="udp">UDP</option>
-                    </select>
-                </div>
-            </div>
-            <div class="modal-footer"><button type="submit" class="btn btn-success">Install</button></div>
-        </form>
-    </div>
-</div>
-
-<div class="modal fade" id="backhaulModal" tabindex="-1">
-    <div class="modal-dialog">
-        <form action="{{ url_for('tunnels.install_backhaul') }}" method="POST" class="modal-content">
-            <div class="modal-header"><h5 class="modal-title">Install Backhaul</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-            <div class="modal-body">
-                <div class="mb-3"><label>Tunnel Port</label><input type="number" name="tunnel_port" class="form-control" required></div>
-                <div class="mb-3"><label>Transport</label>
-                    <select name="transport" class="form-select">
-                        <option value="tcp">TCP</option>
-                        <option value="ws">WebSocket</option>
-                    </select>
-                </div>
-            </div>
-            <div class="modal-footer"><button type="submit" class="btn btn-secondary">Install</button></div>
+            <div class="modal-footer"><button class="btn btn-info text-white">Build & Install</button></div>
         </form>
     </div>
 </div>

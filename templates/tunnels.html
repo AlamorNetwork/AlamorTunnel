@@ -1,78 +1,33 @@
 {% extends "base.html" %}
-
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="text-primary"><i class="fas fa-list me-2"></i>Active Tunnels</h2>
-    <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary btn-custom"><i class="fas fa-plus me-2"></i>New Tunnel</a>
+<div class="d-flex justify-content-between mb-4">
+    <h3>Active Tunnels</h3>
+    <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary">New Tunnel</a>
 </div>
-
-<div class="card bg-white shadow-sm">
-    <div class="card-body p-0">
-        <table class="table table-hover mb-0 align-middle">
-            <thead class="bg-light">
-                <tr>
-                    <th class="py-3 ps-4">ID</th>
-                    <th>Name</th>
-                    <th>Type</th>
-                    <th>Details</th>
-                    <th>Status</th>
-                    <th class="text-end pe-4">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for tunnel in tunnels %}
-                <tr>
-                    <td class="ps-4 fw-bold">#{{ tunnel.id }}</td>
-                    <td>{{ tunnel.name }}</td>
-                    
-                    <td>
-                        {% if 'hysteria' in tunnel.transport %}
-                            <span class="badge bg-primary">Hysteria 2</span>
-                        {% elif 'rathole' in tunnel.transport %}
-                            <span class="badge bg-success">Rathole</span>
-                        {% elif 'slipstream' in tunnel.transport %}
-                            <span class="badge bg-info text-dark">Slipstream</span>
-                        {% else %}
-                            <span class="badge bg-secondary">Backhaul</span>
-                        {% endif %}
-                    </td>
-
-                    <td>
-                        {% if 'hysteria' in tunnel.transport %}
-                            <small class="d-block text-muted">Port: <b>{{ tunnel.port }} (UDP)</b></small>
-                            <small class="text-muted">Pass: {{ tunnel.token }}</small>
-                        {% elif 'slipstream' in tunnel.transport %}
-                            <small class="d-block text-muted">Iran Port: <b>{{ tunnel.port }}</b></small>
-                            <small class="text-muted">Dest: {{ tunnel.config.dest_port }}</small>
-                        {% else %}
-                            <small class="d-block text-muted">Listen: {{ tunnel.port }}</small>
-                            <small class="text-muted">Token: {{ tunnel.token[:8] }}...</small>
-                        {% endif %}
-                    </td>
-
-                    <td>
-                        {% if tunnel.status == 'active' %}
-                            <span class="badge bg-success rounded-pill">Active</span>
-                        {% else %}
-                            <span class="badge bg-danger rounded-pill">Stopped</span>
-                        {% endif %}
-                    </td>
-
-                    <td class="text-end pe-4">
-                        <a href="{{ url_for('tunnels.edit_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-primary me-1">Config</a>
-                        <a href="{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this tunnel?')">Delete</a>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="6" class="text-center py-5 text-muted">
-                        <i class="fas fa-ghost fa-3x mb-3 text-secondary"></i><br>
-                        No tunnels found.
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+<div class="card p-0">
+    <table class="table table-hover mb-0">
+        <thead>
+            <tr><th>ID</th><th>Name</th><th>Type</th><th>Details</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+            {% for tunnel in tunnels %}
+            <tr>
+                <td>#{{ tunnel.id }}</td>
+                <td>{{ tunnel.name }}</td>
+                <td>{{ tunnel.transport }}</td>
+                <td>
+                    Port: {{ tunnel.port }}<br>
+                    {% if tunnel.config.dest_port %}Dest: {{ tunnel.config.dest_port }}{% endif %}
+                </td>
+                <td>
+                    <a href="{{ url_for('tunnels.edit_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-primary">Edit</a>
+                    <a href="{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-danger">Del</a>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center p-4">No tunnels found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 {% endblock %}
