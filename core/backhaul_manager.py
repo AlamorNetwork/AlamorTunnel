@@ -4,38 +4,31 @@ from core.ssh_manager import run_remote_command
 from core.ssl_manager import generate_self_signed_cert
 
 INSTALL_DIR = "/root/backhaul"
-BIN_URL = "https://github.com/Musixal/Backhaul/releases/latest/download/backhaul_linux_amd64.tar.gz"
+# هر وقت سرور ایران زدی، این لینک رو عوض کن
+MIRROR_URL = "https://github.com/Musixal/Backhaul/releases/latest/download/backhaul_linux_amd64.tar.gz"
 
 def generate_token():
-    """تولید توکن امن برای تانل"""
     return secrets.token_hex(16)
 
 def install_local_backhaul(config_data):
-    """
-    نصب روی سرور ایران (Server Mode)
-    """
     print(f"[+] Configuring Local Backhaul (Iran) | Transport: {config_data['transport']}")
     
-    # 1. دانلود و نصب
     if not os.path.exists(f"{INSTALL_DIR}/backhaul"):
         cmds = [
             f"mkdir -p {INSTALL_DIR}",
-            f"curl -L -o {INSTALL_DIR}/backhaul.tar.gz {BIN_URL}",
+            f"curl -L -o {INSTALL_DIR}/backhaul.tar.gz {MIRROR_URL}",
             f"tar -xzf {INSTALL_DIR}/backhaul.tar.gz -C {INSTALL_DIR}",
             f"chmod +x {INSTALL_DIR}/backhaul"
         ]
         for cmd in cmds:
             os.system(cmd)
 
-    # 2. مدیریت SSL
     if config_data['transport'] in ["wss", "wssmux"]:
         generate_self_signed_cert(domain_or_ip="127.0.0.1")
 
-    # 3. فرمت کردن پورت‌ها
     port_rules = config_data.get('port_rules', [])
     formatted_ports = ",\n".join([f'"{p.strip()}"' for p in port_rules if p.strip()])
 
-    # 4. ساخت کانفیگ ایران (Server)
     config_content = f"""
 [server]
 bind_addr = "0.0.0.0:{config_data['tunnel_port']}"
@@ -69,7 +62,6 @@ ports = [
     with open(f"{INSTALL_DIR}/config.toml", "w") as f:
         f.write(config_content)
 
-    # 5. سرویس و اجرا
     service_content = f"""
 [Unit]
 Description=Backhaul Server (Alamor)
@@ -92,23 +84,28 @@ WantedBy=multi-user.target
     return True
 
 def install_remote_backhaul(ssh_target_ip, iran_connect_ip, config_data):
-    """
-    نصب روی سرور خارج (Client Mode)
-    """
     print(f"[+] Configuring Remote Backhaul on {ssh_target_ip}")
     
-    clean_iran_ip = ""
+    clean_iran_ip = iran_connect_ip.strip()
+    
+    # لاجیک Edge IP اختیاری
+    edge_ip_line = ""
+    if config_data.get('edge_ip'):
+        edge_ip_line = f'edge_ip = "{config_data["edge_ip"]}"'
     
     remote_script = f"""
     mkdir -p {INSTALL_DIR}
-    curl -L -o {INSTALL_DIR}/backhaul.tar.gz {BIN_URL}
-    tar -xzf {INSTALL_DIR}/backhaul.tar.gz -C {INSTALL_DIR}
-    chmod +x {INSTALL_DIR}/backhaul
+    # فقط اگر نصب نیست دانلود کن
+    if [ ! -f {INSTALL_DIR}/backhaul ]; then
+        curl -L -o {INSTALL_DIR}/backhaul.tar.gz {MIRROR_URL}
+        tar -xzf {INSTALL_DIR}/backhaul.tar.gz -C {INSTALL_DIR}
+        chmod +x {INSTALL_DIR}/backhaul
+    fi
     
     cat > {INSTALL_DIR}/config.toml <<EOL
 [client]
 remote_addr = "{clean_iran_ip}:{config_data['tunnel_port']}"
-edge_ip = "{config_data.get('edge_ip', '188.114.96.0')}"
+{edge_ip_line}
 transport = "{config_data['transport']}"
 token = "{config_data['token']}"
 connection_pool = {config_data.get('connection_pool', 8)}
@@ -156,7 +153,6 @@ EOL
     return success, output
 
 def stop_and_delete_backhaul():
-    """توقف و حذف سرویس"""
     os.system("systemctl stop backhaul && systemctl disable backhaul")
     os.system(f"rm {INSTALL_DIR}/config.toml")
     return True

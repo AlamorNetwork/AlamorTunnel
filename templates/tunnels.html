@@ -3,87 +3,50 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center pt-3 pb-2 mb-4">
     <h2 class="h3 fw-bold" style="color: var(--primary-color);">Active Tunnels</h2>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-alamor"><i class="fa-solid fa-plus me-1"></i> New Tunnel</a>
 </div>
 
-<div class="row">
-    <div class="col-12">
-        {% if tunnel %}
-        <div class="glass-panel p-0 overflow-hidden">
-            <div class="p-4 border-bottom" style="border-color: var(--glass-border) !important;">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <h4 class="mb-1 text-main">{{ tunnel.name }}</h4>
-                        <span class="badge bg-primary">{{ tunnel.transport.upper() }}</span>
-                        <span class="badge bg-secondary">Port: {{ tunnel.port }}</span>
-                    </div>
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-sm btn-outline-info" onclick="runTest('speed')"><i class="fa-solid fa-gauge"></i> Speed Test</button>
-                        <button class="btn btn-sm btn-outline-success" onclick="runTest('download')"><i class="fa-solid fa-download"></i> DL Test</button>
-                        <a href="{{ url_for('delete_tunnel') }}" class="btn btn-sm btn-danger"><i class="fa-solid fa-trash"></i> Delete</a>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="p-4 bg-opacity-10 bg-black">
-                <h6 class="text-muted mb-3">Configuration Details</h6>
-                <div class="row g-3 font-monospace small">
-                    <div class="col-md-12">
-                        <div class="p-3 rounded" style="background: rgba(0,0,0,0.3);">
-                            <pre class="mb-0 text-success">{{ tunnel.config | tojson(indent=2) }}</pre>
+<div class="row g-4">
+    {% if tunnels %}
+        {% for tunnel in tunnels %}
+        <div class="col-12 col-xl-6">
+            <div class="glass-panel p-0 overflow-hidden h-100 d-flex flex-column">
+                <div class="p-3 border-bottom d-flex justify-content-between align-items-center" style="background: rgba(0,0,0,0.2);">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="rounded-circle p-2 bg-dark border border-secondary">
+                            {% if 'Rathole' in tunnel.name %}
+                                <i class="fa-solid fa-dharmachakra text-info fs-4"></i>
+                            {% else %}
+                                <i class="fa-solid fa-bolt text-warning fs-4"></i>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <h5 class="mb-0 text-main">{{ tunnel.name }}</h5>
+                            <span class="badge bg-secondary font-monospace">Port: {{ tunnel.port }}</span>
+                            <span class="badge bg-primary">{{ tunnel.transport.upper() }}</span>
                         </div>
                     </div>
+                    <a href="{{ url_for('delete_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash"></i></a>
+                </div>
+                
+                <div class="p-3 flex-grow-1">
+                    <h6 class="text-muted small mb-2">Details</h6>
+                    <div class="p-2 rounded bg-black bg-opacity-50 border border-secondary overflow-auto" style="max-height: 150px;">
+                        {% if tunnel.config.port_rules %}
+                            <div class="text-success small font-monospace">Backhaul Rules:</div>
+                            {% for rule in tunnel.config.port_rules %}<div class="text-muted small ps-2">- {{ rule }}</div>{% endfor %}
+                        {% elif tunnel.config.ports %}
+                             <div class="text-info small font-monospace">Rathole Ports: [{{ tunnel.config.ports | join(', ') }}]</div>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
-        {% else %}
-        <div class="glass-panel p-5 text-center">
-            <i class="fa-solid fa-wind fa-3x text-muted mb-3"></i>
-            <h5 class="text-muted">No Active Tunnels</h5>
-            <a href="{{ url_for('dashboard') }}" class="btn btn-alamor mt-3">Create Tunnel</a>
+        {% endfor %}
+    {% else %}
+        <div class="col-12 text-center p-5 glass-panel">
+            <h5 class="text-muted">No Tunnels Active</h5>
         </div>
-        {% endif %}
-    </div>
+    {% endif %}
 </div>
-
-<div class="modal fade" id="testModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content glass-panel" style="background: var(--sidebar-bg);">
-            <div class="modal-body text-center p-4">
-                <div id="testSpinner" class="spinner-border text-primary mb-3" role="status"></div>
-                <h5 id="testTitle" class="mb-2">Running Test...</h5>
-                <p id="testResult" class="text-muted mb-0">Please wait while we check the tunnel health.</p>
-                <button type="button" class="btn btn-sm btn-secondary mt-3" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-    function runTest(type) {
-        const modal = new bootstrap.Modal(document.getElementById('testModal'));
-        const spinner = document.getElementById('testSpinner');
-        const title = document.getElementById('testTitle');
-        const result = document.getElementById('testResult');
-        
-        modal.show();
-        spinner.style.display = 'inline-block';
-        title.innerText = type === 'speed' ? 'Checking Latency...' : 'Testing Download...';
-        result.innerText = 'Communicating with foreign server...';
-
-        fetch(`/test-tunnel/${type}`)
-            .then(response => response.json())
-            .then(data => {
-                spinner.style.display = 'none';
-                title.innerText = 'Result';
-                result.innerText = data.msg;
-                title.className = 'mb-2 text-success';
-            })
-            .catch(err => {
-                spinner.style.display = 'none';
-                title.innerText = 'Error';
-                result.innerText = 'Failed to connect.';
-                title.className = 'mb-2 text-danger';
-            });
-    }
-</script>
 {% endblock %}

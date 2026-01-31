@@ -9,25 +9,28 @@ DB_NAME = "alamor.db"
 def init_db():
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, password TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS servers (id INTEGER PRIMARY KEY, ip TEXT UNIQUE, port INTEGER DEFAULT 22, username TEXT DEFAULT 'root', status TEXT DEFAULT 'disconnected')''')
     
-    # جدول جدید تانل‌ها با تمام جزئیات کانفیگ
+    # جداول پایه
+    c.execute('''CREATE TABLE IF NOT EXISTS users 
+                 (id INTEGER PRIMARY KEY, username TEXT, password TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS settings 
+                 (key TEXT PRIMARY KEY, value TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS servers 
+                 (id INTEGER PRIMARY KEY, ip TEXT UNIQUE, port INTEGER DEFAULT 22, username TEXT DEFAULT 'root', status TEXT DEFAULT 'disconnected')''')
+    
+    # جدول تانل‌ها (برای مدیریت چندین تانل)
     c.execute('''CREATE TABLE IF NOT EXISTS tunnels (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
         transport TEXT,
         tunnel_port INTEGER,
         token TEXT,
-        config_json TEXT,  -- ذخیره تمام تنظیمات پیشرفته بصورت JSON
+        config_json TEXT,
         status TEXT DEFAULT 'active'
     )''')
     
     conn.commit()
     conn.close()
-
-# ... (بقیه توابع قبلی مثل create_initial_user, verify_user ثابت می‌مانند) ...
 
 def create_initial_user():
     conn = sqlite3.connect(DB_NAME)
@@ -64,7 +67,8 @@ def add_or_update_server(ip, port, username, status="connected"):
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     c.execute("""INSERT INTO servers (ip, port, username, status) VALUES (?, ?, ?, ?) 
-                 ON CONFLICT(ip) DO UPDATE SET status=excluded.status, port=excluded.port""", (ip, port, username, status))
+                 ON CONFLICT(ip) DO UPDATE SET status=excluded.status, port=excluded.port""", 
+              (ip, port, username, status))
     conn.commit()
     conn.close()
 
@@ -76,29 +80,38 @@ def get_connected_server():
     conn.close()
     return server
 
-# توابع جدید مدیریت تانل
-def save_tunnel(name, transport, tunnel_port, token, config_dict):
+# --- مدیریت تانل‌ها ---
+
+def add_tunnel(name, transport, tunnel_port, token, config_dict):
+    """اضافه کردن تانل جدید به لیست"""
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     config_json = json.dumps(config_dict)
-    # فعلا فرض می‌کنیم فقط یک تانل داریم، پس قبلی‌ها را پاک می‌کنیم (یا می‌توانید چند تانلی کنید)
-    c.execute("DELETE FROM tunnels") 
-    c.execute("INSERT INTO tunnels (name, transport, tunnel_port, token, config_json) VALUES (?, ?, ?, ?, ?)",
-              (name, transport, tunnel_port, token, config_json))
+    c.execute("INSERT INTO tunnels (name, transport, tunnel_port, token, config_json, status) VALUES (?, ?, ?, ?, ?, ?)",
+              (name, transport, tunnel_port, token, config_json, 'active'))
     conn.commit()
     conn.close()
 
-def get_tunnel():
+def get_all_tunnels():
+    """دریافت همه تانل‌ها"""
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
-    c.execute("SELECT * FROM tunnels LIMIT 1")
+    c.execute("SELECT * FROM tunnels ORDER BY id DESC")
+    tunnels = c.fetchall()
+    conn.close()
+    return tunnels
+
+def get_tunnel_by_id(tunnel_id):
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    c.execute("SELECT * FROM tunnels WHERE id=?", (tunnel_id,))
     tunnel = c.fetchone()
     conn.close()
     return tunnel
 
-def delete_tunnels():
+def delete_tunnel_by_id(tunnel_id):
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
-    c.execute("DELETE FROM tunnels")
+    c.execute("DELETE FROM tunnels WHERE id=?", (tunnel_id,))
     conn.commit()
     conn.close()

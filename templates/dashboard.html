@@ -1,13 +1,10 @@
 {% extends "base.html" %}
-
 {% block content %}
 <div class="d-flex justify-content-between align-items-center pt-3 pb-2 mb-4">
     <h2 class="h3 fw-bold" style="color: var(--primary-color);">Deployment Center</h2>
     <div class="d-flex align-items-center gap-3">
         <i class="fa-solid fa-circle-half-stroke theme-switch" id="themeToggle"></i>
-        <div class="badge p-2 border border-secondary text-muted">
-            {{ current_ip }}
-        </div>
+        <div class="badge p-2 border border-secondary text-muted">{{ current_ip }}</div>
     </div>
 </div>
 
@@ -35,14 +32,40 @@
             <div class="accordion-item glass-panel mb-3 border-0">
                 <h2 class="accordion-header">
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseBackhaul" style="background: transparent; color: var(--text-main);">
-                        <i class="fa-solid fa-bolt text-warning me-2"></i> Backhaul Tunnel (Reverse TCP/MUX)
+                        <i class="fa-solid fa-bolt text-warning me-2"></i> Backhaul Tunnel
                     </button>
                 </h2>
                 <div id="collapseBackhaul" class="accordion-collapse collapse" data-bs-parent="#modulesAccordion">
                     <div class="accordion-body border-top border-secondary">
                         <form action="{{ url_for('install_backhaul') }}" method="POST">
-                             <div class="alert alert-dark p-2 mb-3 small"><i class="fa-solid fa-info-circle me-2"></i>Uses reverse tunneling architecture.</div>
-                             <button type="submit" class="btn btn-alamor w-100 mt-3">Deploy Backhaul</button>
+                            <input type="hidden" name="iran_ip_manual" value="{{ current_ip }}">
+                            
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-4">
+                                    <label class="small text-muted">Transport</label>
+                                    <select name="transport" id="transportSelect" class="form-select" onchange="toggleMuxFields()">
+                                        <option value="tcp">TCP</option>
+                                        <option value="tcpmux">TCP MUX</option>
+                                        <option value="ws">WebSocket</option>
+                                        <option value="wsmux">WS MUX</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="small text-muted">Tunnel Port</label>
+                                    <input type="number" name="tunnel_port" class="form-control" value="3080">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="small text-muted">Edge IP (Optional)</label>
+                                    <input type="text" name="edge_ip" class="form-control">
+                                </div>
+                            </div>
+                            
+                             <div class="mb-3">
+                                <label class="small text-muted">Port Forwarding Rules</label>
+                                <textarea name="port_rules" class="form-control font-monospace" rows="3" placeholder="8080=80"></textarea>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-alamor w-100">Deploy Backhaul</button>
                         </form>
                     </div>
                 </div>
@@ -51,19 +74,17 @@
             <div class="accordion-item glass-panel border-0">
                 <h2 class="accordion-header">
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseRathole" style="background: transparent; color: var(--text-main);">
-                        <i class="fa-solid fa-dharmachakra text-info me-2"></i> Rathole Tunnel (Rust/Secure)
+                        <i class="fa-solid fa-dharmachakra text-info me-2"></i> Rathole Tunnel
                     </button>
                 </h2>
                 <div id="collapseRathole" class="accordion-collapse collapse" data-bs-parent="#modulesAccordion">
                     <div class="accordion-body border-top border-secondary">
-                        
                         <form action="{{ url_for('install_rathole') }}" method="POST">
-                            
                             <input type="hidden" name="iran_ip_manual" value="{{ current_ip }}">
 
                             <div class="row g-3 mb-3">
                                 <div class="col-md-4">
-                                    <label class="small text-muted">Tunnel Port (Control)</label>
+                                    <label class="small text-muted">Tunnel Port</label>
                                     <input type="number" name="tunnel_port" class="form-control" placeholder="e.g. 5000" required>
                                 </div>
                                 <div class="col-md-4">
@@ -82,29 +103,25 @@
                             <div class="mb-3">
                                 <label class="small text-muted">Ports to Forward (Comma Separated)</label>
                                 <input type="text" name="forward_ports" class="form-control font-monospace" placeholder="e.g. 2080, 2090, 8080" required>
-                                <div class="form-text text-white-50 ms-1">These ports will be opened on Iran server and forwarded to Kharej.</div>
                             </div>
 
-                            <div class="d-flex flex-wrap gap-4 mb-4 p-3 rounded" style="background: rgba(0,0,0,0.2);">
+                            <div class="d-flex gap-4 mb-3">
                                 <div class="form-check form-switch">
                                     <input class="form-check-input" type="checkbox" name="ipv6">
-                                    <label class="form-check-label text-muted small">Enable IPv6 ([::])</label>
+                                    <label class="text-muted small">IPv6</label>
                                 </div>
                                 <div class="form-check form-switch">
                                     <input class="form-check-input" type="checkbox" name="nodelay" checked>
-                                    <label class="form-check-label text-muted small">TCP NoDelay (Recommended)</label>
+                                    <label class="text-muted small">NoDelay</label>
                                 </div>
                                 <div class="form-check form-switch">
                                     <input class="form-check-input" type="checkbox" name="heartbeat">
-                                    <label class="form-check-label text-muted small">Enable Heartbeat</label>
+                                    <label class="text-muted small">Heartbeat</label>
                                 </div>
                             </div>
 
-                            <button type="submit" class="btn btn-info w-100 py-2 fw-bold shadow-lg {{ 'disabled' if not server }}">
-                                <i class="fa-solid fa-rocket me-2"></i> Deploy Rathole
-                            </button>
+                            <button type="submit" class="btn btn-info w-100 fw-bold {{ 'disabled' if not server }}">Deploy Rathole</button>
                         </form>
-
                     </div>
                 </div>
             </div>
@@ -113,34 +130,14 @@
     </div>
 </div>
 
-<div class="modal fade" id="connectModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content glass-panel" style="background: var(--sidebar-bg);">
-            <div class="modal-body">
-                <form action="{{ url_for('connect_server') }}" method="POST">
-                    <div class="mb-3"><label class="small text-muted">IP</label><input type="text" name="ip" class="form-control" required></div>
-                    <div class="mb-3"><label class="small text-muted">Pass</label><input type="password" name="password" class="form-control" required></div>
-                    <button type="submit" class="btn btn-alamor w-100">Connect</button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
+{% include 'modals.html' ignore missing %}
 <script>
-    // Theme Switcher Logic (همون کد قبلی)
-    const toggleBtn = document.getElementById('themeToggle');
-    const htmlTag = document.documentElement;
-    if (localStorage.getItem('theme') === 'light') htmlTag.setAttribute('data-theme', 'light');
-    toggleBtn.addEventListener('click', () => {
-        const current = htmlTag.getAttribute('data-theme');
-        if (current === 'light') {
-            htmlTag.removeAttribute('data-theme');
-            localStorage.setItem('theme', 'dark');
-        } else {
-            htmlTag.setAttribute('data-theme', 'light');
-            localStorage.setItem('theme', 'light');
-        }
-    });
+    function toggleMuxFields() {
+        const proto = document.getElementById('transportSelect').value;
+        const muxFields = document.querySelectorAll('.mux-field');
+        const isMux = ['tcpmux', 'wsmux', 'wssmux'].includes(proto);
+        muxFields.forEach(el => el.style.display = isMux ? 'block' : 'none');
+    }
+    // Theme toggle script...
 </script>
 {% endblock %}
