@@ -1,33 +1,30 @@
-/* AlamorTunnel/static/css/style.css */
+/* Update for static/css/style.css */
 :root {
-    /* --- تم پیش‌فرض (Dark) --- */
+    /* --- DARK THEME (High Contrast) --- */
     --bg-body: #0f172a;       /* Slate 900 */
     --bg-card: #1e293b;       /* Slate 800 */
-    --bg-sidebar: #020617;    /* Slate 950 */
-    --text-primary: #f8fafc;  /* Slate 50 */
-    --text-secondary: #94a3b8;/* Slate 400 */
-    --border-color: #334155;  /* Slate 700 */
-    --accent: #3b82f6;        /* Blue 500 */
-    --accent-hover: #2563eb;
-    --success: #10b981;
-    --danger: #ef4444;
-    --warning: #f59e0b;
+    
+    /* Text Colors - روشن‌تر کردن متن‌ها برای دارک مود */
+    --text-primary: #ffffff;  /* سفید مطلق برای تیترها */
+    --text-secondary: #e2e8f0;/* Slate 200 - خیلی روشن برای متن‌های فرعی */
+    
+    --border-color: #334155;
+    --accent: #3b82f6;
     --input-bg: #0f172a;
-    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
 }
 
 [data-theme="light"] {
-    /* --- تم روشن (Light) --- */
-    --bg-body: #f1f5f9;       /* Slate 100 */
+    /* --- LIGHT THEME (High Contrast) --- */
+    --bg-body: #f8fafc;       /* Slate 50 */
     --bg-card: #ffffff;       /* White */
-    --bg-sidebar: #ffffff;    /* White */
-    --text-primary: #0f172a;  /* Slate 900 */
-    --text-secondary: #64748b;/* Slate 500 */
-    --border-color: #e2e8f0;  /* Slate 200 */
-    --accent: #2563eb;        /* Blue 600 (تیره‌تر برای کنتراست) */
-    --accent-hover: #1d4ed8;
-    --input-bg: #f8fafc;
-    --shadow: 0 4px 6px -1px rgba(148, 163, 184, 0.2);
+    
+    /* Text Colors - تیره کردن متن‌ها برای لایت مود */
+    --text-primary: #020617;  /* Slate 950 - مشکی عمیق برای تیترها */
+    --text-secondary: #334155;/* Slate 700 - خاکستری تیره برای متن‌های فرعی */
+    
+    --border-color: #cbd5e1;  /* Slate 300 - خطوط دور واضح‌تر */
+    --accent: #2563eb;        /* آبی تیره‌تر برای روی سفید */
+    --input-bg: #f1f5f9;
 }
 
 body {
