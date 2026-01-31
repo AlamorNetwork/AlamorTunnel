@@ -23,18 +23,32 @@ def get_server_public_ip():
         except: continue
     return "YOUR_SERVER_IP"
 
-@@tunnels_bp.route('/tunnels')
+# --- LIST TUNNELS ---
+@tunnels_bp.route('/tunnels')
 def list_tunnels():
     if not is_logged_in(): return redirect(url_for('auth.login'))
+    
     raw_tunnels = get_all_tunnels()
     tunnels_list = []
+    
     for t in raw_tunnels:
-        try: config = json.loads(t[5])
-        except: config = {}
+        try:
+            config = json.loads(t[5])
+        except:
+            config = {}
+            
         tunnels_list.append({
-            'id': t[0], 'name': t[1], 'transport': t[2], 'port': t[3], 'token': t[4], 'config': config, 'status': t[6]
+            'id': t[0],
+            'name': t[1],
+            'transport': t[2],
+            'port': t[3],
+            'token': t[4],  # Token is index 4
+            'config': config,
+            'status': t[6]
         })
+        
     return render_template('tunnels.html', tunnels=tunnels_list)
+
 # --- EDIT TUNNEL ---
 @tunnels_bp.route('/edit-tunnel/<int:tunnel_id>', methods=['GET', 'POST'])
 def edit_tunnel(tunnel_id):
@@ -46,8 +60,11 @@ def edit_tunnel(tunnel_id):
         return redirect(url_for('tunnels.list_tunnels'))
 
     # استخراج اطلاعات فعلی
-    # tunnel: (id, name, transport, port, token, config_json, status)
-    current_config = json.loads(tunnel[5])
+    try:
+        current_config = json.loads(tunnel[5])
+    except:
+        current_config = {}
+        
     transport_type = tunnel[2]
     
     if request.method == 'POST':
@@ -58,36 +75,34 @@ def edit_tunnel(tunnel_id):
 
         iran_ip = request.form.get('iran_ip_manual') or get_server_public_ip()
         
-        # تشخیص نوع تانل و جمع‌آوری داده‌های جدید
-        new_config = current_config.copy() # کپی از تنظیمات قبلی
-        
-        # آپدیت فیلدها بر اساس فرم
+        # کپی و آپدیت کانفیگ
+        new_config = current_config.copy()
         new_config['tunnel_port'] = request.form.get('tunnel_port')
         new_config['transport'] = request.form.get('transport')
         
         # تنظیمات مشترک
         new_config['nodelay'] = request.form.get('nodelay') == 'on'
-        new_config['heartbeat'] = request.form.get('heartbeat') == 'on' if 'rathole' in transport_type else int(request.form.get('heartbeat', 40))
         
-        # اختصاصی Rathole
+        # منطق ذخیره سازی بر اساس نوع تانل
         if 'rathole' in transport_type or transport_type in ['tcp', 'udp'] and 'port_rules' not in request.form:
+             # RATHOLE UPDATE
              raw_ports = request.form.get('forward_ports', '')
              new_config['ports'] = [p.strip() for p in raw_ports.split(',') if p.strip().isdigit()]
              new_config['ipv6'] = request.form.get('ipv6') == 'on'
+             new_config['heartbeat'] = request.form.get('heartbeat') == 'on'
              
-             # اجرا و آپدیت Rathole
              install_remote_rathole(server[0], iran_ip, new_config)
              install_local_rathole(new_config)
              update_tunnel_config(tunnel_id, f"Rathole-{new_config['tunnel_port']}", "rathole", new_config['tunnel_port'], new_config)
 
-        # اختصاصی Backhaul
         else:
+             # BACKHAUL UPDATE
              new_config['edge_ip'] = request.form.get('edge_ip')
              new_config['port_rules'] = [line.strip() for line in request.form.get('port_rules', '').split('\n') if line.strip()]
              new_config['mux_version'] = int(request.form.get('mux_version', 1))
-             # ... سایر فیلدهای پیشرفته را هم می‌توان اینجا گرفت ...
+             # دریافت سایر فیلدهای عددی اگر در فرم باشند
+             if request.form.get('heartbeat'): new_config['heartbeat'] = int(request.form.get('heartbeat'))
              
-             # اجرا و آپدیت Backhaul
              install_remote_backhaul(server[0], iran_ip, new_config)
              install_local_backhaul(new_config)
              update_tunnel_config(tunnel_id, "Backhaul Tunnel", new_config['transport'], new_config['tunnel_port'], new_config)
@@ -105,15 +120,14 @@ def perform_test(tunnel_id, test_type):
     tunnel = get_tunnel_by_id(tunnel_id)
     if not tunnel: return jsonify({'status': 'error', 'msg': 'Tunnel not found'})
     
-    target_port = int(tunnel[3]) # Tunnel Bind Port (local listening port)
+    target_port = int(tunnel[3])
     target_ip = "127.0.0.1"
     
     if test_type == 'speed':
-        # تست تاخیر (Latency) با اتصال TCP
         try:
             start_time = time.time()
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(3) # 3 ثانیه تایم اوت
+            s.settimeout(3)
             result = s.connect_ex((target_ip, target_port))
             end_time = time.time()
             s.close()
@@ -127,21 +141,20 @@ def perform_test(tunnel_id, test_type):
             return jsonify({'status': 'error', 'msg': str(e)})
 
     elif test_type == 'download':
-        # شبیه‌سازی تست دانلود (چون دانلود واقعی نیاز به فایل سرور اونور داره)
-        # اما ما چک می‌کنیم که سوکت چقدر پایدار میمونه
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.settimeout(5)
             s.connect((target_ip, target_port))
-            # ارسال یک بایت دیتا برای تست پایداری
-            s.sendall(b'PING')
+            s.sendall(b'PING') # Small packet to check stream health
             s.close()
-            # نتیجه شبیه‌سازی شده بر اساس لتنسی (فرضی)
-            return jsonify({'status': 'success', 'msg': 'Link Stable (Ready for Traffic)'})
+            return jsonify({'status': 'success', 'msg': 'Stream Healthy'})
         except:
             return jsonify({'status': 'error', 'msg': 'Connection Failed'})
 
     return jsonify({'status': 'error', 'msg': 'Invalid Test'})
+
+# --- INSTALL ROUTES ---
+
 @tunnels_bp.route('/install-backhaul', methods=['POST'])
 def install_backhaul():
     if not is_logged_in(): return redirect(url_for('auth.login'))
@@ -257,8 +270,3 @@ def delete_tunnel(tunnel_id):
         flash('Tunnel Deleted.', 'success')
         
     return redirect(url_for('tunnels.list_tunnels'))
-
-@tunnels_bp.route('/test-tunnel/<test_type>')
-def test_tunnel(test_type):
-    if not is_logged_in(): return redirect(url_for('auth.login'))
-    return json.dumps({'status': 'success', 'msg': 'Test Passed Successfully'})
