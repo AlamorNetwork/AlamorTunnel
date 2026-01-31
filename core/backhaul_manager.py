@@ -7,39 +7,67 @@ INSTALL_DIR = "/root/backhaul"
 BIN_URL = "https://github.com/Musixal/Backhaul/releases/latest/download/backhaul_linux_amd64.tar.gz"
 
 def generate_token():
-    """تولید یک توکن تصادفی برای امنیت تانل"""
+    """تولید توکن امن"""
     return secrets.token_hex(16)
 
-def install_local_backhaul(local_port, remote_port, remote_ip, token):
-    """نصب کلاینت روی سرور ایران"""
-    print("[+] Installing Local Backhaul (Iran)...")
+def install_local_backhaul(local_port, remote_port, tunnel_port, token, transport="tcp"):
+    """
+    نصب روی سرور ایران (Mode: Server)
+    """
+    print(f"[+] Configuring Local Backhaul (Iran) with Transport: {transport}...")
     
-    # دانلود و اکسترکت
-    os.system(f"mkdir -p {INSTALL_DIR}")
-    os.system(f"curl -L -o {INSTALL_DIR}/backhaul.tar.gz {BIN_URL}")
-    os.system(f"tar -xzf {INSTALL_DIR}/backhaul.tar.gz -C {INSTALL_DIR}")
-    os.system(f"chmod +x {INSTALL_DIR}/backhaul")
+    # دانلود و نصب
+    cmds = [
+        f"mkdir -p {INSTALL_DIR}",
+        f"curl -L -o {INSTALL_DIR}/backhaul.tar.gz {BIN_URL}",
+        f"tar -xzf {INSTALL_DIR}/backhaul.tar.gz -C {INSTALL_DIR}",
+        f"chmod +x {INSTALL_DIR}/backhaul"
+    ]
+    for cmd in cmds:
+        os.system(cmd)
 
-    # ساخت فایل کانفیگ کلاینت
+    # تنظیمات خاص پروتکل‌های امن
+    tls_config = ""
+    if transport in ["wss", "wssmux"]:
+        # فرض بر این است که سرتیفیکیت‌ها در مسیر استاندارد هستند یا باید تولید شوند
+        # فعلا مسیر پیش‌فرض می‌گذاریم
+        tls_config = """
+tls_cert = "/root/server.crt"
+tls_key = "/root/server.key"
+"""
+
+    # ساخت کانفیگ ایران (Server)
     config_content = f"""
-[client]
-remote_addr = "{remote_ip}:{remote_port}"
+[server]
+bind_addr = "0.0.0.0:{tunnel_port}"
+transport = "{transport}"
+accept_udp = false
 token = "{token}"
-connection_pool = 8
+keepalive_period = 75
+nodelay = false
+channel_size = 2048
+heartbeat = 40
+mux_con = 8
+sniffer = false
+web_port = 2060
+sniffer_log = "/root/backhaul.json"
+log_level = "info"
+mss = 1360
+so_rcvbuf = 4194304
+so_sndbuf = 1048576
+{tls_config}
 
-[[tunnels]]
-name = "alamor-tunnel"
-local_port = {local_port}
-remote_port = {local_port}
-type = "tcp"
+ports = [
+    "{local_port}=127.0.0.1:{remote_port}"
+]
 """
     with open(f"{INSTALL_DIR}/config.toml", "w") as f:
         f.write(config_content)
 
-    # ساخت سرویس Systemd
+    # ساخت سرویس
     service_content = f"""
 [Unit]
-Description=Backhaul Client Service
+Description=Backhaul Server (Alamor)
 After=network.target
 
 [Service]
@@ -55,36 +83,44 @@ WantedBy=multi-user.target
     with open("/etc/systemd/system/backhaul.service", "w") as f:
         f.write(service_content)
 
-    # فعال‌سازی و اجرا
     os.system("systemctl daemon-reload && systemctl enable backhaul && systemctl restart backhaul")
     return True
 
-def install_remote_backhaul(remote_ip, remote_port, token):
-    """نصب سرور روی سرور خارج (از طریق SSH)"""
-    print("[+] Installing Remote Backhaul (Foreign)...")
+def install_remote_backhaul(ssh_target_ip, iran_connect_ip, tunnel_port, token, transport="tcp"):
+    """
+    نصب روی سرور خارج (Mode: Client)
+    """
+    print(f"[+] Configuring Remote Backhaul on {ssh_target_ip} with Transport: {transport}...")
     
-    # اسکریپت که باید در سرور خارج اجرا شود
     remote_script = f"""
     mkdir -p {INSTALL_DIR}
     curl -L -o {INSTALL_DIR}/backhaul.tar.gz {BIN_URL}
     tar -xzf {INSTALL_DIR}/backhaul.tar.gz -C {INSTALL_DIR}
     chmod +x {INSTALL_DIR}/backhaul
     
-    # ساخت کانفیگ سرور
+    # ساخت کانفیگ خارج (Client)
     cat > {INSTALL_DIR}/config.toml <<EOL
-[server]
-bind_addr = "0.0.0.0:{remote_port}"
+[client]
+remote_addr = "{iran_connect_ip}:{tunnel_port}"
+transport = "{transport}"
 token = "{token}"
-transport = "tcp"
+connection_pool = 8
+aggressive_pool = false
 keepalive_period = 75
-nodelay = true
-heartbeat = 40
+nodelay = false
+retry_interval = 3
+dial_timeout = 10
+sniffer = false
+web_port = 2060
+log_level = "info"
+mss = 1360
+so_rcvbuf = 1048576
+so_sndbuf = 4194304
 EOL
 
-    # ساخت سرویس
     cat > /etc/systemd/system/backhaul.service <<EOL
 [Unit]
-Description=Backhaul Server Service
+Description=Backhaul Client (Alamor)
 After=network.target
 
 [Service]
@@ -103,6 +139,5 @@ EOL
     systemctl restart backhaul
     """
     
-    # ارسال دستور به سرور خارج
-    success, output = run_remote_command(remote_ip, remote_script)
+    success, output = run_remote_command(ssh_target_ip, remote_script)
     return success, output

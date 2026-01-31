@@ -29,7 +29,6 @@
                 <i class="fa-solid fa-globe fa-4x {{ 'text-success' if server else 'text-danger' }}"></i>
             </div>
             <h6 class="text-uppercase text-muted mb-3">Remote Node (Foreign)</h6>
-            
             {% if server %}
                 <h2 class="fw-bold mb-1 text-success">Connected</h2>
                 <p class="mb-0 text-white font-monospace mt-2">{{ server[0] }}</p>
@@ -57,10 +56,19 @@
                     </div>
                     <h5 class="card-title text-white mb-0">Backhaul Tunnel</h5>
                 </div>
-                <p class="card-text text-muted small">High-performance TCP reverse tunnel.</p>
-            </div>
-            <div class="card-footer bg-transparent border-top border-secondary p-3">
+                <p class="card-text text-muted small">TCP/WS/MUX optimized reverse tunnel.</p>
+                
                 <form action="{{ url_for('install_backhaul') }}" method="POST">
+                    <div class="mb-3">
+                        <label class="text-muted small">Transmission Protocol</label>
+                        <select name="transport" class="form-control form-select bg-dark text-white border-secondary">
+                            <option value="tcp" selected>TCP (Standard)</option>
+                            <option value="tcpmux">TCP MUX (Multiplexed)</option>
+                            <option value="ws">WebSocket (CDN Friendly)</option>
+                            <option value="wsmux">WS MUX</option>
+                            </select>
+                    </div>
+                    
                     <button type="submit" class="btn btn-outline-light w-100 {{ 'disabled' if not server }}">
                         {{ 'Waiting for Remote Node...' if not server else 'Configure & Deploy' }}
                     </button>
@@ -91,9 +99,6 @@
                     <div class="mb-4">
                         <label class="form-label text-muted small">ROOT PASSWORD</label>
                         <input type="password" name="password" class="form-control" required>
-                    </div>
-                    <div class="alert alert-info bg-opacity-10 border-0 fs-6 small">
-                        <i class="fa-solid fa-key me-2"></i> RSA Keys will be auto-generated.
                     </div>
                     <button type="submit" class="btn btn-alamor w-100 py-2">Initialize Connection</button>
                 </form>
