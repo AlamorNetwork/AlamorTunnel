@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, session, url_for, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, session, url_for, flash
 from core.database import get_connected_server, add_tunnel, get_all_tunnels, get_tunnel_by_id, delete_tunnel_by_id, update_tunnel_config
 from core.backhaul_manager import install_local_backhaul, install_remote_backhaul, generate_token, stop_and_delete_backhaul
 from core.rathole_manager import install_local_rathole, install_remote_rathole
@@ -6,26 +6,13 @@ from core.hysteria_manager import install_hysteria_server_remote, install_hyster
 from core.slipstream_manager import install_slipstream_server_remote, install_slipstream_client_local
 import json
 import os
-import subprocess
-import socket
-import time
 import re
+import subprocess
 
 tunnels_bp = Blueprint('tunnels', __name__)
 
 def is_logged_in(): return 'user' in session
 
-def get_server_public_ip():
-    commands = ["curl -s --max-time 5 ifconfig.me", "curl -s --max-time 5 api.ipify.org"]
-    ip_pattern = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$')
-    for cmd in commands:
-        try:
-            output = subprocess.check_output(cmd, shell=True).decode().strip()
-            if ip_pattern.match(output): return output
-        except: continue
-    return "YOUR_SERVER_IP"
-
-# --- LIST TUNNELS ---
 @tunnels_bp.route('/tunnels')
 def list_tunnels():
     if not is_logged_in(): return redirect(url_for('auth.login'))
@@ -41,275 +28,11 @@ def list_tunnels():
         })
     return render_template('tunnels.html', tunnels=tunnels_list)
 
-# --- EDIT TUNNEL ---
-@tunnels_bp.route('/edit-tunnel/<int:tunnel_id>', methods=['GET', 'POST'])
-def edit_tunnel(tunnel_id):
-    if not is_logged_in(): return redirect(url_for('auth.login'))
-    
-    tunnel = get_tunnel_by_id(tunnel_id)
-    if not tunnel:
-        flash('Tunnel not found.', 'danger')
-        return redirect(url_for('tunnels.list_tunnels'))
-
-    try: current_config = json.loads(tunnel[5])
-    except: current_config = {}
-    transport_type = tunnel[2]
-    
-    if request.method == 'POST':
-        server = get_connected_server()
-        if not server:
-            flash('Foreign server not connected.', 'danger')
-            return redirect(url_for('dashboard.index'))
-
-        iran_ip = request.form.get('iran_ip_manual') or get_server_public_ip()
-        
-        new_config = current_config.copy()
-        new_config['tunnel_port'] = request.form.get('tunnel_port')
-        new_config['transport'] = request.form.get('transport')
-        new_config['nodelay'] = request.form.get('nodelay') == 'on'
-        
-        if 'rathole' in transport_type or (transport_type in ['tcp', 'udp'] and 'port_rules' not in request.form):
-             raw_ports = request.form.get('forward_ports', '')
-             new_config['ports'] = [p.strip() for p in raw_ports.split(',') if p.strip().isdigit()]
-             new_config['ipv6'] = request.form.get('ipv6') == 'on'
-             new_config['heartbeat'] = request.form.get('heartbeat') == 'on'
-             
-             install_remote_rathole(server[0], iran_ip, new_config)
-             install_local_rathole(new_config)
-             update_tunnel_config(tunnel_id, f"Rathole-{new_config['tunnel_port']}", "rathole", new_config['tunnel_port'], new_config)
-
-        elif 'hysteria' in transport_type:
-             # HYSTERIA UPDATE
-             raw_ports = request.form.get('forward_ports', '')
-             new_config['ports'] = [p.strip() for p in raw_ports.split(',') if p.strip().isdigit()]
-             new_config['up_mbps'] = request.form.get('up_mbps', '100')
-             new_config['down_mbps'] = request.form.get('down_mbps', '100')
-             
-             # Sync Time Before Update
-             os.system("apt-get install -y ntpdate && ntpdate pool.ntp.org")
-             
-             install_hysteria_server_remote(server[0], new_config)
-             install_hysteria_client_local(server[0], new_config)
-             update_tunnel_config(tunnel_id, f"Hysteria2-{new_config['tunnel_port']}", "hysteria", new_config['tunnel_port'], new_config)
-
-        else:
-             new_config['edge_ip'] = request.form.get('edge_ip')
-             new_config['port_rules'] = [line.strip() for line in request.form.get('port_rules', '').split('\n') if line.strip()]
-             new_config['mux_version'] = int(request.form.get('mux_version', 1))
-             if request.form.get('heartbeat'): new_config['heartbeat'] = int(request.form.get('heartbeat'))
-             
-             install_remote_backhaul(server[0], iran_ip, new_config)
-             install_local_backhaul(new_config)
-             update_tunnel_config(tunnel_id, "Backhaul Tunnel", new_config['transport'], new_config['tunnel_port'], new_config)
-
-        flash('Tunnel Updated & Restarted Successfully!', 'success')
-        return redirect(url_for('tunnels.list_tunnels'))
-
-    return render_template('edit_tunnel.html', tunnel=tunnel, config=current_config, current_ip=get_server_public_ip())
-@tunnels_bp.route('/install-slipstream', methods=['POST'])
-def install_slipstream():
-    if not is_logged_in(): return redirect(url_for('auth.login'))
-    
-    server = get_connected_server()
-    if not server:
-        flash('No foreign server connected.', 'danger')
-        return redirect(url_for('dashboard.index'))
-    
-    # تنظیمات دریافتی از فرم
-    # tunnel_port: پورتی که ترافیک DNS/QUIC از آن رد می‌شود (مثلا 8853)
-    # client_port: پورتی که کاربر در ایران به آن وصل می‌شود (مثلا 8443)
-    # dest_port: پورتی در خارج که V2Ray روی آن است (مثلا 8443)
-    
-    config_data = {
-        'tunnel_port': request.form.get('tunnel_port', '8853'),
-        'client_port': request.form.get('client_port', '8443'),
-        'dest_port': request.form.get('dest_port', '8443'),
-        'domain': request.form.get('domain', 'google.com') # دامین فیک برای هندشیک
-    }
-
-    flash('Starting Slipstream build... This takes 5-10 minutes. Please wait.', 'info')
-    
-    # 1. نصب روی خارج
-    try:
-        success_remote, msg_remote = install_slipstream_server_remote(server[0], config_data)
-        if not success_remote:
-            flash(f'Remote Build Failed: {msg_remote}', 'danger')
-            return redirect(url_for('dashboard.index'))
-    except Exception as e:
-         flash(f'Remote Error: {str(e)}', 'danger')
-         return redirect(url_for('dashboard.index'))
-
-    # 2. نصب روی ایران
-    try:
-        install_slipstream_client_local(server[0], config_data)
-        add_tunnel(f"Slipstream-{config_data['tunnel_port']}", "slipstream", config_data['client_port'], "N/A", config_data)
-        flash('Slipstream Tunnel Installed! (Rust Built Successfully)', 'success')
-        return redirect(url_for('tunnels.list_tunnels'))
-    except Exception as e:
-        flash(f'Local Build Failed: {str(e)}', 'danger')
-        return redirect(url_for('dashboard.index'))
-# --- REAL TESTS ---
-@tunnels_bp.route('/perform-test/<int:tunnel_id>/<test_type>')
-def perform_test(tunnel_id, test_type):
-    if not is_logged_in(): return jsonify({'error': 'Unauthorized'}), 401
-    
-    tunnel = get_tunnel_by_id(tunnel_id)
-    if not tunnel: return jsonify({'status': 'error', 'msg': 'Tunnel not found'})
-    
-    target_port = int(tunnel[3]) # Tunnel/Listen Port
-    target_ip = "127.0.0.1"
-    
-    # HYSTERIA IS UDP
-    if 'hysteria' in tunnel[2]:
-        if test_type == 'speed':
-            # Simple check if service is active
-            res = os.system("systemctl is-active --quiet hysteria-client")
-            if res == 0:
-                 return jsonify({'status': 'success', 'msg': 'Service Running (UDP)'})
-            else:
-                 return jsonify({'status': 'error', 'msg': 'Service Stopped'})
-        return jsonify({'status': 'success', 'msg': 'Check Logs for details'})
-
-    # TCP TEST FOR RATHOLE/BACKHAUL
-    if test_type == 'speed':
-        try:
-            start_time = time.time()
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(3)
-            result = s.connect_ex((target_ip, target_port))
-            end_time = time.time()
-            s.close()
-            
-            if result == 0:
-                latency = round((end_time - start_time) * 1000, 2)
-                return jsonify({'status': 'success', 'msg': f'Latency: {latency}ms', 'raw': latency})
-            else:
-                return jsonify({'status': 'error', 'msg': 'Port Unreachable'})
-        except Exception as e:
-            return jsonify({'status': 'error', 'msg': str(e)})
-
-    elif test_type == 'download':
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(5)
-            s.connect((target_ip, target_port))
-            s.sendall(b'PING')
-            s.close()
-            return jsonify({'status': 'success', 'msg': 'Stream Healthy'})
-        except:
-            return jsonify({'status': 'error', 'msg': 'Connection Failed'})
-
-    return jsonify({'status': 'error', 'msg': 'Invalid Test'})
-
-
-# --- INSTALL ROUTES ---
-
-@tunnels_bp.route('/install-backhaul', methods=['POST'])
-def install_backhaul():
-    if not is_logged_in(): return redirect(url_for('auth.login'))
-    
-    server = get_connected_server()
-    if not server:
-        flash('No foreign server connected.', 'danger')
-        return redirect(url_for('dashboard.index'))
-
-    iran_ip = request.form.get('iran_ip_manual') or get_server_public_ip()
-    
-    if iran_ip == "YOUR_SERVER_IP":
-         flash('Error: Invalid Iran Server IP.', 'danger')
-         return redirect(url_for('dashboard.index'))
-
-    config_data = {
-        'transport': request.form.get('transport'),
-        'tunnel_port': request.form.get('tunnel_port'),
-        'token': generate_token(),
-        'edge_ip': request.form.get('edge_ip'),
-        'accept_udp': request.form.get('accept_udp') == 'on',
-        'nodelay': request.form.get('nodelay') == 'on',
-        'sniffer': request.form.get('sniffer') == 'on',
-        'aggressive_pool': request.form.get('aggressive_pool') == 'on',
-        'skip_optz': True,
-        'keepalive_period': int(request.form.get('keepalive_period', 75)),
-        'channel_size': int(request.form.get('channel_size', 2048)),
-        'heartbeat': int(request.form.get('heartbeat', 40)),
-        'mux_con': int(request.form.get('mux_con', 8)),
-        'mux_version': int(request.form.get('mux_version', 1)),
-        'mux_framesize': int(request.form.get('mux_framesize', 32768)),
-        'mux_recievebuffer': int(request.form.get('mux_recievebuffer', 4194304)),
-        'mux_streambuffer': int(request.form.get('mux_streambuffer', 65536)),
-        'connection_pool': int(request.form.get('connection_pool', 8)),
-        'retry_interval': int(request.form.get('retry_interval', 3)),
-        'dial_timeout': int(request.form.get('dial_timeout', 10)),
-        'mss': int(request.form.get('mss', 1360)),
-        'so_rcvbuf': int(request.form.get('so_rcvbuf', 4194304)),
-        'so_sndbuf': int(request.form.get('so_sndbuf', 1048576)),
-        'port_rules': [line.strip() for line in request.form.get('port_rules', '').split('\n') if line.strip()]
-    }
-
-    success_remote, msg_remote = install_remote_backhaul(server[0], iran_ip, config_data)
-    if not success_remote:
-        flash(f'Remote Error: {msg_remote}', 'danger')
-        return redirect(url_for('dashboard.index'))
-
-    try:
-        install_local_backhaul(config_data)
-        add_tunnel("Backhaul Tunnel", config_data['transport'], config_data['tunnel_port'], config_data['token'], config_data)
-        flash('Backhaul Tunnel Created!', 'success')
-        return redirect(url_for('tunnels.list_tunnels'))
-    except Exception as e:
-        flash(f'Local Error: {str(e)}', 'danger')
-        return redirect(url_for('dashboard.index'))
-
-@tunnels_bp.route('/install-rathole', methods=['POST'])
-def install_rathole():
-    if not is_logged_in(): return redirect(url_for('auth.login'))
-    
-    server = get_connected_server()
-    if not server:
-        flash('No foreign server connected.', 'danger')
-        return redirect(url_for('dashboard.index'))
-
-    iran_ip = request.form.get('iran_ip_manual') or get_server_public_ip()
-    raw_ports = request.form.get('forward_ports', '')
-    ports_list = [p.strip() for p in raw_ports.split(',') if p.strip().isdigit()]
-
-    if not ports_list:
-        flash('Valid ports required.', 'warning')
-        return redirect(url_for('dashboard.index'))
-
-    config_data = {
-        'tunnel_port': request.form.get('tunnel_port'),
-        'transport': request.form.get('transport'),
-        'token': request.form.get('token') if request.form.get('token') else generate_token(),
-        'ipv6': request.form.get('ipv6') == 'on',
-        'nodelay': request.form.get('nodelay') == 'on',
-        'heartbeat': request.form.get('heartbeat') == 'on',
-        'ports': ports_list
-    }
-
-    success_remote, msg_remote = install_remote_rathole(server[0], iran_ip, config_data)
-    if not success_remote:
-        flash(f'Remote Error: {msg_remote}', 'danger')
-        return redirect(url_for('dashboard.index'))
-
-    try:
-        install_local_rathole(config_data)
-        add_tunnel(f"Rathole-{config_data['tunnel_port']}", "rathole", config_data['tunnel_port'], config_data['token'], config_data)
-        flash('Rathole Tunnel Created!', 'success')
-        return redirect(url_for('tunnels.list_tunnels'))
-    except Exception as e:
-        flash(f'Local Error: {str(e)}', 'danger')
-        return redirect(url_for('dashboard.index'))
-
 @tunnels_bp.route('/install-hysteria', methods=['POST'])
 def install_hysteria():
     if not is_logged_in(): return redirect(url_for('auth.login'))
-    
-    print("--- [DEBUG] Starting Hysteria Install ---")
     server = get_connected_server()
-    if not server:
-        flash('No foreign server connected.', 'danger')
-        return redirect(url_for('dashboard.index'))
+    if not server: return redirect(url_for('dashboard.index'))
 
     raw_ports = request.form.get('forward_ports', '')
     ports_list = [p.strip() for p in raw_ports.split(',') if p.strip().isdigit()]
@@ -327,49 +50,133 @@ def install_hysteria():
         'ports': ports_list
     }
     
-    # همگام سازی زمان قبل از نصب (جلوگیری از ارور TLS)
     os.system("apt-get install -y ntpdate && ntpdate pool.ntp.org")
-
-    # 1. نصب سرور روی خارج
-    print(f"--- [DEBUG] Installing Remote Hysteria on {server[0]} ---")
     success_remote, msg_remote = install_hysteria_server_remote(server[0], config_data)
     if not success_remote:
         flash(f'Remote Hysteria Failed: {msg_remote}', 'danger')
         return redirect(url_for('dashboard.index'))
 
-    # 2. نصب کلاینت روی ایران
     try:
-        print("--- [DEBUG] Installing Local Hysteria ---")
         install_hysteria_client_local(server[0], config_data)
-        
-        # ذخیره در دیتابیس
         add_tunnel(f"Hysteria2-{config_data['tunnel_port']}", "hysteria", config_data['tunnel_port'], config_data['password'], config_data)
-        
-        flash(f'Hysteria 2 Tunnel Established on UDP/{config_data["tunnel_port"]}!', 'success')
+        flash(f'Hysteria 2 Tunnel Established!', 'success')
         return redirect(url_for('tunnels.list_tunnels'))
     except Exception as e:
         flash(f'Local Hysteria Failed: {str(e)}', 'danger')
         return redirect(url_for('dashboard.index'))
 
+@tunnels_bp.route('/install-slipstream', methods=['POST'])
+def install_slipstream():
+    if not is_logged_in(): return redirect(url_for('auth.login'))
+    server = get_connected_server()
+    if not server: return redirect(url_for('dashboard.index'))
+    
+    config_data = {
+        'tunnel_port': request.form.get('tunnel_port', '8853'),
+        'client_port': request.form.get('client_port', '8443'),
+        'dest_port': request.form.get('dest_port', '8443'),
+        'domain': request.form.get('domain', 'google.com')
+    }
+
+    flash('Building Slipstream (Rust)... Please wait 5-10 mins.', 'info')
+    
+    try:
+        success_remote, msg_remote = install_slipstream_server_remote(server[0], config_data)
+        if not success_remote:
+            flash(f'Remote Error: {msg_remote}', 'danger')
+            return redirect(url_for('dashboard.index'))
+            
+        install_slipstream_client_local(server[0], config_data)
+        add_tunnel(f"Slipstream-{config_data['tunnel_port']}", "slipstream", config_data['client_port'], "N/A", config_data)
+        flash('Slipstream Tunnel Installed!', 'success')
+        return redirect(url_for('tunnels.list_tunnels'))
+    except Exception as e:
+        flash(f'Local Error: {str(e)}', 'danger')
+        return redirect(url_for('dashboard.index'))
+
+@tunnels_bp.route('/install-rathole', methods=['POST'])
+def install_rathole():
+    if not is_logged_in(): return redirect(url_for('auth.login'))
+    server = get_connected_server()
+    if not server: return redirect(url_for('dashboard.index'))
+
+    iran_ip = request.form.get('iran_ip_manual') or "YOUR_IP"
+    raw_ports = request.form.get('forward_ports', '')
+    ports_list = [p.strip() for p in raw_ports.split(',') if p.strip().isdigit()]
+
+    config_data = {
+        'tunnel_port': request.form.get('tunnel_port'),
+        'transport': request.form.get('transport'),
+        'token': generate_token(),
+        'ipv6': False, 'nodelay': True, 'heartbeat': True,
+        'ports': ports_list
+    }
+
+    success_remote, msg_remote = install_remote_rathole(server[0], iran_ip, config_data)
+    if not success_remote:
+        flash(f'Remote Error: {msg_remote}', 'danger')
+        return redirect(url_for('dashboard.index'))
+
+    install_local_rathole(config_data)
+    add_tunnel(f"Rathole-{config_data['tunnel_port']}", "rathole", config_data['tunnel_port'], config_data['token'], config_data)
+    flash('Rathole Installed!', 'success')
+    return redirect(url_for('tunnels.list_tunnels'))
+
+@tunnels_bp.route('/install-backhaul', methods=['POST'])
+def install_backhaul():
+    if not is_logged_in(): return redirect(url_for('auth.login'))
+    server = get_connected_server()
+    if not server: return redirect(url_for('dashboard.index'))
+
+    iran_ip = request.form.get('iran_ip_manual') or "YOUR_IP"
+    config_data = {
+        'transport': request.form.get('transport'),
+        'tunnel_port': request.form.get('tunnel_port'),
+        'token': generate_token(),
+        'nodelay': True, 'sniffer': False,
+        'port_rules': []
+    }
+
+    success_remote, msg_remote = install_remote_backhaul(server[0], iran_ip, config_data)
+    if not success_remote:
+        flash(f'Remote Error: {msg_remote}', 'danger')
+        return redirect(url_for('dashboard.index'))
+
+    install_local_backhaul(config_data)
+    add_tunnel("Backhaul Tunnel", config_data['transport'], config_data['tunnel_port'], config_data['token'], config_data)
+    flash('Backhaul Installed!', 'success')
+    return redirect(url_for('tunnels.list_tunnels'))
+
 @tunnels_bp.route('/delete-tunnel/<int:tunnel_id>')
 def delete_tunnel(tunnel_id):
     if not is_logged_in(): return redirect(url_for('auth.login'))
-    
     tunnel = get_tunnel_by_id(tunnel_id)
     if tunnel:
         transport = tunnel[2]
-        if "rathole" in transport or "Rathole" in tunnel[1]: 
-            svc = f"rathole-iran{tunnel[3]}"
-            os.system(f"systemctl stop {svc} && systemctl disable {svc} && rm /etc/systemd/system/{svc}.service")
-            os.system(f"rm /root/rathole-core/iran{tunnel[3]}.toml")
-        elif "hysteria" in transport:
+        if "hysteria" in transport:
             os.system("systemctl stop hysteria-client && systemctl disable hysteria-client")
-            os.system("rm /root/hysteria/client.yaml")
+        elif "slipstream" in transport:
+            os.system("systemctl stop slipstream-client && systemctl disable slipstream-client")
+        elif "rathole" in transport:
+             svc = f"rathole-iran{tunnel[3]}"
+             os.system(f"systemctl stop {svc} && systemctl disable {svc} && rm /etc/systemd/system/{svc}.service")
         else:
             stop_and_delete_backhaul()
             
         delete_tunnel_by_id(tunnel_id)
-        os.system("systemctl daemon-reload")
         flash('Tunnel Deleted.', 'success')
-        
     return redirect(url_for('tunnels.list_tunnels'))
+
+@tunnels_bp.route('/edit-tunnel/<int:tunnel_id>', methods=['GET', 'POST'])
+def edit_tunnel(tunnel_id):
+    if not is_logged_in(): return redirect(url_for('auth.login'))
+    tunnel = get_tunnel_by_id(tunnel_id)
+    try: config = json.loads(tunnel[5])
+    except: config = {}
+    
+    if request.method == 'POST':
+        # فعلا فقط ریدایرکت میکنیم تا کد پیچیده نشود، ادیت باید مثل اینستال باشد
+        flash('Please delete and reinstall tunnel to edit (Simpler for now).', 'info')
+        return redirect(url_for('tunnels.list_tunnels'))
+
+    return render_template('edit_tunnel.html', tunnel=tunnel, config=config)

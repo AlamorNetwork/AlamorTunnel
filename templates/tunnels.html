@@ -1,33 +1,32 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="d-flex justify-content-between mb-4">
-    <h3>Active Tunnels</h3>
-    <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary">New Tunnel</a>
+    <h2>Active Tunnels</h2>
+    <a href="{{ url_for('dashboard.index') }}" class="btn btn-warning">New Tunnel</a>
 </div>
-<div class="card p-0">
-    <table class="table table-hover mb-0">
-        <thead>
-            <tr><th>ID</th><th>Name</th><th>Type</th><th>Details</th><th>Actions</th></tr>
-        </thead>
-        <tbody>
-            {% for tunnel in tunnels %}
-            <tr>
-                <td>#{{ tunnel.id }}</td>
-                <td>{{ tunnel.name }}</td>
-                <td>{{ tunnel.transport }}</td>
-                <td>
-                    Port: {{ tunnel.port }}<br>
-                    {% if tunnel.config.dest_port %}Dest: {{ tunnel.config.dest_port }}{% endif %}
-                </td>
-                <td>
-                    <a href="{{ url_for('tunnels.edit_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-primary">Edit</a>
-                    <a href="{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-danger">Del</a>
-                </td>
-            </tr>
-            {% else %}
-            <tr><td colspan="5" class="text-center p-4">No tunnels found.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<div class="card bg-dark border-secondary">
+    <div class="table-responsive">
+        <table class="table table-dark table-hover mb-0">
+            <thead>
+                <tr><th>ID</th><th>Name</th><th>Type</th><th>Details</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+                {% for tunnel in tunnels %}
+                <tr>
+                    <td>#{{ tunnel.id }}</td>
+                    <td class="fw-bold">{{ tunnel.name }}</td>
+                    <td><span class="badge bg-secondary">{{ tunnel.transport }}</span></td>
+                    <td>Port: {{ tunnel.port }}</td>
+                    <td>
+                        <a href="{{ url_for('tunnels.edit_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-info">Edit</a>
+                        <a href="{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-danger">Del</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="text-center p-4">No tunnels.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}

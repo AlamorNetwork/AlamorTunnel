@@ -6,6 +6,7 @@ from routes.tunnels import tunnels_bp
 import os
 
 app = Flask(__name__)
+# کلید امنیتی برای سشن‌ها (لاگین)
 app.secret_key = os.urandom(24)
 
 # راه اندازی دیتابیس

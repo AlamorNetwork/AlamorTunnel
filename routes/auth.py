@@ -9,13 +9,14 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         
+        # چک کردن یوزر با دیتابیس
         user = check_user(username, password)
         
         if user:
-            session['user'] = user[0]
+            session['user'] = user[0]  # ذخیره سشن
             return redirect(url_for('dashboard.index'))
         else:
-            flash('Invalid username or password', 'danger')
+            flash('نام کاربری یا رمز عبور اشتباه است', 'danger')
             
     return render_template('login.html')
 
