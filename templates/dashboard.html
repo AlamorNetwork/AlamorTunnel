@@ -32,7 +32,7 @@
             <div class="accordion-item glass-panel mb-3 border-0">
                 <h2 class="accordion-header">
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseBackhaul" style="background: transparent; color: var(--text-main);">
-                        <i class="fa-solid fa-bolt text-warning me-2"></i> Backhaul Tunnel
+                        <i class="fa-solid fa-bolt text-warning me-2"></i> Backhaul Tunnel (TCP/MUX)
                     </button>
                 </h2>
                 <div id="collapseBackhaul" class="accordion-collapse collapse" data-bs-parent="#modulesAccordion">
@@ -59,10 +59,41 @@
                                     <input type="text" name="edge_ip" class="form-control">
                                 </div>
                             </div>
-                            
+
                              <div class="mb-3">
-                                <label class="small text-muted">Port Forwarding Rules</label>
-                                <textarea name="port_rules" class="form-control font-monospace" rows="3" placeholder="8080=80"></textarea>
+                                <label class="small text-muted">Port Forwarding Rules (e.g. 8080=80)</label>
+                                <textarea name="port_rules" class="form-control font-monospace" rows="3"></textarea>
+                            </div>
+
+                            <div class="accordion mb-3" id="advBackhaul">
+                                <div class="accordion-item border-0 bg-transparent">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed small py-2 bg-dark bg-opacity-25 text-muted" type="button" data-bs-toggle="collapse" data-bs-target="#advConfig">
+                                            <i class="fa-solid fa-sliders me-2"></i> Advanced Settings (Buffers, Mux, Timings)
+                                        </button>
+                                    </h2>
+                                    <div id="advConfig" class="accordion-collapse collapse" data-bs-parent="#advBackhaul">
+                                        <div class="accordion-body bg-black bg-opacity-25 rounded mt-2">
+                                            <div class="row g-2">
+                                                <div class="col-6 col-md-3"><label class="small text-muted">Mux Ver</label><input type="number" name="mux_version" class="form-control form-control-sm" value="1"></div>
+                                                <div class="col-6 col-md-3"><label class="small text-muted">Concurrency</label><input type="number" name="mux_con" class="form-control form-control-sm" value="8"></div>
+                                                <div class="col-6 col-md-3"><label class="small text-muted">Frame</label><input type="number" name="mux_framesize" class="form-control form-control-sm" value="32768"></div>
+                                                <div class="col-6 col-md-3"><label class="small text-muted">Recv Buf</label><input type="number" name="mux_recievebuffer" class="form-control form-control-sm" value="4194304"></div>
+                                                
+                                                <div class="col-6 col-md-3"><label class="small text-muted">Keepalive</label><input type="number" name="keepalive_period" class="form-control form-control-sm" value="75"></div>
+                                                <div class="col-6 col-md-3"><label class="small text-muted">Heartbeat</label><input type="number" name="heartbeat" class="form-control form-control-sm" value="40"></div>
+                                                <div class="col-6 col-md-3"><label class="small text-muted">Connect Pool</label><input type="number" name="connection_pool" class="form-control form-control-sm" value="8"></div>
+                                                <div class="col-6 col-md-3"><label class="small text-muted">MSS</label><input type="number" name="mss" class="form-control form-control-sm" value="1360"></div>
+
+                                                <div class="col-12 d-flex flex-wrap gap-3 mt-2">
+                                                    <div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="nodelay"><label class="small text-muted">NoDelay</label></div>
+                                                    <div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="sniffer"><label class="small text-muted">Sniffer</label></div>
+                                                    <div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="accept_udp"><label class="small text-muted">UDP</label></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             
                             <button type="submit" class="btn btn-alamor w-100">Deploy Backhaul</button>
@@ -83,41 +114,23 @@
                             <input type="hidden" name="iran_ip_manual" value="{{ current_ip }}">
 
                             <div class="row g-3 mb-3">
-                                <div class="col-md-4">
-                                    <label class="small text-muted">Tunnel Port</label>
-                                    <input type="number" name="tunnel_port" class="form-control" placeholder="e.g. 5000" required>
-                                </div>
+                                <div class="col-md-4"><label class="small text-muted">Port</label><input type="number" name="tunnel_port" class="form-control" required></div>
                                 <div class="col-md-4">
                                     <label class="small text-muted">Transport</label>
-                                    <select name="transport" class="form-select">
-                                        <option value="tcp" selected>TCP</option>
-                                        <option value="udp">UDP</option>
-                                    </select>
+                                    <select name="transport" class="form-select"><option value="tcp">TCP</option><option value="udp">UDP</option></select>
                                 </div>
-                                <div class="col-md-4">
-                                    <label class="small text-muted">Token (Optional)</label>
-                                    <input type="text" name="token" class="form-control" placeholder="Auto-generated">
-                                </div>
+                                <div class="col-md-4"><label class="small text-muted">Token</label><input type="text" name="token" class="form-control" placeholder="Auto"></div>
                             </div>
 
                             <div class="mb-3">
-                                <label class="small text-muted">Ports to Forward (Comma Separated)</label>
-                                <input type="text" name="forward_ports" class="form-control font-monospace" placeholder="e.g. 2080, 2090, 8080" required>
+                                <label class="small text-muted">Forward Ports (comma separated)</label>
+                                <input type="text" name="forward_ports" class="form-control font-monospace" placeholder="2080, 2090" required>
                             </div>
 
                             <div class="d-flex gap-4 mb-3">
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" name="ipv6">
-                                    <label class="text-muted small">IPv6</label>
-                                </div>
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" name="nodelay" checked>
-                                    <label class="text-muted small">NoDelay</label>
-                                </div>
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" name="heartbeat">
-                                    <label class="text-muted small">Heartbeat</label>
-                                </div>
+                                <div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="ipv6"><label class="text-muted small">IPv6</label></div>
+                                <div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="nodelay" checked><label class="text-muted small">NoDelay</label></div>
+                                <div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="heartbeat"><label class="text-muted small">Heartbeat</label></div>
                             </div>
 
                             <button type="submit" class="btn btn-info w-100 fw-bold {{ 'disabled' if not server }}">Deploy Rathole</button>
@@ -133,11 +146,8 @@
 {% include 'modals.html' ignore missing %}
 <script>
     function toggleMuxFields() {
-        const proto = document.getElementById('transportSelect').value;
-        const muxFields = document.querySelectorAll('.mux-field');
-        const isMux = ['tcpmux', 'wsmux', 'wssmux'].includes(proto);
-        muxFields.forEach(el => el.style.display = isMux ? 'block' : 'none');
+        // Logic to show/hide Mux fields if needed in UI
     }
-    // Theme toggle script...
+    // Theme Switcher Logic...
 </script>
 {% endblock %}

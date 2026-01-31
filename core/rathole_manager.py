@@ -3,8 +3,8 @@ import secrets
 from core.ssh_manager import run_remote_command
 
 INSTALL_DIR = "/root/rathole-core"
-# هر وقت سرور ایران زدی، این لینک رو عوض کن
-MIRROR_URL = "https://github.com/Musixal/rathole-tunnel/raw/main/core/rathole.zip"
+# لینک رسمی
+BIN_URL = "https://github.com/Musixal/rathole-tunnel/raw/main/core/rathole.zip"
 
 def generate_token():
     return secrets.token_hex(16)
@@ -15,7 +15,7 @@ def install_rathole_core():
         cmds = [
             "apt-get update && apt-get install -y unzip",
             f"mkdir -p {INSTALL_DIR}",
-            f"curl -L -o {INSTALL_DIR}/rathole.zip {MIRROR_URL}",
+            f"curl -L -o {INSTALL_DIR}/rathole.zip {BIN_URL}",
             f"unzip -o {INSTALL_DIR}/rathole.zip -d {INSTALL_DIR}",
             f"chmod +x {INSTALL_DIR}/rathole",
             f"rm {INSTALL_DIR}/rathole.zip"
@@ -52,7 +52,6 @@ heartbeat_interval = {hb_interval}
 
 {transport_block}
 """
-
     for port in config_data['ports']:
         config_content += f"""
 [server.services.{port}]
@@ -107,9 +106,8 @@ local_addr = "{local_bind}:{port}"
     remote_script = f"""
     apt-get update && apt-get install -y unzip
     mkdir -p {INSTALL_DIR}
-    
     if [ ! -f {INSTALL_DIR}/rathole ]; then
-        curl -L -o {INSTALL_DIR}/rathole.zip {MIRROR_URL}
+        curl -L -o {INSTALL_DIR}/rathole.zip {BIN_URL}
         unzip -o {INSTALL_DIR}/rathole.zip -d {INSTALL_DIR}
         chmod +x {INSTALL_DIR}/rathole
         rm {INSTALL_DIR}/rathole.zip

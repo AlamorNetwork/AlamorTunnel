@@ -1,7 +1,7 @@
 import sqlite3
+import json
 import random
 import string
-import json
 from werkzeug.security import generate_password_hash, check_password_hash
 
 DB_NAME = "alamor.db"
@@ -10,15 +10,12 @@ def init_db():
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     
-    # جداول پایه
     c.execute('''CREATE TABLE IF NOT EXISTS users 
                  (id INTEGER PRIMARY KEY, username TEXT, password TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS settings 
-                 (key TEXT PRIMARY KEY, value TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS servers 
                  (id INTEGER PRIMARY KEY, ip TEXT UNIQUE, port INTEGER DEFAULT 22, username TEXT DEFAULT 'root', status TEXT DEFAULT 'disconnected')''')
     
-    # جدول تانل‌ها (برای مدیریت چندین تانل)
+    # جدول تانل‌ها
     c.execute('''CREATE TABLE IF NOT EXISTS tunnels (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
@@ -42,7 +39,6 @@ def create_initial_user():
         hashed_pass = generate_password_hash(raw_pass)
         c.execute("INSERT INTO users (username, password) VALUES (?, ?)", ('admin', hashed_pass))
         conn.commit()
-        print(f"\n[+] Admin Created. Password: {raw_pass}\n")
     conn.close()
 
 def verify_user(username, password):
@@ -80,10 +76,8 @@ def get_connected_server():
     conn.close()
     return server
 
-# --- مدیریت تانل‌ها ---
-
+# --- Tunnel CRUD ---
 def add_tunnel(name, transport, tunnel_port, token, config_dict):
-    """اضافه کردن تانل جدید به لیست"""
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     config_json = json.dumps(config_dict)
@@ -93,7 +87,6 @@ def add_tunnel(name, transport, tunnel_port, token, config_dict):
     conn.close()
 
 def get_all_tunnels():
-    """دریافت همه تانل‌ها"""
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     c.execute("SELECT * FROM tunnels ORDER BY id DESC")
