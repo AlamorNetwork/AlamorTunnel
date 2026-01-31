@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, session, url_for, f
 from core.database import init_db, verify_user, update_password, create_initial_user, add_or_update_server, get_connected_server, save_tunnel, get_tunnel, delete_tunnels
 from core.ssh_manager import setup_passwordless_ssh
 from core.backhaul_manager import install_local_backhaul, install_remote_backhaul, generate_token, stop_and_delete_backhaul
+from core.rathole_manager import install_local_rathole, install_remote_rathole
 import os
 import secrets
 import subprocess
@@ -217,7 +218,60 @@ def settings():
             update_password(session['user'], new_pass)
             flash('Password updated', 'success')
     return render_template('settings.html')
+@app.route('/install-rathole', methods=['POST'])
+def install_rathole():
+    if not is_logged_in():
+        return redirect(url_for('login'))
+        
+    server = get_connected_server()
+    if not server:
+        flash('Error: No connected foreign server found.', 'danger')
+        return redirect(url_for('dashboard'))
 
+    # دریافت آی‌پی ایران
+    iran_ip = request.form.get('iran_ip_manual')
+    if not iran_ip:
+         iran_ip = get_server_public_ip()
+
+    # پردازش پورت‌ها (جدا کردن با کاما)
+    raw_ports = request.form.get('forward_ports', '')
+    # تبدیل "2080, 2090" به ['2080', '2090']
+    ports_list = [p.strip() for p in raw_ports.split(',') if p.strip().isdigit()]
+    
+    if not ports_list:
+        flash('Error: You must enter at least one valid port.', 'warning')
+        return redirect(url_for('dashboard'))
+
+    config_data = {
+        'tunnel_port': request.form.get('tunnel_port'),
+        'transport': request.form.get('transport'), # tcp or udp
+        'token': request.form.get('token') if request.form.get('token') else generate_token(),
+        'ipv6': request.form.get('ipv6') == 'on',
+        'nodelay': request.form.get('nodelay') == 'on',
+        'heartbeat': request.form.get('heartbeat') == 'on',
+        'ports': ports_list
+    }
+    
+    foreign_ip = server[0]
+    print(f"[*] Deploying Rathole... Iran: {iran_ip} -> Foreign: {foreign_ip}")
+
+    # 1. نصب روی خارج
+    success_remote, msg_remote = install_remote_rathole(foreign_ip, iran_ip, config_data)
+    if not success_remote:
+        flash(f'Rathole Remote Failed: {msg_remote}', 'danger')
+        return redirect(url_for('dashboard'))
+
+    # 2. نصب روی ایران
+    try:
+        install_local_rathole(config_data)
+        # ذخیره در دیتابیس (اختیاری - برای نمایش در لیست تانل‌ها)
+        save_tunnel(f"Rathole-{config_data['tunnel_port']}", "rathole", config_data['tunnel_port'], config_data['token'], config_data)
+        
+        flash(f'Rathole Tunnel Established on port {config_data["tunnel_port"]}!', 'success')
+        return redirect(url_for('tunnels'))
+    except Exception as e:
+        flash(f'Rathole Local Failed: {str(e)}', 'danger')
+        return redirect(url_for('dashboard'))
 @app.route('/logout')
 def logout():
     session.clear()

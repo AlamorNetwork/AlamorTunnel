@@ -97,7 +97,7 @@ def install_remote_backhaul(ssh_target_ip, iran_connect_ip, config_data):
     """
     print(f"[+] Configuring Remote Backhaul on {ssh_target_ip}")
     
-    clean_iran_ip = iran_connect_ip.strip()
+    clean_iran_ip = ""
     
     remote_script = f"""
     mkdir -p {INSTALL_DIR}
