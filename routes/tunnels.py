@@ -103,8 +103,16 @@ def start_install(protocol):
         return jsonify({'status': 'started', 'task_id': task_id})
 
     elif protocol == 'slipstream':
-        if not config.get('domain'): config['domain'] = 'dl.google.com'
+        # دریافت فیلدها از فرم
+        if not config.get('domain'): config['domain'] = 'example.com' # دامین فیک
+        if not config.get('dest_port'): config['dest_port'] = '8080'  # پورت مقصد در خارج
+        
+        # اطمینان از وجود پورت‌ها
+        if not config.get('tunnel_port') or not config.get('client_port'):
+             return jsonify({'status': 'error', 'message': 'All ports are required'})
+
         task_id = str(uuid.uuid4())
+        # ارسال به صف تسک‌های Async
         task_queue.put((task_id, process_slipstream, (server[0], config)))
         return jsonify({'status': 'started', 'task_id': task_id})
 
