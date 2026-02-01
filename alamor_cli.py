@@ -3,6 +3,7 @@ import os
 import sqlite3
 import subprocess
 import time
+import re
 
 # تلاش برای ایمپورت ماژول‌ها؛ اگر نصب نبودند ارور ندهد
 try:
@@ -33,14 +34,34 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+# --- تابع جدید دریافت IP ---
+def get_public_ip():
+    """دریافت آی‌پی سرور از چندین منبع مختلف با اعتبارسنجی"""
+    providers = [
+        "curl -s --max-time 3 https://api.ipify.org",
+        "curl -s --max-time 3 https://icanhazip.com",
+        "curl -s --max-time 3 http://ifconfig.me/ip",
+        "hostname -I | awk '{print $1}'" # آی‌پی داخلی به عنوان آخرین راه حل
+    ]
+    
+    ip_pattern = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$')
+
+    for cmd in providers:
+        try:
+            output = subprocess.check_output(cmd, shell=True).decode().strip()
+            # فقط اگر خروجی دقیقاً یک آی‌پی بود قبول کن (HTML نباشد)
+            if ip_pattern.match(output):
+                return output
+        except:
+            continue
+            
+    return "Unknown-IP"
+
 # --- FUNCTIONS ---
 
 def show_info():
     """نمایش اطلاعات حیاتی شامل آدرس مخفی"""
-    try:
-        ip = subprocess.check_output("curl -s --max-time 3 ifconfig.me", shell=True).decode().strip()
-    except:
-        ip = "SERVER_IP"
+    ip = get_public_ip()
         
     config = load_config()
     secret_path = config.get('panel_path', '')
@@ -66,7 +87,9 @@ def show_info():
     print(f"\n{Colors.GREEN}[+] LOGIN URLs:{Colors.RESET}")
     if secret_path:
         print(f"  ➜ {Colors.BOLD}Secure (SSL):{Colors.RESET}  https://{ip}/{secret_path}/dashboard")
-        print(f"  ➜ {Colors.BOLD}Local (HTTP):{Colors.RESET}  http://{ip}:5050/{secret_path}/dashboard")
+        # اگر آی‌پی درست پیدا نشد، لینک لوکال رو نشون بده
+        if ip != "Unknown-IP":
+             print(f"  ➜ {Colors.BOLD}Local (HTTP):{Colors.RESET}  http://{ip}:5050/{secret_path}/dashboard")
     else:
         print(f"  ➜ {Colors.BOLD}Standard:{Colors.RESET}      http://{ip}:5050/")
     
