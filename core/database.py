@@ -34,7 +34,7 @@ def init_db():
         conn.commit()
     conn.close()
 
-# ... (توابع user و server بدون تغییر) ...
+# --- توابع کاربر ---
 def check_user(username, password):
     conn = get_db()
     c = conn.cursor()
@@ -43,6 +43,14 @@ def check_user(username, password):
     conn.close()
     return res
 
+def update_password(new_pass):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("UPDATE users SET password=? WHERE username='admin'", (new_pass,))
+    conn.commit()
+    conn.close()
+
+# --- توابع سرور ---
 def add_server(ip, user, password, port):
     conn = get_db()
     c = conn.cursor()
