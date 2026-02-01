@@ -2,87 +2,215 @@
 {% block content %}
 
 <div class="row justify-content-center">
-    <div class="col-lg-8">
-        <div class="glass-card p-5 text-center">
-            <div class="mb-4">
-                <i class="fas fa-globe fa-4x text-primary-neon fa-spin-hover"></i>
-            </div>
-            <h2 class="fw-bold text-white mb-4">DOMAIN & SSL MANAGER</h2>
-            
-            <div class="mb-4 text-start">
-                <label class="text-primary-neon small fw-bold mb-2 ps-2">YOUR DOMAIN</label>
-                <div class="input-group">
-                    <span class="input-group-text bg-transparent border-secondary text-white-50"><i class="fas fa-link"></i></span>
-                    <input type="text" id="domainInput" class="form-control text-white" placeholder="sub.example.com">
-                    <button class="btn btn-outline-light" onclick="checkDNS()">Check DNS</button>
+    <div class="col-lg-9">
+        <div class="glass-card p-5">
+            <div class="text-center mb-5">
+                <div class="d-inline-flex align-items-center justify-content-center mb-3 rounded-circle" 
+                     style="width: 80px; height: 80px; background: rgba(0, 243, 255, 0.1); border: 1px solid var(--primary-neon); box-shadow: 0 0 20px rgba(0,243,255,0.2);">
+                    <i class="fas fa-globe fa-3x text-primary-neon fa-spin-hover"></i>
                 </div>
-                <small class="text-muted ms-2">Make sure your domain's A record points to this server IP.</small>
+                <h2 class="fw-bold text-white ls-2">DOMAIN COMMAND CENTER</h2>
+                <p class="text-white-50 font-monospace small">SSL PROVISIONING & DNS RESOLVER</p>
+            </div>
+            
+            <div class="mb-5 position-relative z-2">
+                <label class="text-primary-neon small fw-bold mb-2 ps-2 font-monospace">TARGET DOMAIN</label>
+                <div class="input-group">
+                    <span class="input-group-text glass-input border-end-0 text-primary-neon">
+                        <i class="fas fa-terminal"></i>
+                    </span>
+                    <input type="text" id="domainInput" class="form-control glass-input border-start-0 text-white font-monospace fs-5" placeholder="sub.example.com">
+                    <button class="btn btn-glass px-4 fw-bold" onclick="startDNSSequence()">
+                        <i class="fas fa-search-location me-2"></i>INITIATE PROBE
+                    </button>
+                </div>
             </div>
 
-            <div id="certSection" class="d-none animate__animated animate__fadeIn">
-                <div class="alert alert-success bg-transparent border-success text-success mb-4">
-                    <i class="fas fa-check-circle me-2"></i>DNS Verified! Ready to issue SSL.
+            <div id="terminal-window" class="d-none rounded-3 overflow-hidden border border-secondary border-opacity-50 position-relative" 
+                 style="background: #050505; min-height: 250px; font-family: 'Courier New', monospace;">
+                
+                <div class="d-flex align-items-center px-3 py-2 border-bottom border-secondary border-opacity-25" style="background: rgba(255,255,255,0.05);">
+                    <div class="d-flex gap-2 me-3">
+                        <div class="rounded-circle bg-danger" style="width: 10px; height: 10px;"></div>
+                        <div class="rounded-circle bg-warning" style="width: 10px; height: 10px;"></div>
+                        <div class="rounded-circle bg-success" style="width: 10px; height: 10px;"></div>
+                    </div>
+                    <small class="text-muted font-monospace">root@alamor-node:~# dns_probe --verbose</small>
                 </div>
-                <button class="btn btn-glass w-100 py-3" onclick="issueCert()">
-                    <i class="fas fa-lock me-2"></i>ISSUE SSL & DEPLOY FAKE SITE
+
+                <div class="p-3 text-start" id="console-logs">
+                    </div>
+                
+                <div class="scan-line"></div>
+            </div>
+
+            <div id="sslActionArea" class="mt-4 d-none text-center animate__animated animate__fadeInUp">
+                <div class="p-3 border border-success border-opacity-50 rounded bg-success bg-opacity-10 mb-3">
+                    <h5 class="text-success fw-bold m-0"><i class="fas fa-check-shield me-2"></i>DOMAIN VERIFIED</h5>
+                </div>
+                <button class="btn btn-glass w-100 py-3 text-success border-success" onclick="issueCert()">
+                    <i class="fas fa-lock me-2"></i>DEPLOY SSL CERTIFICATE & FAKE SITE
                 </button>
             </div>
 
-            <div id="statusBox" class="mt-4 d-none">
-                <div class="spinner-border text-primary mb-2" role="status"></div>
-                <p class="text-white-50 blink" id="statusText">Processing...</p>
-            </div>
         </div>
     </div>
 </div>
 
-<script>
-function checkDNS() {
-    const domain = document.getElementById('domainInput').value;
-    if(!domain) return;
+<style>
+    .glass-input {
+        background: rgba(0, 0, 0, 0.4) !important;
+        border-color: rgba(255, 255, 255, 0.1) !important;
+    }
+    .glass-input:focus {
+        box-shadow: 0 0 15px rgba(0, 243, 255, 0.1);
+        border-color: var(--primary-neon) !important;
+    }
     
-    const btn = event.target;
-    const originalText = btn.innerText;
-    btn.disabled = true;
-    btn.innerText = "Checking...";
-    
-    const formData = new FormData();
-    formData.append('domain', domain);
+    /* Terminal Typing Effect */
+    .log-line {
+        margin-bottom: 5px;
+        opacity: 0;
+        animation: fadeIn 0.1s forwards;
+    }
+    .text-cmd { color: #fff; }
+    .text-info-log { color: #00f3ff; }
+    .text-warn-log { color: #ff9d00; }
+    .text-success-log { color: #0aff60; text-shadow: 0 0 5px #0aff60; }
+    .text-error-log { color: #ff0055; text-shadow: 0 0 5px #ff0055; }
+    .text-dim { color: #666; }
 
-    fetch("{{ url_for('domains.check_dns') }}", {method: 'POST', body: formData})
-    .then(r => r.json())
-    .then(data => {
-        btn.disabled = false;
-        btn.innerText = originalText;
-        if(data.status === 'ok') {
-            document.getElementById('certSection').classList.remove('d-none');
-        } else {
-            alert(data.message);
-        }
-    });
+    @keyframes fadeIn { to { opacity: 1; } }
+
+    /* Scan line effect */
+    .scan-line {
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 2px;
+        background: rgba(0, 243, 255, 0.3);
+        box-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+        animation: scan 3s linear infinite;
+        opacity: 0.5;
+        pointer-events: none;
+    }
+    @keyframes scan {
+        0% { top: 0%; }
+        100% { top: 100%; }
+    }
+    
+    .cursor::after {
+        content: '▋';
+        animation: blink 1s infinite;
+        color: var(--primary-neon);
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+</style>
+
+<script>
+const consoleEl = document.getElementById('console-logs');
+const terminalWin = document.getElementById('terminal-window');
+const sslArea = document.getElementById('sslActionArea');
+
+// تابع تایپ کردن متن شبیه هکرها
+async function typeLog(html, delay = 50) {
+    const div = document.createElement('div');
+    div.className = 'log-line';
+    div.innerHTML = `<span class="text-dim">[${new Date().toLocaleTimeString()}]</span> ${html}`;
+    consoleEl.appendChild(div);
+    
+    // Scroll to bottom
+    terminalWin.scrollTop = terminalWin.scrollHeight;
+    
+    // Fake delay for realism
+    await new Promise(r => setTimeout(r, delay));
 }
 
-function issueCert() {
+async function startDNSSequence() {
     const domain = document.getElementById('domainInput').value;
-    document.getElementById('statusBox').classList.remove('d-none');
-    document.getElementById('certSection').classList.add('d-none');
-    document.getElementById('statusText').innerText = "Requesting Let's Encrypt Certificate...";
+    if(!domain) return;
+
+    // Reset UI
+    terminalWin.classList.remove('d-none');
+    sslArea.classList.add('d-none');
+    consoleEl.innerHTML = '';
+    
+    // Start Simulation
+    await typeLog(`<span class="text-cmd">root@node:~# check_dns_record -d ${domain}</span>`, 300);
+    await typeLog(`<span class="text-info-log">ℹ Initializing DNS Resolver subsystem...</span>`, 600);
+    await typeLog(`<span class="text-info-log">ℹ Querying authoritative nameservers...</span>`, 800);
+    
+    // Real Request
+    const formData = new FormData();
+    formData.append('domain', domain);
+    
+    try {
+        const response = await fetch("{{ url_for('domains.check_dns') }}", {method: 'POST', body: formData});
+        const data = await response.json();
+        
+        await typeLog(`<span>... Analying IP matching ...</span>`, 400);
+        
+        if(data.status === 'ok') {
+            await typeLog(`<span class="text-success-log">✔ SUCCESS: DNS Record Match Found!</span>`, 200);
+            await typeLog(`<span class="text-success-log">✔ TARGET LOCKED: Domain points to this server.</span>`, 200);
+            await typeLog(`<span class="text-info-log">ℹ Security protocols available for deployment.</span>`, 200);
+            sslArea.classList.remove('d-none');
+        } else {
+            await typeLog(`<span class="text-error-log">✖ FAILURE: DNS Mismatch Detected.</span>`, 200);
+            await typeLog(`<span class="text-warn-log">⚠ ALERT: The domain does not point to this server IP.</span>`, 200);
+            await typeLog(`<span class="text-error-log">✖ ACTION ABORTED. Check your A-Record settings.</span>`, 200);
+        }
+        
+    } catch (e) {
+        await typeLog(`<span class="text-error-log">✖ CRITICAL ERROR: Network Unreachable.</span>`);
+    }
+    
+    // Add blinking cursor at end
+    const cursorLine = document.createElement('div');
+    cursorLine.className = 'mt-2 text-primary-neon cursor';
+    cursorLine.innerText = 'root@node:~# ';
+    consoleEl.appendChild(cursorLine);
+}
+
+// تابع دریافت SSL با لاگ‌های جذاب
+async function issueCert() {
+    const domain = document.getElementById('domainInput').value;
+    sslArea.classList.add('d-none'); // Hide button
+    
+    // Remove old cursor
+    const oldCursor = document.querySelector('.cursor');
+    if(oldCursor) oldCursor.remove();
+
+    await typeLog(`<span class="text-cmd">root@node:~# certbot --nginx -d ${domain}</span>`, 500);
+    await typeLog(`<span class="text-warn-log">⚠ Requesting Let's Encrypt Certificate... (This may take 30s)</span>`, 100);
     
     const formData = new FormData();
     formData.append('domain', domain);
 
-    fetch("{{ url_for('domains.get_cert') }}", {method: 'POST', body: formData})
-    .then(r => r.json())
-    .then(data => {
-        document.getElementById('statusBox').classList.add('d-none');
+    try {
+        const response = await fetch("{{ url_for('domains.get_cert') }}", {method: 'POST', body: formData});
+        const data = await response.json();
+        
         if(data.status === 'ok') {
-            alert("Success! SSL Issued and Fake Site Deployed.");
-            location.reload();
+            await typeLog(`<span class="text-info-log">ℹ Challenge Accepted. Verifying ownership...</span>`, 1000);
+            await typeLog(`<span class="text-success-log">✔ CERTIFICATE ISSUED!</span>`, 200);
+            await typeLog(`<span class="text-info-log">ℹ Configuring Nginx Reverse Proxy...</span>`, 500);
+            await typeLog(`<span class="text-info-log">ℹ Deploying Fake Site Template...</span>`, 500);
+            await typeLog(`<span class="text-success-log">✔ DEPLOYMENT COMPLETE. System Secure.</span>`, 200);
+            
+            // Reload page after success
+            setTimeout(() => location.reload(), 3000);
         } else {
-            alert("Error: " + data.message);
-            document.getElementById('certSection').classList.remove('d-none');
+            await typeLog(`<span class="text-error-log">✖ CERTBOT ERROR: ${data.message}</span>`);
+            sslArea.classList.remove('d-none'); // Show button again to retry
         }
-    });
+    } catch(e) {
+        await typeLog(`<span class="text-error-log">✖ CONNECTION ERROR.</span>`);
+    }
+    
+    // Restore cursor
+    const cursorLine = document.createElement('div');
+    cursorLine.className = 'mt-2 text-primary-neon cursor';
+    cursorLine.innerText = 'root@node:~# ';
+    consoleEl.appendChild(cursorLine);
 }
 </script>
 {% endblock %}
