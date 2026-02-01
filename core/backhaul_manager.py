@@ -11,26 +11,23 @@ def generate_token():
 
 def install_local_backhaul(config):
     """
-    کانفیگ سرور ایران (Panel)
+    نصب و کانفیگ سمت سرور ایران (Panel Server)
     """
-    # نصب باینری
     if not os.path.exists(f"{INSTALL_DIR}/backhaul"):
         os.system(f"mkdir -p {INSTALL_DIR}")
         os.system(f"curl -L -o {INSTALL_DIR}/backhaul.tar.gz {BIN_URL}")
         os.system(f"tar -xzf {INSTALL_DIR}/backhaul.tar.gz -C {INSTALL_DIR}")
         os.system(f"chmod +x {INSTALL_DIR}/backhaul")
 
-    # تولید سرتیفیکیت OpenSSL برای WSS/WSSMUX
     tls_lines = ""
     if config['transport'] in ["wss", "wssmux"]:
+        # استفاده از تابع موجود در ssl_manager
         generate_self_signed_cert("127.0.0.1")
         tls_lines = f'tls_cert = "{config["tls_cert"]}"\ntls_key = "{config["tls_key"]}"'
 
-    # پورت‌ها
     port_rules = config.get('port_rules', [])
     formatted_ports = ",\n    ".join([f'"{p.strip()}"' for p in port_rules if p.strip()])
 
-    # ساخت فایل Config.toml (Server)
     config_content = f"""
 [server]
 bind_addr = "0.0.0.0:{config['tunnel_port']}"
@@ -41,6 +38,11 @@ keepalive_period = {config.get('keepalive_period', 75)}
 nodelay = {str(config.get('nodelay', False)).lower()}
 channel_size = {config.get('channel_size', 2048)}
 heartbeat = {config.get('heartbeat', 40)}
+mux_con = {config.get('mux_con', 8)}
+mux_version = {config.get('mux_version', 1)}
+mux_framesize = {config.get('mux_framesize', 32768)}
+mux_recievebuffer = {config.get('mux_recievebuffer', 4194304)}
+mux_streambuffer = {config.get('mux_streambuffer', 65536)}
 sniffer = {str(config.get('sniffer', False)).lower()}
 web_port = {config.get('web_port', 2060)}
 sniffer_log = "/root/log.json"
@@ -49,14 +51,6 @@ skip_optz = {str(config.get('skip_optz', True)).lower()}
 mss = {config.get('mss', 1360)}
 so_rcvbuf = {config.get('so_rcvbuf', 4194304)}
 so_sndbuf = {config.get('so_sndbuf', 1048576)}
-
-# Mux Settings
-mux_con = {config.get('mux_con', 8)}
-mux_version = {config.get('mux_version', 1)}
-mux_framesize = {config.get('mux_framesize', 32768)}
-mux_recievebuffer = {config.get('mux_recievebuffer', 4194304)}
-mux_streambuffer = {config.get('mux_streambuffer', 65536)}
-
 {tls_lines}
 
 ports = [
@@ -66,7 +60,6 @@ ports = [
     with open(f"{INSTALL_DIR}/config.toml", "w") as f:
         f.write(config_content)
 
-    # سرویس سیستم‌دی
     service_content = f"""
 [Unit]
 Description=Backhaul Server (Alamor)
@@ -90,7 +83,7 @@ WantedBy=multi-user.target
 
 def install_remote_backhaul(ssh_target_ip, iran_connect_ip, config):
     """
-    کانفیگ سرور خارج (Client) - متصل به ایران
+    نصب و کانفیگ سمت سرور خارج (Client)
     """
     clean_ip = iran_connect_ip.strip()
     edge_line = f'edge_ip = "{config["edge_ip"]}"' if config.get('edge_ip') else ""
@@ -115,6 +108,10 @@ keepalive_period = {config.get('keepalive_period', 75)}
 nodelay = {str(config.get('nodelay', False)).lower()}
 retry_interval = {config.get('retry_interval', 3)}
 dial_timeout = {config.get('dial_timeout', 10)}
+mux_version = {config.get('mux_version', 1)}
+mux_framesize = {config.get('mux_framesize', 32768)}
+mux_recievebuffer = {config.get('mux_recievebuffer', 4194304)}
+mux_streambuffer = {config.get('mux_streambuffer', 65536)}
 sniffer = {str(config.get('sniffer', False)).lower()}
 web_port = {config.get('web_port', 2060)}
 sniffer_log = "/root/backhaul_client_log.json"
@@ -123,12 +120,6 @@ skip_optz = {str(config.get('skip_optz', True)).lower()}
 mss = {config.get('mss', 1360)}
 so_rcvbuf = {config.get('so_rcvbuf', 4194304)}
 so_sndbuf = {config.get('so_sndbuf', 1048576)}
-
-# Mux Settings
-mux_version = {config.get('mux_version', 1)}
-mux_framesize = {config.get('mux_framesize', 32768)}
-mux_recievebuffer = {config.get('mux_recievebuffer', 4194304)}
-mux_streambuffer = {config.get('mux_streambuffer', 65536)}
 EOL
 
     cat > /etc/systemd/system/backhaul.service <<EOL

@@ -11,13 +11,28 @@ from routes.auth import login_required
 import uuid
 import os
 import subprocess
-import json  # اضافه شد برای پارس کردن کانفیگ
+import json
+import re
 
 tunnels_bp = Blueprint('tunnels', __name__)
 
 def get_server_public_ip():
-    try: return subprocess.check_output("curl -s ifconfig.me", shell=True).decode().strip()
-    except: return "1.1.1.1"
+    """دریافت آی‌پی سرور با دقت بالا و حذف خروجی‌های HTML"""
+    providers = [
+        "curl -s --max-time 3 https://api.ipify.org",
+        "curl -s --max-time 3 https://icanhazip.com",
+        "curl -s --max-time 3 http://ifconfig.me/ip"
+    ]
+    ip_pattern = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$')
+    
+    for cmd in providers:
+        try:
+            output = subprocess.check_output(cmd, shell=True).decode().strip()
+            if ip_pattern.match(output):
+                return output
+        except:
+            continue
+    return "127.0.0.1"  # اگر پیدا نشد، پیش‌فرض امن
 
 # --- GENERATORS ---
 def process_gost(server_ip, config):
@@ -77,7 +92,7 @@ def process_backhaul(server_ip, iran_ip, config):
 @login_required
 def start_install(protocol):
     server = get_connected_server()
-    if not server: return jsonify({'status': 'error', 'message': 'No server'})
+    if not server: return jsonify({'status': 'error', 'message': 'No server connected'})
     
     config = request.form.to_dict()
     task_id = str(uuid.uuid4())
@@ -85,17 +100,20 @@ def start_install(protocol):
 
     if protocol == 'gost':
         task_queue.put((task_id, process_gost, (server[0], config)))
+        
     elif protocol == 'slipstream':
         if not config.get('domain'): config['domain'] = 'dl.google.com'
         if not config.get('dest_port'): config['dest_port'] = '8080'
         if not config.get('client_port'): config['client_port'] = '8443'
         task_queue.put((task_id, process_slipstream, (server[0], config)))
+        
     elif protocol == 'hysteria':
         raw = config.get('forward_ports', '')
         config['ports'] = [p.strip() for p in raw.split(',') if p.strip().isdigit()]
         config['password'] = config.get('password') or generate_pass()
         config['obfs_pass'] = config.get('obfs_pass') or generate_pass()
         task_queue.put((task_id, process_hysteria, (server[0], config)))
+        
     elif protocol == 'rathole':
         iran_ip = get_server_public_ip()
         raw = config.get('forward_ports', '')
@@ -105,14 +123,14 @@ def start_install(protocol):
         config['nodelay'] = request.form.get('nodelay') == 'on'
         config['heartbeat'] = request.form.get('heartbeat') == 'on'
         task_queue.put((task_id, process_rathole, (server[0], iran_ip, config)))
+        
     elif protocol == 'backhaul':
-        # دریافت IP ایران (برای تنظیم کلاینت)
+        # اصلاح: دریافت IP واقعی به جای HTML خطا
         iran_ip = request.form.get('iran_ip_manual') or get_server_public_ip()
         
-        # تولید توکن امنیتی
         config['token'] = generate_token()
         
-        # پردازش پورت‌های فورواردینگ
+        # پردازش پورت‌ها
         raw_ports = request.form.get('port_rules', '').strip()
         config['port_rules'] = [l.strip() for l in raw_ports.split('\n') if l.strip()]
         
@@ -121,52 +139,49 @@ def start_install(protocol):
         for f in bool_fields:
             config[f] = request.form.get(f) == 'on'
             
-        # فیلدهای عددی (تبدیل به int)
+        # فیلدهای عددی
         int_fields = [
             'keepalive_period', 'heartbeat', 'mux_con', 'channel_size', 'mss', 
             'so_rcvbuf', 'so_sndbuf', 'mux_version', 'mux_framesize', 
             'mux_recievebuffer', 'mux_streambuffer', 'web_port', 
-            'dial_timeout', 'retry_interval', 'connection_pool'
+            'dial_timeout', 'retry_interval', 'connection_pool', 'tunnel_port'
         ]
         for f in int_fields:
             val = request.form.get(f)
             if val and val.isdigit():
                 config[f] = int(val)
         
-        # مسیر سرتیفیکیت‌ها (ثابت)
+        # مسیر سرتیفیکیت
         config['tls_cert'] = '/root/certs/server.crt'
         config['tls_key'] = '/root/certs/server.key'
         
-        # ارسال به صف
         task_queue.put((task_id, process_backhaul, (server[0], iran_ip, config)))
+    
+    return jsonify({'status': 'started', 'task_id': task_id})
 
 @tunnels_bp.route('/tunnel/stats/<int:tunnel_id>')
 @login_required
 def tunnel_stats(tunnel_id):
-    """این روت هر ۲ ثانیه توسط نمودار صدا زده میشه"""
     tunnel = get_tunnel_by_id(tunnel_id)
     if not tunnel: return jsonify({'error': 'Not found'})
     
-    try: port = int(tunnel['port']) # استفاده از نام ستون چون RowFactory فعال است
-    except: port = 0
+    try:
+        # مدیریت انواع داده برای جلوگیری از کرش
+        port_val = tunnel['port'] if tunnel['port'] else "0"
+        port = int(port_val)
+    except:
+        port = 0
         
-    proto = 'udp' if 'hysteria' in tunnel['transport'] or 'slipstream' in tunnel['transport'] else 'tcp'
+    transport = tunnel['transport']
+    proto = 'udp' if 'hysteria' in transport or 'slipstream' in transport else 'tcp'
     
-    # دریافت ترافیک و وضعیت سلامت
     rx, tx = get_traffic_stats(port, proto)
     health = check_port_health(port, proto)
-    
-    return jsonify({
-        'rx_bytes': rx, 
-        'tx_bytes': tx, 
-        'status': health['status'], 
-        'latency': health['latency']
-    })
+    return jsonify({'rx_bytes': rx, 'tx_bytes': tx, 'status': health['status'], 'latency': health['latency']})
 
 @tunnels_bp.route('/server/speedtest')
 @login_required
 def server_speedtest_route():
-    """روت اجرای تست سرعت"""
     return jsonify(run_speedtest())
 
 @tunnels_bp.route('/tunnels')
@@ -175,7 +190,6 @@ def list_tunnels():
     tunnels = get_all_tunnels()
     return render_template('tunnels.html', tunnels=tunnels)
 
-# --- این تابع قبلاً جا افتاده بود ---
 @tunnels_bp.route('/tunnel/edit/<int:tunnel_id>')
 @login_required
 def edit_tunnel(tunnel_id):
@@ -184,9 +198,8 @@ def edit_tunnel(tunnel_id):
         flash('Tunnel not found!', 'danger')
         return redirect(url_for('tunnels.list_tunnels'))
     
-    # پارس کردن کانفیگ از رشته JSON به دیکشنری
     try:
-        config = json.loads(tunnel[5])
+        config = json.loads(tunnel['config'])
     except:
         config = {}
         
@@ -197,14 +210,19 @@ def edit_tunnel(tunnel_id):
 def delete_tunnel(tunnel_id):
     tunnel = get_tunnel_by_id(tunnel_id)
     if tunnel:
-        if "gost" in tunnel[2]: os.system("systemctl stop gost-client")
-        elif "slipstream" in tunnel[2]: os.system("systemctl stop slipstream-client")
-        elif "hysteria" in tunnel[2]: os.system("systemctl stop hysteria-client")
-        elif "rathole" in tunnel[2]: 
-            svc = f"rathole-iran{tunnel[3]}"
+        transport = tunnel['transport']
+        port = tunnel['port']
+        
+        if "gost" in transport: os.system("systemctl stop gost-client")
+        elif "slipstream" in transport: os.system("systemctl stop slipstream-client")
+        elif "hysteria" in transport: os.system("systemctl stop hysteria-client")
+        elif "rathole" in transport: 
+            svc = f"rathole-iran{port}"
             os.system(f"systemctl stop {svc} && systemctl disable {svc} && rm /etc/systemd/system/{svc}.service")
-        else: stop_and_delete_backhaul()
+        elif "backhaul" in transport: # حذف مخصوص بکهال
+             stop_and_delete_backhaul()
+             
     delete_tunnel_by_id(tunnel_id)
     os.system("systemctl daemon-reload")
-    flash('Tunnel destroyed successfully.', 'warning')
+    flash('Tunnel deleted.', 'warning')
     return redirect(url_for('tunnels.list_tunnels'))
