@@ -5,3 +5,8 @@ werkzeug
 gunicorn
 psutil
 speedtest-cli
+# کتابخانه‌های زیر برای جلوگیری از کرش کردن Certbot و SSL حیاتی هستند
+pyOpenSSL>=23.0.0
+cryptography>=41.0.0
+cffi
+dnspython

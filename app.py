@@ -4,15 +4,29 @@ from routes.auth import auth_bp
 from routes.dashboard import dashboard_bp
 from routes.tunnels import tunnels_bp
 from routes.settings import settings_bp
+from routes.domains import domains_bp
 from core.tasks import task_queue, task_status
-from routes.domains import domains_bp  
+from core.config_loader import load_config
+from datetime import timedelta
 import os
 import threading
 
-app = Flask(__name__)
-# یک کلید ثابت برای جلوگیری از لاگ‌اوت شدن بعد از هر ریستارت
-app.secret_key = 'alamor_super_secret_fixed_key_change_this'
+# بارگذاری تنظیمات امنیتی
+sys_config = load_config()
+PANEL_PATH = sys_config.get('panel_path', '') # مسیر مخفی (خالی یعنی پیش‌فرض)
+URL_PREFIX = f"/{PANEL_PATH}" if PANEL_PATH else ""
 
+# تنظیم مسیر استاتیک داینامیک (برای مخفی‌سازی کامل)
+app = Flask(__name__, static_url_path=f"{URL_PREFIX}/static")
+
+# --- SECURITY CONFIG ---
+app.secret_key = sys_config.get('secret_key', os.urandom(24).hex())
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30) # کوکی ۳۰ روزه
+app.config['SESSION_COOKIE_HTTPONLY'] = True # غیرقابل دسترسی توسط جاواسکریپت
+app.config['SESSION_COOKIE_SECURE'] = True if PANEL_PATH else False # فقط روی HTTPS (اگر پنل امن شده باشه)
+app.config['SESSION_COOKIE_NAME'] = 'alamor_secure_session'
+
+# سیستم تسک‌ها (بدون تغییر)
 def worker():
     while True:
         try:
@@ -40,19 +54,24 @@ def get_task_status(task_id):
 
 init_db()
 
-# --- REGISTER BLUEPRINTS ---
-app.register_blueprint(auth_bp)
-app.register_blueprint(domains_bp)
-# اصلاح مهم: افزودن پیشوند برای جلوگیری از لوپ
-app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
-app.register_blueprint(tunnels_bp)
-app.register_blueprint(settings_bp)
+# --- REGISTER BLUEPRINTS (WITH DYNAMIC PREFIX) ---
+# همه بلوپرینت‌ها میرن زیر مسیر مخفی
+app.register_blueprint(auth_bp, url_prefix=f"{URL_PREFIX}/auth")
+app.register_blueprint(dashboard_bp, url_prefix=f"{URL_PREFIX}/dashboard")
+app.register_blueprint(tunnels_bp, url_prefix=f"{URL_PREFIX}/tunnel")
+app.register_blueprint(settings_bp, url_prefix=f"{URL_PREFIX}/settings")
+app.register_blueprint(domains_bp, url_prefix=f"{URL_PREFIX}/domains")
 
-@app.route('/')
-def root():
-    # حالا این ریدایرکت امن است چون به /dashboard/ می‌رود
+# ریدایرکت روت اصلی به داشبورد مخفی
+@app.route(f'{URL_PREFIX}/')
+def root_redirect():
     return redirect(url_for('dashboard.index'))
 
+# اگر کسی آدرس قدیمی رو زد (بدون مسیر)، بره به مسیر جدید (یا ۴۰۴ بده که امن‌تره، ولی اینجا ریدایرکت می‌کنیم)
+if PANEL_PATH:
+    @app.route('/')
+    def global_root():
+        return "Access Denied", 403
+
 if __name__ == '__main__':
-    # use_reloader=True برای اعمال تغییرات بدون ریستارت دستی
     app.run(host='0.0.0.0', port=5050, debug=True, use_reloader=True)

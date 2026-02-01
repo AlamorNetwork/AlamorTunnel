@@ -3,12 +3,12 @@ import subprocess
 import socket
 import urllib.request
 import ssl
+from core.config_loader import save_config
 
 CERT_DIR = "/root/certs"
 KEY_FILE = f"{CERT_DIR}/server.key"
 CSR_FILE = f"{CERT_DIR}/server.csr"
 CRT_FILE = f"{CERT_DIR}/server.crt"
-
 def get_server_public_ip():
     """دریافت آی‌پی سرور از چندین منبع مختلف برای اطمینان"""
     providers = [
@@ -107,3 +107,93 @@ server {{
         os.system("systemctl restart nginx")
         return True, "Fake site deployed!"
     except Exception as e: return False, str(e)
+
+
+def setup_secure_panel_nginx(domain, secret_path):
+    """
+    کانفیگ حرفه‌ای Nginx:
+    - مسیر / : سایت فیک
+    - مسیر /secret_path/ : پنل اصلی (پروکسی به پورت 5050)
+    """
+    try:
+        html_dir = "/var/www/html"
+        os.makedirs(html_dir, exist_ok=True)
+        
+        # 1. ساخت سایت فیک (صفحه تعمیرات شیک)
+        html_content = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Site Maintenance</title>
+            <style>
+                body { text-align: center; padding: 150px; font-family: sans-serif; background: #f2f2f2; color: #333; }
+                h1 { font-size: 50px; }
+                article { display: block; text-align: left; width: 650px; margin: 0 auto; }
+            </style>
+        </head>
+        <body>
+            <article>
+                <h1>We&rsquo;ll be back soon!</h1>
+                <div><p>Sorry for the inconvenience but we&rsquo;re performing some maintenance at the moment.</p></div>
+            </article>
+        </body>
+        </html>
+        """
+        with open(f"{html_dir}/index.html", "w") as f:
+            f.write(html_content)
+
+        # 2. کانفیگ Nginx با Reverse Proxy
+        # نکته مهم: هدرهای امنیتی اضافه شده
+        nginx_conf = f"""
+server {{
+    listen 80;
+    server_name {domain};
+    return 301 https://$host$request_uri;
+}}
+
+server {{
+    listen 443 ssl http2;
+    server_name {domain};
+
+    ssl_certificate /etc/letsencrypt/live/{domain}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{domain}/privkey.pem;
+    
+    # Security Headers
+    add_header Strict-Transport-Security "max-age=31536000" always;
+
+    root /var/www/html;
+    index index.html;
+
+    # 1. Fake Site on Root
+    location / {{
+        try_files $uri $uri/ =404;
+    }}
+
+    # 2. Real Panel on Secret Path
+    location /{secret_path}/ {{
+        proxy_pass http://127.0.0.1:5050/{secret_path}/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        
+        # WebSocket Support (For terminals etc)
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }}
+}}
+"""
+        with open(f"/etc/nginx/sites-available/{domain}", "w") as f:
+            f.write(nginx_conf)
+            
+        os.system(f"ln -sf /etc/nginx/sites-available/{domain} /etc/nginx/sites-enabled/")
+        os.system("rm -f /etc/nginx/sites-enabled/default")
+        os.system("systemctl restart nginx")
+        
+        # ذخیره مسیر در کانفیگ سیستم
+        save_config('panel_path', secret_path)
+        
+        return True, f"/etc/letsencrypt/live/{domain}/"
+    except Exception as e:
+        return False, str(e)

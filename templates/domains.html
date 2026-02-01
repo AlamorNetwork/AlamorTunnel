@@ -70,9 +70,38 @@
                 <div class="p-2 border border-success border-opacity-50 rounded bg-success bg-opacity-10 mb-3">
                     <small class="text-success fw-bold font-monospace">VERIFICATION COMPLETE</small>
                 </div>
-                <button class="btn btn-glass w-100 py-3 text-success border-success" onclick="issueCert()">
-                    <i class="fas fa-lock me-2"></i>DEPLOY SSL & FAKE SITE
+                
+                <p class="text-white-50 small mb-3">
+                    This will secure the panel with SSL, move it to a <b>Random Secret Path</b>, and deploy a Fake Site on the main domain.
+                </p>
+
+                <button class="btn btn-glass w-100 py-3 text-success border-success" onclick="enableSecureMode()">
+                    <i class="fas fa-shield-alt me-2"></i>ACTIVATE STEALTH MODE (SSL + HIDDEN PATH)
                 </button>
+            </div>
+            
+            <div id="successInfo" class="d-none mt-4 text-start">
+                 <div class="glass-card border-success">
+                     <h5 class="text-success fw-bold mb-3"><i class="fas fa-lock me-2"></i>SYSTEM SECURED</h5>
+                     
+                     <div class="mb-3">
+                         <label class="text-muted small">NEW PANEL URL (SAVE THIS!):</label>
+                         <div class="input-group">
+                             <input type="text" id="newUrlInput" class="form-control bg-dark text-success fw-bold font-monospace" readonly>
+                             <button class="btn btn-outline-success" onclick="window.location.href=document.getElementById('newUrlInput').value">GO</button>
+                         </div>
+                     </div>
+
+                     <div class="mb-3">
+                         <label class="text-muted small">CERTIFICATE PATH (FULLCHAIN):</label>
+                         <input type="text" id="certPathInput" class="form-control bg-dark text-white-50 font-monospace form-control-sm" readonly>
+                     </div>
+                     
+                     <div class="mb-3">
+                         <label class="text-muted small">PRIVATE KEY PATH:</label>
+                         <input type="text" id="keyPathInput" class="form-control bg-dark text-white-50 font-monospace form-control-sm" readonly>
+                     </div>
+                 </div>
             </div>
 
         </div>
@@ -162,6 +191,7 @@ function resetTerminal() {
     terminalWin.classList.remove('d-none');
     sslArea.classList.add('d-none');
     ipsArea.classList.add('d-none');
+    document.getElementById('successInfo').classList.add('d-none');
     consoleEl.innerHTML = '';
     
     const cursor = document.querySelector('.cursor');
@@ -202,8 +232,8 @@ async function startDNSSequence() {
             sslArea.classList.remove('d-none');
         } else {
             await typeLog(`<span class="text-error-log">✖ MISMATCH DETECTED: Domain IP != Server IP.</span>`, 200);
-            await typeLog(`<span class="text-warn-log">⚠ ROOT CAUSE: Cloudflare Proxy (Orange Cloud) is likely ON.</span>`, 100);
-            await typeLog(`<span class="text-warn-log">⚠ SUGGESTION: Switch to 'DNS Only' (Grey Cloud) temporarily.</span>`, 100);
+            await typeLog(`<span class="text-warn-log">⚠ DETAILS: ${data.message}</span>`, 100);
+            await typeLog(`<span class="text-warn-log">⚠ SUGGESTION: Ensure Cloudflare Proxy (Orange Cloud) is OFF.</span>`, 100);
         }
     } catch (e) {
         await typeLog(`<span class="text-error-log">✖ FATAL ERROR: Network Unreachable.</span>`);
@@ -271,43 +301,50 @@ function copyIp(ip) {
     alert("IP Copied: " + ip);
 }
 
-// --- SSL ISSUE LOGIC ---
-async function issueCert() {
+// --- SECURE MODE ACTIVATION ---
+async function enableSecureMode() {
     const domain = document.getElementById('domainInput').value;
-    sslArea.classList.add('d-none'); // Hide button
+    sslArea.classList.add('d-none');
     
-    // Remove old cursor
-    const oldCursor = document.querySelector('.cursor');
-    if(oldCursor) oldCursor.remove();
+    const cursor = document.querySelector('.cursor');
+    if(cursor) cursor.remove();
 
-    await typeLog(`<span class="text-cmd">certbot --nginx -d ${domain} --agree-tos</span>`, 500);
-    await typeLog(`<span class="text-warn-log">⚠ Requesting Let's Encrypt Certificate... (Please Wait)</span>`, 100);
+    await typeLog(`<span class="text-cmd">enable_stealth_mode --domain ${domain}</span>`, 500);
+    await typeLog(`<span class="text-info-log">ℹ Requesting SSL Certificates (Certbot)...</span>`, 100);
     
     const formData = new FormData();
     formData.append('domain', domain);
 
     try {
-        const response = await fetch("{{ url_for('domains.get_cert') }}", {method: 'POST', body: formData});
+        const response = await fetch("{{ url_for('domains.secure_panel') }}", {method: 'POST', body: formData});
         const data = await response.json();
         
         if(data.status === 'ok') {
-            await typeLog(`<span class="text-info-log">ℹ ACME Challenge Accepted.</span>`, 500);
-            await typeLog(`<span class="text-success-log">✔ CERTIFICATE ISSUED! [Valid for 90 days]</span>`, 200);
-            await typeLog(`<span class="text-info-log">ℹ Configuring Nginx Reverse Proxy...</span>`, 400);
-            await typeLog(`<span class="text-info-log">ℹ Deploying Stealth Fake Site Template...</span>`, 400);
-            await typeLog(`<span class="text-success-log">✔ DEPLOYMENT COMPLETE. System Secure.</span>`, 200);
+            await typeLog(`<span class="text-success-log">✔ SSL CERTIFICATE ACQUIRED.</span>`, 200);
+            await typeLog(`<span class="text-info-log">ℹ Generating High-Entropy Secret Path...</span>`, 300);
+            await typeLog(`<span class="text-info-log">ℹ Reconfiguring Nginx & Firewall...</span>`, 300);
+            await typeLog(`<span class="text-warn-log">⚠ SYSTEM RESTARTING... Connection will be lost briefly.</span>`, 200);
             
-            await typeLog(`<span class="text-dim">System will reload in 3 seconds...</span>`, 1000);
-            setTimeout(() => location.reload(), 3000);
+            // Show Success UI
+            document.getElementById('newUrlInput').value = data.new_url;
+            document.getElementById('certPathInput').value = data.cert_path + "fullchain.pem";
+            document.getElementById('keyPathInput').value = data.cert_path + "privkey.pem";
+            document.getElementById('successInfo').classList.remove('d-none');
+            
+            await typeLog(`<span class="text-success-log">✔ SECURE MODE ACTIVE. Redirecting in 10s...</span>`, 200);
+            
+            // Auto redirect
+            setTimeout(() => {
+                window.location.href = data.new_url;
+            }, 10000);
+            
         } else {
-            await typeLog(`<span class="text-error-log">✖ CERTBOT ERROR: ${data.message}</span>`);
-            sslArea.classList.remove('d-none'); // Show button again to retry
+            await typeLog(`<span class="text-error-log">✖ ERROR: ${data.message}</span>`);
+            sslArea.classList.remove('d-none');
         }
     } catch(e) {
         await typeLog(`<span class="text-error-log">✖ CONNECTION ERROR.</span>`);
     }
-    
-    addCursor();
 }
 </script>
 {% endblock %}
