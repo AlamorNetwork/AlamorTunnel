@@ -16,7 +16,7 @@
         <table class="table mb-0 align-middle" style="color: #ccc;">
             <thead style="background: rgba(0,0,0,0.3); border-bottom: 1px solid rgba(255,255,255,0.1);">
                 <tr class="text-uppercase small font-monospace" style="letter-spacing: 1px; color: var(--primary-neon);">
-                    <th class="ps-4 py-3 border-0">Identifier</th>
+                    <th class="ps-4 py-3 border-0">ID</th>
                     <th class="py-3 border-0">Node Name</th>
                     <th class="py-3 border-0">Protocol</th>
                     <th class="py-3 border-0">Port</th>
@@ -26,29 +26,31 @@
             <tbody>
                 {% for tunnel in tunnels %}
                 <tr style="transition: 0.2s; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td class="ps-4 border-0 font-monospace text-muted">#{{ tunnel.id }}</td>
-                    <td class="border-0 fw-bold text-white">{{ tunnel.name }}</td>
+                    <td class="ps-4 border-0 font-monospace text-muted">#{{ tunnel['id'] }}</td>
+                    <td class="border-0 fw-bold text-white">{{ tunnel['name'] }}</td>
                     <td class="border-0">
-                        {% if 'hysteria' in tunnel.transport %}
+                        {% if 'hysteria' in tunnel['transport'] %}
                             <span class="badge bg-transparent border border-danger text-danger shadow-sm">HYSTERIA</span>
-                        {% elif 'rathole' in tunnel.transport %}
+                        {% elif 'rathole' in tunnel['transport'] %}
                             <span class="badge bg-transparent border border-warning text-warning shadow-sm">RATHOLE</span>
-                        {% elif 'gost' in tunnel.transport %}
+                        {% elif 'gost' in tunnel['transport'] %}
                             <span class="badge bg-transparent border border-success text-success shadow-sm">GOST</span>
                         {% else %}
                             <span class="badge bg-transparent border border-info text-info shadow-sm">BACKHAUL</span>
                         {% endif %}
                     </td>
-                    <td class="border-0 font-monospace" style="color: var(--secondary-neon);">{{ tunnel.port }}</td>
+                    <td class="border-0 font-monospace" style="color: var(--secondary-neon);">{{ tunnel['port'] }}</td>
                     <td class="text-end pe-4 border-0">
-                        <button class="btn btn-sm btn-outline-light rounded-circle me-1" onclick="openMonitor('{{tunnel.id}}', '{{tunnel.name}}')" title="Live Telemetry" style="width: 35px; height: 35px;">
+                        <button class="btn btn-sm btn-outline-light rounded-circle me-1" 
+                                onclick="openMonitor('{{tunnel['id']}}', '{{tunnel['name']}}')" 
+                                title="Live Telemetry" style="width: 35px; height: 35px;">
                             <i class="fas fa-satellite-dish"></i>
                         </button>
                         
-                        <a href="{{ url_for('tunnels.edit_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-info rounded-circle me-1" title="Config" style="width: 35px; height: 35px;">
+                        <a href="{{ url_for('tunnels.edit_tunnel', tunnel_id=tunnel['id']) }}" class="btn btn-sm btn-outline-info rounded-circle me-1" title="Config" style="width: 35px; height: 35px;">
                             <i class="fas fa-microchip"></i>
                         </a>
-                        <a href="{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-danger rounded-circle" onclick="return confirm('Terminate this neural link?')" style="width: 35px; height: 35px;">
+                        <a href="{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel['id']) }}" class="btn btn-sm btn-outline-danger rounded-circle" onclick="return confirm('Terminate this neural link?')" style="width: 35px; height: 35px;">
                             <i class="fas fa-trash-alt"></i>
                         </a>
                     </td>
@@ -91,16 +93,15 @@
                     <div class="col-md-4">
                         <div class="p-3 rounded border border-secondary border-opacity-25 text-center" style="background: rgba(0,0,0,0.4);">
                             <small class="text-muted text-uppercase font-monospace" style="font-size: 0.7rem;">Latency</small>
-                            <div class="mt-2 fw-bold fs-5 text-white" id="latencyDisplay" style="text-shadow: 0 0 10px white;">0 ms</div>
+                            <div class="mt-2 fw-bold fs-5 text-white" id="latencyDisplay" style="text-shadow: 0 0 10px white;">-</div>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="p-3 rounded border border-secondary border-opacity-25 text-center" style="background: rgba(0,0,0,0.4);">
-                            <small class="text-muted text-uppercase font-monospace" style="font-size: 0.7rem;">Throughput</small>
+                            <small class="text-muted text-uppercase font-monospace" style="font-size: 0.7rem;">Total Traffic</small>
                             <div class="mt-2 fw-bold fs-6 text-white font-monospace">
-                                <i class="fas fa-arrow-up text-success me-1"></i><span id="txDisplay">0 B</span>
-                                <span class="mx-2 text-muted">|</span>
-                                <i class="fas fa-arrow-down text-info me-1"></i><span id="rxDisplay">0 B</span>
+                                <span class="d-block"><i class="fas fa-arrow-up text-success me-1"></i><span id="txDisplay">0 B</span></span>
+                                <span class="d-block"><i class="fas fa-arrow-down text-info me-1"></i><span id="rxDisplay">0 B</span></span>
                             </div>
                         </div>
                     </div>
@@ -111,11 +112,42 @@
                     <canvas id="trafficChart" height="100" class="position-relative z-1"></canvas>
                 </div>
 
-                <div class="d-flex justify-content-between align-items-center">
-                    <button class="btn btn-outline-light btn-sm font-monospace" onclick="runServerSpeedtest()">
-                        <i class="fas fa-tachometer-alt me-2"></i>PING TEST
-                    </button>
-                    <small class="text-muted font-monospace" id="speedtestResult"></small>
+                <div class="glass-card p-3 border border-secondary border-opacity-25">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="text-white m-0 font-monospace"><i class="fas fa-tachometer-alt me-2 text-warning"></i>NETWORK SPEEDTEST</h6>
+                        <button class="btn btn-sm btn-glass text-uppercase" onclick="runServerSpeedtest()" id="btnSpeedtest">
+                            START TEST
+                        </button>
+                    </div>
+                    
+                    <div id="speedtestResults" class="row g-2 text-center d-none">
+                        <div class="col-4">
+                            <div class="p-2 rounded bg-black bg-opacity-50 border border-secondary border-opacity-10">
+                                <small class="text-muted d-block" style="font-size: 0.7rem;">PING</small>
+                                <span id="stPing" class="text-warning fw-bold font-monospace">...</span>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 rounded bg-black bg-opacity-50 border border-secondary border-opacity-10">
+                                <small class="text-muted d-block" style="font-size: 0.7rem;">DOWNLOAD</small>
+                                <span id="stDown" class="text-info fw-bold font-monospace">...</span>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 rounded bg-black bg-opacity-50 border border-secondary border-opacity-10">
+                                <small class="text-muted d-block" style="font-size: 0.7rem;">UPLOAD</small>
+                                <span id="stUp" class="text-success fw-bold font-monospace">...</span>
+                            </div>
+                        </div>
+                        <div class="col-12 mt-2">
+                             <small class="text-muted" id="stServer">Connecting...</small>
+                        </div>
+                    </div>
+                    
+                    <div id="speedtestLoader" class="text-center py-3 d-none">
+                         <div class="spinner-border text-primary" role="status"></div>
+                         <p class="text-white-50 small mt-2 blink">Running Network Analysis...</p>
+                    </div>
                 </div>
 
             </div>
@@ -125,11 +157,13 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// ... (The rest of JS logic remains the same, just updating chart colors below) ...
 let chartInstance = null;
 let updateInterval = null;
 let currentTunnelId = null;
+let lastRx = 0; 
+let lastTx = 0;
 
+// فرمت کردن بایت به مگابایت و ...
 function formatBytes(bytes, decimals = 2) {
     if (!+bytes) return '0 B';
     const k = 1024;
@@ -139,89 +173,92 @@ function formatBytes(bytes, decimals = 2) {
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
+// باز کردن مودال
 function openMonitor(id, name) {
     currentTunnelId = id;
     document.getElementById('monitorTitle').innerText = name;
+    
+    // ریست کردن مقادیر
     document.getElementById('statusIndicator').innerHTML = '<span class="spinner-border spinner-border-sm text-primary"></span>';
-    document.getElementById('latencyDisplay').innerText = '-';
-    document.getElementById('txDisplay').innerText = '0 B';
-    document.getElementById('rxDisplay').innerText = '0 B';
-    document.getElementById('speedtestResult').innerText = '';
-
+    document.getElementById('speedtestResults').classList.add('d-none');
+    document.getElementById('speedtestLoader').classList.add('d-none');
+    
+    lastRx = 0; lastTx = 0;
+    
     initChart();
     fetchStats();
+    
     if (updateInterval) clearInterval(updateInterval);
-    updateInterval = setInterval(fetchStats, 2000);
+    updateInterval = setInterval(fetchStats, 2000); // آپدیت هر ۲ ثانیه
 
     new bootstrap.Modal(document.getElementById('monitorModal')).show();
 }
 
+// ساخت نمودار
 function initChart() {
     const ctx = document.getElementById('trafficChart').getContext('2d');
     if (chartInstance) chartInstance.destroy();
 
-    // CYBERPUNK COLORS
     const gradientTx = ctx.createLinearGradient(0, 0, 0, 400);
-    gradientTx.addColorStop(0, 'rgba(0, 243, 255, 0.5)'); // Cyan
+    gradientTx.addColorStop(0, 'rgba(0, 243, 255, 0.4)');
     gradientTx.addColorStop(1, 'rgba(0, 243, 255, 0)');
 
     const gradientRx = ctx.createLinearGradient(0, 0, 0, 400);
-    gradientRx.addColorStop(0, 'rgba(188, 19, 254, 0.5)'); // Purple
+    gradientRx.addColorStop(0, 'rgba(188, 19, 254, 0.4)');
     gradientRx.addColorStop(1, 'rgba(188, 19, 254, 0)');
 
     chartInstance = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: Array(20).fill(''),
+            labels: Array(15).fill(''), // ۱۵ نقطه زمانی
             datasets: [{
-                label: 'TX (Upload)',
-                borderColor: '#00f3ff', // Cyan Neon
+                label: 'Upload (TX)',
+                borderColor: '#00f3ff',
                 backgroundColor: gradientTx,
                 borderWidth: 2,
                 pointRadius: 0,
-                data: Array(20).fill(0),
+                data: Array(15).fill(0),
                 tension: 0.4,
                 fill: true
             }, {
-                label: 'RX (Download)',
-                borderColor: '#bc13fe', // Purple Neon
+                label: 'Download (RX)',
+                borderColor: '#bc13fe',
                 backgroundColor: gradientRx,
                 borderWidth: 2,
                 pointRadius: 0,
-                data: Array(20).fill(0),
+                data: Array(15).fill(0),
                 tension: 0.4,
                 fill: true
             }]
         },
         options: {
             responsive: true,
-            plugins: { 
-                legend: { labels: { color: '#fff', font: {family: 'Outfit'} } } 
-            },
+            maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: '#fff' } } },
             scales: {
                 y: { 
                     beginAtZero: true, 
                     grid: { color: 'rgba(255,255,255,0.05)' }, 
-                    ticks: { color: '#888', font: {family: 'monospace'} } 
+                    ticks: { color: '#888' } 
                 },
                 x: { display: false }
             },
-            animation: false
+            animation: false // برای روانی آپدیت لایو
         }
     });
 }
 
-let lastRx = 0; let lastTx = 0;
-
+// دریافت اطلاعات زنده
 function fetchStats() {
     if (!currentTunnelId) return;
 
     fetch(`/tunnel/stats/${currentTunnelId}`)
         .then(res => res.json())
         .then(data => {
+            // آپدیت متن‌ها
             document.getElementById('txDisplay').innerText = formatBytes(data.tx_bytes);
             document.getElementById('rxDisplay').innerText = formatBytes(data.rx_bytes);
-            document.getElementById('latencyDisplay').innerText = data.latency + ' ms';
+            document.getElementById('latencyDisplay').innerText = data.latency;
             
             const statusEl = document.getElementById('statusIndicator');
             if (data.status === 'active') {
@@ -230,34 +267,65 @@ function fetchStats() {
                 statusEl.innerHTML = '<span class="text-danger" style="text-shadow: 0 0 10px red"><i class="fas fa-times-circle me-2"></i>DOWN</span>';
             }
 
-            let deltaRx = data.rx_bytes - lastRx;
-            let deltaTx = data.tx_bytes - lastTx;
-            if (lastRx === 0) { deltaRx = 0; deltaTx = 0; }
-            lastRx = data.rx_bytes; lastTx = data.tx_bytes;
+            // محاسبه سرعت لحظه‌ای برای نمودار
+            // چون psutil ترافیک کل رو میده، ما اختلاف با مقدار قبلی رو حساب میکنیم
+            let deltaRx = 0;
+            let deltaTx = 0;
+            
+            if (lastRx !== 0) {
+                deltaRx = data.rx_bytes - lastRx;
+                deltaTx = data.tx_bytes - lastTx;
+            }
+            lastRx = data.rx_bytes;
+            lastTx = data.tx_bytes;
+            
+            // جلوگیری از اعداد منفی (در صورت ریست شدن کانتر سیستم)
+            if (deltaRx < 0) deltaRx = 0;
+            if (deltaTx < 0) deltaTx = 0;
 
+            // آپدیت نمودار
             chartInstance.data.datasets[0].data.shift();
             chartInstance.data.datasets[1].data.shift();
-            chartInstance.data.datasets[0].data.push(deltaTx);
-            chartInstance.data.datasets[1].data.push(deltaRx);
+            chartInstance.data.datasets[0].data.push(deltaTx); // آپلود
+            chartInstance.data.datasets[1].data.push(deltaRx); // دانلود
             chartInstance.update();
         });
 }
 
+// اجرای تست سرعت
 function runServerSpeedtest() {
-    const resEl = document.getElementById('speedtestResult');
-    resEl.innerHTML = '<span class="spinner-border spinner-border-sm me-2 text-secondary"></span>Analysing...';
+    const btn = document.getElementById('btnSpeedtest');
+    const loader = document.getElementById('speedtestLoader');
+    const results = document.getElementById('speedtestResults');
+    
+    btn.disabled = true;
+    loader.classList.remove('d-none');
+    results.classList.add('d-none');
     
     fetch('/server/speedtest')
         .then(res => res.json())
         .then(data => {
+            loader.classList.add('d-none');
+            results.classList.remove('d-none');
+            btn.disabled = false;
+            
             if (data.error) {
-                resEl.innerHTML = `<span class="text-danger">Error: ${data.error}</span>`;
+                document.getElementById('stServer').innerHTML = `<span class="text-danger">${data.error}</span>`;
             } else {
-                resEl.innerHTML = `<span class="text-success font-monospace">PING: ${data.ping} | DL: ${data.download} | UL: ${data.upload}</span>`;
+                document.getElementById('stPing').innerText = data.ping;
+                document.getElementById('stDown').innerText = data.download;
+                document.getElementById('stUp').innerText = data.upload;
+                document.getElementById('stServer').innerText = data.server;
             }
+        })
+        .catch(err => {
+            loader.classList.add('d-none');
+            btn.disabled = false;
+            alert("Connection Failed");
         });
 }
 
+// بستن مانیتورینگ
 document.getElementById('monitorModal').addEventListener('hidden.bs.modal', function () {
     if (updateInterval) clearInterval(updateInterval);
 });

@@ -1,5 +1,4 @@
-Flask
+flask
+psutil
+speedtest-cli
 requests
-paramiko
-werkzeug
-gunicorn

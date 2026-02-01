@@ -124,23 +124,31 @@ def start_install(protocol):
 @tunnels_bp.route('/tunnel/stats/<int:tunnel_id>')
 @login_required
 def tunnel_stats(tunnel_id):
+    """این روت هر ۲ ثانیه توسط نمودار صدا زده میشه"""
     tunnel = get_tunnel_by_id(tunnel_id)
     if not tunnel: return jsonify({'error': 'Not found'})
     
-    # اطمینان از اینکه پورت عددی است
-    try:
-        port = int(tunnel[3])
-    except:
-        port = 0
+    try: port = int(tunnel['port']) # استفاده از نام ستون چون RowFactory فعال است
+    except: port = 0
         
-    proto = 'udp' if 'hysteria' in tunnel[2] or 'slipstream' in tunnel[2] else 'tcp'
+    proto = 'udp' if 'hysteria' in tunnel['transport'] or 'slipstream' in tunnel['transport'] else 'tcp'
+    
+    # دریافت ترافیک و وضعیت سلامت
     rx, tx = get_traffic_stats(port, proto)
     health = check_port_health(port, proto)
-    return jsonify({'rx_bytes': rx, 'tx_bytes': tx, 'status': health['status'], 'latency': health['latency']})
+    
+    return jsonify({
+        'rx_bytes': rx, 
+        'tx_bytes': tx, 
+        'status': health['status'], 
+        'latency': health['latency']
+    })
 
 @tunnels_bp.route('/server/speedtest')
 @login_required
-def server_speedtest(): return jsonify(run_speedtest())
+def server_speedtest_route():
+    """روت اجرای تست سرعت"""
+    return jsonify(run_speedtest())
 
 @tunnels_bp.route('/tunnels')
 @login_required
