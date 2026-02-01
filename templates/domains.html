@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="glass-card p-5 text-center">
+            <div class="mb-4">
+                <i class="fas fa-globe fa-4x text-primary-neon fa-spin-hover"></i>
+            </div>
+            <h2 class="fw-bold text-white mb-4">DOMAIN & SSL MANAGER</h2>
+            
+            <div class="mb-4 text-start">
+                <label class="text-primary-neon small fw-bold mb-2 ps-2">YOUR DOMAIN</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-transparent border-secondary text-white-50"><i class="fas fa-link"></i></span>
+                    <input type="text" id="domainInput" class="form-control text-white" placeholder="sub.example.com">
+                    <button class="btn btn-outline-light" onclick="checkDNS()">Check DNS</button>
+                </div>
+                <small class="text-muted ms-2">Make sure your domain's A record points to this server IP.</small>
+            </div>
+
+            <div id="certSection" class="d-none animate__animated animate__fadeIn">
+                <div class="alert alert-success bg-transparent border-success text-success mb-4">
+                    <i class="fas fa-check-circle me-2"></i>DNS Verified! Ready to issue SSL.
+                </div>
+                <button class="btn btn-glass w-100 py-3" onclick="issueCert()">
+                    <i class="fas fa-lock me-2"></i>ISSUE SSL & DEPLOY FAKE SITE
+                </button>
+            </div>
+
+            <div id="statusBox" class="mt-4 d-none">
+                <div class="spinner-border text-primary mb-2" role="status"></div>
+                <p class="text-white-50 blink" id="statusText">Processing...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function checkDNS() {
+    const domain = document.getElementById('domainInput').value;
+    if(!domain) return;
+    
+    const btn = event.target;
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = "Checking...";
+    
+    const formData = new FormData();
+    formData.append('domain', domain);
+
+    fetch("{{ url_for('domains.check_dns') }}", {method: 'POST', body: formData})
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerText = originalText;
+        if(data.status === 'ok') {
+            document.getElementById('certSection').classList.remove('d-none');
+        } else {
+            alert(data.message);
+        }
+    });
+}
+
+function issueCert() {
+    const domain = document.getElementById('domainInput').value;
+    document.getElementById('statusBox').classList.remove('d-none');
+    document.getElementById('certSection').classList.add('d-none');
+    document.getElementById('statusText').innerText = "Requesting Let's Encrypt Certificate...";
+    
+    const formData = new FormData();
+    formData.append('domain', domain);
+
+    fetch("{{ url_for('domains.get_cert') }}", {method: 'POST', body: formData})
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('statusBox').classList.add('d-none');
+        if(data.status === 'ok') {
+            alert("Success! SSL Issued and Fake Site Deployed.");
+            location.reload();
+        } else {
+            alert("Error: " + data.message);
+            document.getElementById('certSection').classList.remove('d-none');
+        }
+    });
+}
+</script>
+{% endblock %}

@@ -5,6 +5,7 @@ from routes.dashboard import dashboard_bp
 from routes.tunnels import tunnels_bp
 from routes.settings import settings_bp
 from core.tasks import task_queue, task_status
+from routes.domains import domains_bp  
 import os
 import threading
 
@@ -41,6 +42,7 @@ init_db()
 
 # --- REGISTER BLUEPRINTS ---
 app.register_blueprint(auth_bp)
+app.register_blueprint(domains_bp)
 # اصلاح مهم: افزودن پیشوند برای جلوگیری از لوپ
 app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
 app.register_blueprint(tunnels_bp)
