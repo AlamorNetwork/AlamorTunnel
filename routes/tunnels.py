@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
-from core.database import get_connected_server, add_tunnel, get_all_tunnels, get_tunnel_by_id, delete_tunnel_by_id
+from core.database import get_connected_server, add_tunnel, get_all_tunnels, get_tunnel_by_id, delete_tunnel_by_id, update_tunnel_config
 from core.backhaul_manager import install_local_backhaul, install_remote_backhaul, generate_token, stop_and_delete_backhaul
 from core.rathole_manager import install_local_rathole, install_remote_rathole
 from core.hysteria_manager import install_hysteria_server_remote, install_hysteria_client_local, generate_pass
@@ -18,32 +18,25 @@ import time
 
 tunnels_bp = Blueprint('tunnels', __name__)
 
-# --- API وضعیت تسک (حیاتی برای پروگرس بار) ---
+# --- API وضعیت تسک (برای پروگرس بار) ---
 @tunnels_bp.route('/api/task_status/<task_id>')
 @login_required
 def get_task_status(task_id):
-    """این تابع وضعیت نصب را به فرانت‌اند گزارش می‌دهد"""
     status = task_status.get(task_id, {'progress': 0, 'status': 'queued', 'log': 'Waiting...'})
     return jsonify(status)
 
 # --- WORKER FUNCTION ---
 def run_task_in_background(task_id, func, args):
-    """اجرای امن تسک در پس‌زمینه با لاگ‌گیری"""
     try:
         task_status[task_id] = {'progress': 5, 'status': 'running', 'log': 'Starting process...'}
-        
-        # اجرای ژنراتور مرحله به مرحله
         for percent, log_msg in func(*args):
             task_status[task_id] = {
                 'progress': percent, 
                 'status': 'running', 
                 'log': log_msg
             }
-            # کمی تاخیر برای اینکه کاربر لاگ را ببیند
             time.sleep(0.5)
-            
         task_status[task_id] = {'progress': 100, 'status': 'completed', 'log': 'Installation Successfully Completed!'}
-        
     except Exception as e:
         print(f"Task Failed: {e}")
         task_status[task_id] = {'progress': 100, 'status': 'error', 'log': f"Error: {str(e)}"}
@@ -66,28 +59,18 @@ def get_server_public_ip():
 # --- GENERATORS (مراحل نصب) ---
 def process_backhaul(server_ip, iran_ip, config):
     yield 10, f"Connecting to Remote Server ({server_ip})..."
-    
-    # 1. نصب روی سرور خارج
     success, msg = install_remote_backhaul(server_ip, iran_ip, config)
-    if not success:
-        raise Exception(f"Remote Install Failed: {msg}")
+    if not success: raise Exception(f"Remote Install Failed: {msg}")
     
-    yield 50, "Remote Server Configured. Installing Local..."
-    
-    # 2. نصب روی سرور ایران
+    yield 50, "Remote Configured. Installing Local..."
     try:
         install_local_backhaul(config)
-    except Exception as e:
-        raise Exception(f"Local Install Failed: {e}")
+    except Exception as e: raise Exception(f"Local Install Failed: {e}")
         
     yield 80, "Local Configured. Saving to DB..."
-    
-    # 3. ذخیره در دیتابیس
     add_tunnel("Backhaul Tunnel", config['transport'], config['tunnel_port'], config['token'], config)
-    
     yield 100, "Done!"
 
-# سایر ژنراتورها (خلاصه شده برای جلوگیری از شلوغی، اما باید باشند)
 def process_gost(server_ip, config):
     yield 20, "Installing Gost on Remote..."
     success, msg = install_gost_server_remote(server_ip, config)
@@ -123,7 +106,7 @@ def process_rathole(server_ip, iran_ip, config):
 @login_required
 def start_install(protocol):
     server = get_connected_server()
-    if not server: return jsonify({'status': 'error', 'message': 'No remote server connected! Go to Servers tab.'})
+    if not server: return jsonify({'status': 'error', 'message': 'No remote server connected!'})
     
     config = request.form.to_dict()
     task_id = str(uuid.uuid4())
@@ -135,7 +118,6 @@ def start_install(protocol):
     if protocol == 'backhaul':
         iran_ip = request.form.get('iran_ip_manual') or get_server_public_ip()
         
-        # تبدیل تایپ‌ها
         config['token'] = generate_token()
         raw_ports = request.form.get('port_rules', '').strip()
         config['port_rules'] = [l.strip() for l in raw_ports.split('\n') if l.strip()]
@@ -176,7 +158,6 @@ def start_install(protocol):
         args = (server[0], iran_ip, config)
 
     if target_func:
-        # اجرای تسک در ترد جدید
         thread = threading.Thread(target=run_task_in_background, args=(task_id, target_func, args))
         thread.start()
         return jsonify({'status': 'started', 'task_id': task_id})
@@ -213,11 +194,47 @@ def delete_tunnel(tunnel_id):
     tunnel = get_tunnel_by_id(tunnel_id)
     if tunnel:
         transport = tunnel['transport']
-        port = tunnel['port']
         if "backhaul" in transport: stop_and_delete_backhaul()
-        # سایر حذف‌ها...
-             
     delete_tunnel_by_id(tunnel_id)
     os.system("systemctl daemon-reload")
     flash('Tunnel deleted.', 'warning')
+    return redirect(url_for('tunnels.list_tunnels'))
+
+# --- روت ویرایش (که باعث خطا شده بود) ---
+@tunnels_bp.route('/tunnel/edit/<int:tunnel_id>')
+@login_required
+def edit_tunnel(tunnel_id):
+    tunnel = get_tunnel_by_id(tunnel_id)
+    if not tunnel:
+        flash('Tunnel not found!', 'danger')
+        return redirect(url_for('tunnels.list_tunnels'))
+    
+    try:
+        config = json.loads(tunnel['config'])
+    except:
+        config = {}
+        
+    return render_template('edit_tunnel.html', tunnel=tunnel, config=config)
+
+# --- روت آپدیت (POST) ---
+@tunnels_bp.route('/tunnel/update/<int:tunnel_id>', methods=['POST'])
+@login_required
+def update_tunnel(tunnel_id):
+    tunnel = get_tunnel_by_id(tunnel_id)
+    if not tunnel:
+        flash('Tunnel not found!', 'danger')
+        return redirect(url_for('tunnels.list_tunnels'))
+
+    config = request.form.to_dict()
+    # اینجا می‌توانید لاجیک آپدیت کانفیگ و ریستارت سرویس را اضافه کنید
+    # فعلاً فقط دیتابیس را آپدیت می‌کنیم
+    
+    try:
+        current_config = json.loads(tunnel['config'])
+        current_config.update(config) # آپدیت مقادیر جدید
+        update_tunnel_config(tunnel_id, tunnel['name'], tunnel['transport'], tunnel['port'], current_config)
+        flash('Tunnel configuration updated (Service restart required).', 'success')
+    except Exception as e:
+        flash(f'Update failed: {str(e)}', 'danger')
+        
     return redirect(url_for('tunnels.list_tunnels'))
