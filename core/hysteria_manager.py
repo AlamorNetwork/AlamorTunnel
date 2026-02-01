@@ -1,9 +1,23 @@
 import os
 import secrets
+import subprocess
 from core.ssh_manager import run_remote_command
 
-INSTALL_DIR = "/root/hysteria"
-BIN_URL = "https://github.com/apernet/hysteria/releases/latest/download/hysteria-linux-amd64"
+# --- CONFIGURATION ---
+INSTALL_DIR = "/root/AlamorTunnel/bin"
+REPO_URL = "https://files.irplatforme.ir/files"
+
+def check_binary(binary_name):
+    file_path = f"{INSTALL_DIR}/{binary_name}"
+    if os.path.exists(file_path): return True
+    try:
+        if not os.path.exists(INSTALL_DIR): os.makedirs(INSTALL_DIR)
+        subprocess.run(f"curl -L -o {file_path}.tar.gz {REPO_URL}/{binary_name}.tar.gz", shell=True, check=True)
+        subprocess.run(f"tar -xzf {file_path}.tar.gz -C {INSTALL_DIR}", shell=True, check=True)
+        subprocess.run(f"chmod +x {file_path}", shell=True, check=True)
+        if os.path.exists(f"{file_path}.tar.gz"): os.remove(f"{file_path}.tar.gz")
+        return True
+    except: return False
 
 def generate_pass():
     return secrets.token_hex(8)
@@ -11,20 +25,18 @@ def generate_pass():
 def install_hysteria_server_remote(ssh_ip, config):
     remote_script = f"""
     mkdir -p {INSTALL_DIR}
-    # دانلود هسته اگر نباشد
     if [ ! -f {INSTALL_DIR}/hysteria ]; then
-        curl -L -o {INSTALL_DIR}/hysteria {BIN_URL}
+        curl -L -o {INSTALL_DIR}/hysteria.tar.gz {REPO_URL}/hysteria.tar.gz
+        tar -xzf {INSTALL_DIR}/hysteria.tar.gz -C {INSTALL_DIR}
         chmod +x {INSTALL_DIR}/hysteria
     fi
     
-    # تولید سرتیفیکیت فیک برای سرور
     if [ ! -f {INSTALL_DIR}/server.crt ]; then
         openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 \
             -subj "/CN=bing.com" -keyout {INSTALL_DIR}/server.key -out {INSTALL_DIR}/server.crt
     fi
 
-    # کانفیگ سرور
-    cat > {INSTALL_DIR}/config.yaml <<EOL
+    cat > {INSTALL_DIR}/hysteria_config.yaml <<EOL
 listen: :{config['tunnel_port']}
 tls:
   cert: {INSTALL_DIR}/server.crt
@@ -38,20 +50,18 @@ obfs:
     password: "{config['obfs_pass']}"
 EOL
 
-    # سرویس
     cat > /etc/systemd/system/hysteria-server.service <<EOL
 [Unit]
 Description=Hysteria Server
 After=network.target
 [Service]
-ExecStart={INSTALL_DIR}/hysteria server -c {INSTALL_DIR}/config.yaml
+ExecStart={INSTALL_DIR}/hysteria server -c {INSTALL_DIR}/hysteria_config.yaml
 Restart=always
 LimitNOFILE=1048576
 [Install]
 WantedBy=multi-user.target
 EOL
 
-    # فایروال
     ufw allow {config['tunnel_port']}/udp
     ufw allow {config['tunnel_port']}/tcp
     systemctl daemon-reload && systemctl enable hysteria-server && systemctl restart hysteria-server
@@ -59,10 +69,8 @@ EOL
     return run_remote_command(ssh_ip, remote_script)
 
 def install_hysteria_client_local(remote_ip, config):
-    if not os.path.exists(f"{INSTALL_DIR}/hysteria"):
-        os.system(f"mkdir -p {INSTALL_DIR}")
-        os.system(f"curl -L -o {INSTALL_DIR}/hysteria {BIN_URL}")
-        os.system(f"chmod +x {INSTALL_DIR}/hysteria")
+    if not check_binary("hysteria"):
+        raise Exception("Hysteria binary missing.")
 
     rules = ""
     for p in config['ports']:
@@ -84,7 +92,7 @@ bandwidth:
 tcpForwarding:{rules}
 udpForwarding:{rules}
 """
-    with open(f"{INSTALL_DIR}/client.yaml", "w") as f:
+    with open(f"{INSTALL_DIR}/hysteria_client.yaml", "w") as f:
         f.write(config_content)
 
     svc = f"""
@@ -92,7 +100,7 @@ udpForwarding:{rules}
 Description=Hysteria Client
 After=network.target
 [Service]
-ExecStart={INSTALL_DIR}/hysteria client -c {INSTALL_DIR}/client.yaml
+ExecStart={INSTALL_DIR}/hysteria client -c {INSTALL_DIR}/hysteria_client.yaml
 Restart=always
 [Install]
 WantedBy=multi-user.target

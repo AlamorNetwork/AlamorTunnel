@@ -1,22 +1,27 @@
 import os
-import secrets
+import subprocess
 from core.ssh_manager import run_remote_command
 
-INSTALL_DIR = "/root/rathole-core"
-BIN_URL = "https://github.com/Musixal/rathole-tunnel/raw/main/core/rathole.zip"
+# --- CONFIGURATION ---
+INSTALL_DIR = "/root/AlamorTunnel/bin"
+REPO_URL = "https://files.irplatforme.ir/files"
 
-def install_rathole_core():
-    if not os.path.exists(f"{INSTALL_DIR}/rathole"):
-        os.system("apt-get install -y unzip")
-        os.system(f"mkdir -p {INSTALL_DIR}")
-        os.system(f"curl -L -o {INSTALL_DIR}/rathole.zip {BIN_URL}")
-        os.system(f"unzip -o {INSTALL_DIR}/rathole.zip -d {INSTALL_DIR}")
-        os.system(f"chmod +x {INSTALL_DIR}/rathole")
-        os.system(f"rm {INSTALL_DIR}/rathole.zip")
-    return True
+def check_binary(binary_name):
+    file_path = f"{INSTALL_DIR}/{binary_name}"
+    if os.path.exists(file_path): return True
+    try:
+        if not os.path.exists(INSTALL_DIR): os.makedirs(INSTALL_DIR)
+        subprocess.run(f"curl -L -o {file_path}.tar.gz {REPO_URL}/{binary_name}.tar.gz", shell=True, check=True)
+        subprocess.run(f"tar -xzf {file_path}.tar.gz -C {INSTALL_DIR}", shell=True, check=True)
+        subprocess.run(f"chmod +x {file_path}", shell=True, check=True)
+        if os.path.exists(f"{file_path}.tar.gz"): os.remove(f"{file_path}.tar.gz")
+        return True
+    except: return False
 
 def install_local_rathole(config_data):
-    install_rathole_core()
+    if not check_binary("rathole"):
+        raise Exception("Rathole binary missing.")
+        
     port = config_data['tunnel_port']
     bind_ip = "[::]" if config_data['ipv6'] else "0.0.0.0"
     
@@ -35,7 +40,7 @@ default_token = "{config_data['token']}"
 {transport_block}
 {services}
 """
-    with open(f"{INSTALL_DIR}/iran{port}.toml", "w") as f:
+    with open(f"{INSTALL_DIR}/rathole_iran{port}.toml", "w") as f:
         f.write(config_content)
 
     svc_name = f"rathole-iran{port}"
@@ -44,7 +49,7 @@ default_token = "{config_data['token']}"
 Description=Rathole Iran {port}
 After=network.target
 [Service]
-ExecStart={INSTALL_DIR}/rathole {INSTALL_DIR}/iran{port}.toml
+ExecStart={INSTALL_DIR}/rathole {INSTALL_DIR}/rathole_iran{port}.toml
 Restart=always
 [Install]
 WantedBy=multi-user.target
@@ -63,15 +68,14 @@ def install_remote_rathole(ssh_ip, iran_ip, config_data):
         services += f'\n[client.services.{p}]\ntype = "{config_data["transport"]}"\nlocal_addr = "0.0.0.0:{p}"\n'
 
     remote_script = f"""
-    apt-get install -y unzip
     mkdir -p {INSTALL_DIR}
     if [ ! -f {INSTALL_DIR}/rathole ]; then
-        curl -L -o {INSTALL_DIR}/rathole.zip {BIN_URL}
-        unzip -o {INSTALL_DIR}/rathole.zip -d {INSTALL_DIR}
+        curl -L -o {INSTALL_DIR}/rathole.tar.gz {REPO_URL}/rathole.tar.gz
+        tar -xzf {INSTALL_DIR}/rathole.tar.gz -C {INSTALL_DIR}
         chmod +x {INSTALL_DIR}/rathole
     fi
 
-    cat > {INSTALL_DIR}/kharej{port}.toml <<EOL
+    cat > {INSTALL_DIR}/rathole_kharej{port}.toml <<EOL
 [client]
 remote_addr = "{remote_addr}"
 default_token = "{config_data['token']}"
@@ -88,7 +92,7 @@ EOL
 Description=Rathole Kharej {port}
 After=network.target
 [Service]
-ExecStart={INSTALL_DIR}/rathole {INSTALL_DIR}/kharej{port}.toml
+ExecStart={INSTALL_DIR}/rathole {INSTALL_DIR}/rathole_kharej{port}.toml
 Restart=always
 [Install]
 WantedBy=multi-user.target
