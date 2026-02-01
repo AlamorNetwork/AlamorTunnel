@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login | AlamorHub</title>
+    <title>ACCESS CONTROL | AlamorHub</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
@@ -12,67 +12,85 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
+            overflow: hidden;
         }
-        .login-container {
+        .login-wrapper {
+            position: relative;
             width: 100%;
-            max-width: 420px;
+            max-width: 450px;
             padding: 20px;
+        }
+        /* Scanner Line Animation */
+        .scanner-line {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 3px;
+            background: var(--primary-neon);
+            box-shadow: 0 0 15px var(--primary-neon);
+            animation: scan 3s ease-in-out infinite;
+            z-index: 10;
+            opacity: 0.7;
+        }
+        @keyframes scan {
+            0% { top: 0; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
         }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <div class="glass-card text-center p-5 border-top border-4 border-primary">
-            <div class="mb-4">
-                <div class="d-inline-flex align-items-center justify-content-center bg-white bg-opacity-10 rounded-circle" style="width: 80px; height: 80px;">
-                    <i class="fas fa-fingerprint fa-3x text-accent"></i>
+    <div class="login-wrapper">
+        <div class="glass-card text-center p-5 border-0 position-relative">
+            <div class="scanner-line"></div>
+            <div class="position-absolute top-0 start-0 p-3 opacity-50"><i class="fas fa-brackets-curly text-muted"></i></div>
+            <div class="position-absolute bottom-0 end-0 p-3 opacity-50"><i class="fas fa-code text-muted"></i></div>
+
+            <div class="mb-5">
+                <div class="d-inline-flex align-items-center justify-content-center rounded-circle" 
+                     style="width: 90px; height: 90px; border: 2px dashed rgba(0,243,255,0.3); box-shadow: 0 0 20px rgba(0,0,0,0.5);">
+                    <i class="fas fa-fingerprint fa-3x" style="color: var(--primary-neon);"></i>
                 </div>
+                <h2 class="fw-bold mt-4 mb-1 text-white ls-2">ALAMOR<span class="text-primary-neon">HUB</span></h2>
+                <small class="text-white-50 font-monospace">SECURE GATEWAY v2.1</small>
             </div>
-            
-            <h2 class="fw-bold mb-1">Welcome Back</h2>
-            <p class="text-muted small mb-4">Authenticate to access AlamorHub</p>
 
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
-                        <div class="alert alert-{{ category }} py-2 small bg-opacity-25 border-0 text-white mb-4 rounded-3">
-                            {{ message }}
+                        <div class="alert alert-{{ category }} py-2 small bg-transparent border border-{{ category }} text-white mb-4">
+                            <i class="fas fa-exclamation-triangle me-2"></i>{{ message }}
                         </div>
                     {% endfor %}
                 {% endif %}
             {% endwith %}
 
             <form method="POST">
-                <div class="mb-3 text-start">
-                    <label class="form-label ps-1">Username</label>
+                <div class="mb-4 text-start group-input">
+                    <label class="text-primary-neon small fw-bold mb-2 ps-2">IDENTITY</label>
                     <div class="input-group">
-                        <span class="input-group-text bg-transparent border-end-0 border-secondary text-secondary">
-                            <i class="fas fa-user"></i>
+                        <span class="input-group-text bg-transparent border-end-0 border-secondary text-white-50">
+                            <i class="fas fa-user-astronaut"></i>
                         </span>
-                        <input type="text" name="username" class="form-control border-start-0 ps-0" placeholder="Enter username" required>
+                        <input type="text" name="username" class="form-control border-start-0 ps-0 text-white" placeholder="Username" required>
                     </div>
                 </div>
                 
-                <div class="mb-4 text-start">
-                    <label class="form-label ps-1">Password</label>
+                <div class="mb-5 text-start group-input">
+                    <label class="text-primary-neon small fw-bold mb-2 ps-2">PASSPHRASE</label>
                     <div class="input-group">
-                        <span class="input-group-text bg-transparent border-end-0 border-secondary text-secondary">
-                            <i class="fas fa-lock"></i>
+                        <span class="input-group-text bg-transparent border-end-0 border-secondary text-white-50">
+                            <i class="fas fa-key"></i>
                         </span>
-                        <input type="password" name="password" class="form-control border-start-0 ps-0" placeholder="••••••••" required>
+                        <input type="password" name="password" class="form-control border-start-0 ps-0 text-white" placeholder="••••••••" required>
                     </div>
                 </div>
 
-                <button type="submit" class="btn btn-glass w-100 py-3 fw-bold shadow-lg">
-                    SECURE LOGIN <i class="fas fa-arrow-right ms-2"></i>
+                <button type="submit" class="btn btn-glass w-100 py-3 fw-bold">
+                    AUTHENTICATE <i class="fas fa-chevron-right ms-2"></i>
                 </button>
             </form>
-
-            <div class="mt-4 pt-3 border-top border-secondary border-opacity-25">
-                <small class="text-muted opacity-75">AlamorTunnel Enterprise v2.1</small>
-            </div>
         </div>
+        <p class="text-center text-muted mt-3 small opacity-50">Authorized Personnel Only</p>
     </div>
 </body>
 </html>

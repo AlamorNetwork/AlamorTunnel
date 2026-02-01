@@ -18,16 +18,12 @@ def install_gost_server_remote(ssh_ip, config):
     script = f"""
     {install_binary()}
     cd {INSTALL_DIR}
-    # تولید گواهی اگر نباشد
     if [ ! -f cert.pem ]; then
         openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 -subj "/CN=bing.com" -keyout key.pem -out cert.pem
     fi
-    
-    # فایروال
     ufw allow {config['tunnel_port']}/tcp
     iptables -I INPUT -p tcp --dport {config['tunnel_port']} -j ACCEPT 2>/dev/null
     
-    # سرویس
     cat > /etc/systemd/system/gost-server.service <<EOL
 [Unit]
 Description=GOST Server
@@ -44,9 +40,7 @@ EOL
 
 def install_gost_client_local(remote_ip, config):
     os.system(install_binary())
-    
     cmd = f"{INSTALL_DIR}/gost -L=tcp://:{config['client_port']}/127.0.0.1:{config['dest_port']} -F=relay+tls://{remote_ip}:{config['tunnel_port']}?secure=true"
-    
     svc = f"""
 [Unit]
 Description=GOST Client

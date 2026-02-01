@@ -13,17 +13,13 @@ app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
 def worker():
-    """کارگر پس‌زمینه که صف تسک‌ها را پردازش می‌کند"""
     while True:
         try:
             task_id, func, args = task_queue.get()
             task_status[task_id] = {'progress': 5, 'status': 'running', 'log': 'Starting...'}
-            
-            # اجرای تابع به صورت Generator
             for progress, log_msg in func(*args):
                 task_status[task_id]['progress'] = progress
                 task_status[task_id]['log'] = log_msg
-                
             task_status[task_id]['progress'] = 100
             task_status[task_id]['status'] = 'completed'
             task_status[task_id]['log'] = 'Done!'
@@ -35,7 +31,6 @@ def worker():
         finally:
             if 'task_id' in locals(): task_queue.task_done()
 
-# اجرای ترد در پس‌زمینه
 threading.Thread(target=worker, daemon=True).start()
 
 @app.route('/task-status/<task_id>')

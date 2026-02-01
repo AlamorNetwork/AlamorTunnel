@@ -1,50 +1,121 @@
 {% extends "base.html" %}
+
 {% block content %}
 
-<script>
-function startInstall(protocol, formId) {
-    const form = document.getElementById(formId);
-    const formData = new FormData(form);
-    
-    // بستن مودال کانفیگ
-    bootstrap.Modal.getInstance(form.closest('.modal')).hide();
-    
-    // باز کردن مودال پیشرفت
-    new bootstrap.Modal(document.getElementById('progressModal')).show();
+<div class="row mb-5">
+    <div class="col-12">
+        <div class="glass-card position-relative overflow-hidden p-0">
+            <div class="position-absolute top-0 start-0 w-100 h-100" style="background: radial-gradient(circle at 50% -20%, rgba(0, 243, 255, 0.1), transparent 70%);"></div>
+            
+            <div class="p-5 position-relative z-1 d-flex flex-column flex-md-row align-items-center justify-content-between">
+                <div>
+                    <h6 class="text-accent ls-2 mb-3 opacity-75"><i class="fas fa-satellite-dish me-2"></i>SYSTEM OVERRIDE</h6>
+                    {% if server_ip %}
+                        <h1 class="display-3 fw-bold text-white mb-2" style="text-shadow: 0 0 20px rgba(0,255,150,0.5);">ONLINE</h1>
+                        <div class="d-flex align-items-center mt-3">
+                            <span class="badge bg-transparent border border-success text-success px-3 py-2 rounded-pill shadow-sm" style="box-shadow: 0 0 15px rgba(0,255,0,0.2) !important;">
+                                <i class="fas fa-circle me-2 fa-beat-fade"></i>SECURE UPLINK
+                            </span>
+                            <span class="text-white font-monospace fs-4 ms-4 px-3 py-1 rounded" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);">
+                                {{ server_ip }}
+                            </span>
+                        </div>
+                    {% else %}
+                        <h1 class="display-3 fw-bold text-danger mb-2" style="text-shadow: 0 0 20px rgba(255,0,0,0.5);">OFFLINE</h1>
+                        <p class="text-white-50 fs-5 mt-2">Neural Link Disconnected. Please initialize server connection.</p>
+                    {% endif %}
+                </div>
+                
+                <div class="mt-4 mt-md-0 text-center">
+                    {% if not server_ip %}
+                        <button class="btn btn-glass fs-5 px-5 py-3" data-bs-toggle="modal" data-bs-target="#connectModal">
+                            <i class="fas fa-plug me-2"></i>INITIALIZE
+                        </button>
+                    {% else %}
+                        <div class="d-flex flex-column align-items-center">
+                             <div class="position-relative mb-4">
+                                <div class="rounded-circle bg-success opacity-25 position-absolute top-50 start-50 translate-middle" style="width: 100px; height: 100px; animation: pulse 2s infinite;"></div>
+                                <i class="fas fa-shield-alt fa-4x text-success position-relative z-2"></i>
+                            </div>
+                            <a href="{{ url_for('dashboard.disconnect_server') }}" class="btn btn-glass-danger btn-sm">
+                                <i class="fas fa-unlink me-2"></i>TERMINATE
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
-    // ارسال درخواست
-    fetch(`/start-install/${protocol}`, {
-        method: 'POST',
-        body: formData
-    })
-    .then(res => res.json())
-    .then(data => {
-        if(data.status === 'started') {
-            trackProgress(data.task_id);
-        } else {
-            alert('Error: ' + data.message);
-        }
-    });
-}
+<style>
+    @keyframes pulse {
+        0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.8; }
+        100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+    }
+</style>
 
-function trackProgress(taskId) {
-    const bar = document.getElementById('progressBar');
-    const log = document.getElementById('progressLog');
+<div class="row g-4">
+    <div class="col-md-6 col-lg-3">
+        <div class="glass-card h-100 text-center p-4 border-hysteria group-hover-glow">
+            <div class="mb-4 position-relative">
+                <div class="position-absolute top-50 start-50 translate-middle" style="width: 100px; height: 100px; background: radial-gradient(circle, rgba(255, 0, 85, 0.2), transparent); filter: blur(10px);"></div>
+                <i class="fas fa-dragon fa-4x text-hysteria position-relative z-1"></i>
+            </div>
+            <h3 class="mb-2 text-white">HYSTERIA 2</h3>
+            <p class="text-white-50 small mb-4">UDP High-Speed Protocol<br>Optimized for Lossy Networks</p>
+            <button class="btn btn-outline-light w-100 rounded-pill" data-bs-toggle="modal" data-bs-target="#hysteriaModal">DEPLOY UNIT</button>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="glass-card h-100 text-center p-4" style="border-color: #a855f7;">
+            <div class="mb-4 position-relative">
+                <div class="position-absolute top-50 start-50 translate-middle" style="width: 100px; height: 100px; background: radial-gradient(circle, rgba(168, 85, 247, 0.2), transparent); filter: blur(10px);"></div>
+                <i class="fas fa-wind fa-4x" style="color: #a855f7; text-shadow: 0 0 15px #a855f7;"></i>
+            </div>
+            <h3 class="mb-2 text-white">SLIPSTREAM</h3>
+            <p class="text-white-50 small mb-4">Rust Custom DNS Tunnel<br>Stealth & Anti-Filter</p>
+            <button class="btn btn-outline-light w-100 rounded-pill" data-bs-toggle="modal" data-bs-target="#slipstreamModal">DEPLOY UNIT</button>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="glass-card h-100 text-center p-4 border-rathole">
+            <div class="mb-4 position-relative">
+                <div class="position-absolute top-50 start-50 translate-middle" style="width: 100px; height: 100px; background: radial-gradient(circle, rgba(255, 157, 0, 0.2), transparent); filter: blur(10px);"></div>
+                <i class="fas fa-dungeon fa-4x text-rathole position-relative z-1"></i>
+            </div>
+            <h3 class="mb-2 text-white">RATHOLE</h3>
+            <p class="text-white-50 small mb-4">Secure NAT Traversal<br>Rust-based Architecture</p>
+            <button class="btn btn-outline-light w-100 rounded-pill" data-bs-toggle="modal" data-bs-target="#ratholeModal">DEPLOY UNIT</button>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="glass-card h-100 text-center p-4 border-backhaul">
+            <div class="mb-4 position-relative">
+                <div class="position-absolute top-50 start-50 translate-middle" style="width: 100px; height: 100px; background: radial-gradient(circle, rgba(255, 215, 0, 0.2), transparent); filter: blur(10px);"></div>
+                <i class="fas fa-network-wired fa-4x text-backhaul position-relative z-1"></i>
+            </div>
+            <h3 class="mb-2 text-white">BACKHAUL</h3>
+            <p class="text-white-50 small mb-4">Advanced TCP/WS Tunnel<br>Multi-plexing Support</p>
+            <button class="btn btn-outline-light w-100 rounded-pill" data-bs-toggle="modal" data-bs-target="#backhaulModal">DEPLOY UNIT</button>
+        </div>
+    </div>
     
-    const interval = setInterval(() => {
-        fetch(`/task-status/${taskId}`)
-        .then(res => res.json())
-        .then(data => {
-            bar.style.width = data.progress + '%';
-            log.innerText = data.log;
+     <div class="col-md-6 col-lg-3">
+        <div class="glass-card h-100 text-center p-4 border-gost">
+             <div class="mb-4 position-relative">
+                <div class="position-absolute top-50 start-50 translate-middle" style="width: 100px; height: 100px; background: radial-gradient(circle, rgba(20, 184, 166, 0.2), transparent); filter: blur(10px);"></div>
+                <i class="fas fa-ghost fa-4x text-gost position-relative z-1"></i>
+            </div>
+            <h3 class="mb-2 text-white">GOST</h3>
+            <p class="text-white-50 small mb-4">Relay + TLS Secure Tunnel<br>Simple & Robust</p>
+            <button class="btn btn-outline-light w-100 rounded-pill" data-bs-toggle="modal" data-bs-target="#gostModal">DEPLOY UNIT</button>
+        </div>
+    </div>
+</div>
 
-            if(data.status === 'completed') {
-                clearInterval(interval);
-                bar.classList.replace('bg-primary', 'bg-success');
-                document.getElementById('completionBtn').classList.remove('d-none');
-            }
-        });
-    }, 1000);
-}
-</script>
+{% include "modals_partial.html" %} 
 {% endblock %}
