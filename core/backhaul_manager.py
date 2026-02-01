@@ -6,39 +6,69 @@ from core.ssl_manager import generate_self_signed_cert
 
 # --- CONFIGURATION ---
 INSTALL_DIR = "/root/AlamorTunnel/bin"
+
+# لینک دانلود برای سرور ایران (مخزن شخصی)
 LOCAL_REPO = "http://files.irplatforme.ir/files/backhaul.tar.gz"
+
+# لینک دانلود کمکی (گیت‌هاب) - اگر مخزن شخصی کار نکرد
 REMOTE_REPO = "https://github.com/Musixal/Backhaul/releases/latest/download/backhaul_linux_amd64.tar.gz"
 
 def check_binary(binary_name):
-    """دانلود هوشمند فایل اجرایی در سرور ایران"""
+    """دانلود هوشمند با بررسی حجم فایل"""
     file_path = f"{INSTALL_DIR}/{binary_name}"
     
-    if os.path.exists(file_path): 
+    # 1. اگر فایل وجود دارد و سالم است (حجم > 1MB)
+    if os.path.exists(file_path) and os.path.getsize(file_path) > 1024 * 1024: 
         return True
+    
+    # اگر فایل ناقص وجود دارد، پاکش کن
+    if os.path.exists(file_path): os.remove(file_path)
     
     print(f"[Manager] Downloading {binary_name} from Private Repo...")
     try:
         if not os.path.exists(INSTALL_DIR): os.makedirs(INSTALL_DIR)
         
-        # اضافه شدن -k برای نادیده گرفتن خطای SSL
-        cmd = f"curl -k -L -o {file_path}.tar.gz {LOCAL_REPO}"
-        subprocess.run(cmd, shell=True, check=True)
+        # دانلود فایل فشرده
+        # تلاش اول: مخزن شخصی
+        archive_path = f"{file_path}.tar.gz"
+        subprocess.run(f"curl -L -f -o {archive_path} {LOCAL_REPO}", shell=True, check=True)
         
-        subprocess.run(f"tar -xzf {file_path}.tar.gz -C {INSTALL_DIR}", shell=True, check=True)
+        # بررسی حجم فایل دانلود شده (باید بیشتر از 100 کیلوبایت باشد)
+        if os.path.getsize(archive_path) < 100 * 1024:
+            print(f"[Error] Downloaded file is too small ({os.path.getsize(archive_path)} bytes). It's likely an HTML error page.")
+            os.remove(archive_path)
+            raise Exception("Invalid file size from Local Repo")
+
+        # اکسترکت
+        subprocess.run(f"tar -xzf {archive_path} -C {INSTALL_DIR}", shell=True, check=True)
         subprocess.run(f"chmod +x {file_path}", shell=True, check=True)
         
-        if os.path.exists(f"{file_path}.tar.gz"): os.remove(f"{file_path}.tar.gz")
+        # پاک کردن آرشیو
+        if os.path.exists(archive_path): os.remove(archive_path)
         return True
+
     except Exception as e:
-        print(f"[Manager] Error downloading {binary_name}: {e}")
-        return False
+        print(f"[Manager] Local Download Failed: {e}")
+        print("[Manager] Switching to GitHub Backup...")
+        try:
+            # تلاش دوم: دانلود از گیت‌هاب
+            archive_path = f"{file_path}.tar.gz"
+            subprocess.run(f"curl -L -f -o {archive_path} {REMOTE_REPO}", shell=True, check=True)
+            subprocess.run(f"tar -xzf {archive_path} -C {INSTALL_DIR}", shell=True, check=True)
+            subprocess.run(f"chmod +x {file_path}", shell=True, check=True)
+            if os.path.exists(archive_path): os.remove(archive_path)
+            return True
+        except Exception as e2:
+             print(f"[Manager] Critical Failure: {e2}")
+             return False
 
 def generate_token():
     return secrets.token_hex(16)
 
 def install_local_backhaul(config):
+    # چک کردن باینری
     if not check_binary("backhaul"):
-        raise Exception("Failed to install Backhaul locally.")
+        raise Exception("Binary installation failed. Check server logs.")
 
     tls_lines = ""
     if config['transport'] in ["wss", "wssmux"]:
@@ -105,11 +135,12 @@ def install_remote_backhaul(ssh_target_ip, iran_connect_ip, config):
     clean_ip = iran_connect_ip.strip()
     edge_line = f'edge_ip = "{config["edge_ip"]}"' if config.get('edge_ip') else ""
     
+    # سرور خارج می‌تواند مستقیم از گیت‌هاب بگیرد
     remote_script = f"""
     mkdir -p {INSTALL_DIR}
     if [ ! -f {INSTALL_DIR}/backhaul ]; then
         echo "Downloading Backhaul from GitHub..."
-        curl -L --max-time 60 -o {INSTALL_DIR}/backhaul.tar.gz {REMOTE_REPO}
+        curl -L -f --max-time 60 -o {INSTALL_DIR}/backhaul.tar.gz {REMOTE_REPO}
         tar -xzf {INSTALL_DIR}/backhaul.tar.gz -C {INSTALL_DIR}
         chmod +x {INSTALL_DIR}/backhaul
     fi
