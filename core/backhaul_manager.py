@@ -6,26 +6,27 @@ from core.ssl_manager import generate_self_signed_cert
 
 # --- CONFIGURATION ---
 INSTALL_DIR = "/root/AlamorTunnel/bin"
-REPO_URL = "https://files.irplatforme.ir/files"
+LOCAL_REPO = "https://files.irplatforme.ir/files/backhaul.tar.gz"
+REMOTE_REPO = "https://github.com/Musixal/Backhaul/releases/latest/download/backhaul_linux_amd64.tar.gz"
 
 def check_binary(binary_name):
-    """دانلود هوشمند فایل اجرایی در صورت عدم وجود"""
+    """دانلود هوشمند فایل اجرایی در سرور ایران"""
     file_path = f"{INSTALL_DIR}/{binary_name}"
-    if os.path.exists(file_path): return True
     
-    print(f"[Manager] Downloading {binary_name} from repo...")
+    if os.path.exists(file_path): 
+        return True
+    
+    print(f"[Manager] Downloading {binary_name} from Private Repo...")
     try:
         if not os.path.exists(INSTALL_DIR): os.makedirs(INSTALL_DIR)
         
-        # دانلود فایل فشرده
-        url = f"{REPO_URL}/{binary_name}.tar.gz"
-        subprocess.run(f"curl -L -o {file_path}.tar.gz {url}", shell=True, check=True)
+        # اضافه شدن -k برای نادیده گرفتن خطای SSL
+        cmd = f"curl -k -L -o {file_path}.tar.gz {LOCAL_REPO}"
+        subprocess.run(cmd, shell=True, check=True)
         
-        # اکسترکت
         subprocess.run(f"tar -xzf {file_path}.tar.gz -C {INSTALL_DIR}", shell=True, check=True)
         subprocess.run(f"chmod +x {file_path}", shell=True, check=True)
         
-        # پاکسازی
         if os.path.exists(f"{file_path}.tar.gz"): os.remove(f"{file_path}.tar.gz")
         return True
     except Exception as e:
@@ -36,17 +37,14 @@ def generate_token():
     return secrets.token_hex(16)
 
 def install_local_backhaul(config):
-    # 1. بررسی فایل اجرایی
     if not check_binary("backhaul"):
-        raise Exception("Failed to install Backhaul binary.")
+        raise Exception("Failed to install Backhaul locally.")
 
-    # 2. SSL
     tls_lines = ""
     if config['transport'] in ["wss", "wssmux"]:
         generate_self_signed_cert("127.0.0.1")
         tls_lines = f'tls_cert = "/root/certs/server.crt"\ntls_key = "/root/certs/server.key"'
 
-    # 3. Config
     port_rules = config.get('port_rules', [])
     formatted_ports = ",\n    ".join([f'"{p.strip()}"' for p in port_rules if p.strip()])
 
@@ -74,12 +72,14 @@ mss = {config.get('mss', 1360)}
 so_rcvbuf = {config.get('so_rcvbuf', 4194304)}
 so_sndbuf = {config.get('so_sndbuf', 1048576)}
 {tls_lines}
-ports = [ {formatted_ports} ]
+
+ports = [
+    {formatted_ports}
+]
 """
     with open(f"{INSTALL_DIR}/backhaul_config.toml", "w") as f:
         f.write(config_content)
 
-    # 4. Service
     service_content = f"""
 [Unit]
 Description=Backhaul Server
@@ -102,16 +102,14 @@ WantedBy=multi-user.target
     return True
 
 def install_remote_backhaul(ssh_target_ip, iran_connect_ip, config):
-    # برای کلاینت (سرور خارج) هم از همین ساختار استفاده می‌کنیم
-    # با این تفاوت که روی سرور خارج دستورات اجرا می‌شوند
     clean_ip = iran_connect_ip.strip()
     edge_line = f'edge_ip = "{config["edge_ip"]}"' if config.get('edge_ip') else ""
     
     remote_script = f"""
     mkdir -p {INSTALL_DIR}
-    # دانلود اگر فایل نباشد (از مخزن شما)
     if [ ! -f {INSTALL_DIR}/backhaul ]; then
-        curl -L -o {INSTALL_DIR}/backhaul.tar.gz {REPO_URL}/backhaul.tar.gz
+        echo "Downloading Backhaul from GitHub..."
+        curl -L --max-time 60 -o {INSTALL_DIR}/backhaul.tar.gz {REMOTE_REPO}
         tar -xzf {INSTALL_DIR}/backhaul.tar.gz -C {INSTALL_DIR}
         chmod +x {INSTALL_DIR}/backhaul
     fi

@@ -4,14 +4,16 @@ from core.ssh_manager import run_remote_command
 
 # --- CONFIGURATION ---
 INSTALL_DIR = "/root/AlamorTunnel/bin"
-REPO_URL = "https://files.irplatforme.ir/files"
+LOCAL_REPO = "https://files.irplatforme.ir/files/rathole.tar.gz"
+REMOTE_REPO = "https://github.com/rapiz1/rathole/releases/latest/download/rathole-x86_64-unknown-linux-gnu.zip"
 
 def check_binary(binary_name):
     file_path = f"{INSTALL_DIR}/{binary_name}"
     if os.path.exists(file_path): return True
     try:
         if not os.path.exists(INSTALL_DIR): os.makedirs(INSTALL_DIR)
-        subprocess.run(f"curl -L -o {file_path}.tar.gz {REPO_URL}/{binary_name}.tar.gz", shell=True, check=True)
+        # اضافه شدن -k
+        subprocess.run(f"curl -k -L -o {file_path}.tar.gz {LOCAL_REPO}", shell=True, check=True)
         subprocess.run(f"tar -xzf {file_path}.tar.gz -C {INSTALL_DIR}", shell=True, check=True)
         subprocess.run(f"chmod +x {file_path}", shell=True, check=True)
         if os.path.exists(f"{file_path}.tar.gz"): os.remove(f"{file_path}.tar.gz")
@@ -68,10 +70,11 @@ def install_remote_rathole(ssh_ip, iran_ip, config_data):
         services += f'\n[client.services.{p}]\ntype = "{config_data["transport"]}"\nlocal_addr = "0.0.0.0:{p}"\n'
 
     remote_script = f"""
+    apt-get install -y unzip
     mkdir -p {INSTALL_DIR}
     if [ ! -f {INSTALL_DIR}/rathole ]; then
-        curl -L -o {INSTALL_DIR}/rathole.tar.gz {REPO_URL}/rathole.tar.gz
-        tar -xzf {INSTALL_DIR}/rathole.tar.gz -C {INSTALL_DIR}
+        curl -L -o {INSTALL_DIR}/rathole.zip {REMOTE_REPO}
+        unzip -o {INSTALL_DIR}/rathole.zip -d {INSTALL_DIR}
         chmod +x {INSTALL_DIR}/rathole
     fi
 
@@ -97,8 +100,6 @@ Restart=always
 [Install]
 WantedBy=multi-user.target
 EOL
-    systemctl daemon-reload
-    systemctl enable rathole-kharej{port}
-    systemctl restart rathole-kharej{port}
+    systemctl daemon-reload && systemctl enable rathole-kharej{port} && systemctl restart rathole-kharej{port}
     """
     return run_remote_command(ssh_ip, remote_script)

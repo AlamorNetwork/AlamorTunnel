@@ -5,14 +5,16 @@ from core.ssh_manager import run_remote_command
 
 # --- CONFIGURATION ---
 INSTALL_DIR = "/root/AlamorTunnel/bin"
-REPO_URL = "https://files.irplatforme.ir/files"
+LOCAL_REPO = "https://files.irplatforme.ir/files/hysteria.tar.gz"
+REMOTE_REPO = "https://github.com/apernet/hysteria/releases/latest/download/hysteria-linux-amd64"
 
 def check_binary(binary_name):
     file_path = f"{INSTALL_DIR}/{binary_name}"
     if os.path.exists(file_path): return True
     try:
         if not os.path.exists(INSTALL_DIR): os.makedirs(INSTALL_DIR)
-        subprocess.run(f"curl -L -o {file_path}.tar.gz {REPO_URL}/{binary_name}.tar.gz", shell=True, check=True)
+        # اضافه شدن -k
+        subprocess.run(f"curl -k -L -o {file_path}.tar.gz {LOCAL_REPO}", shell=True, check=True)
         subprocess.run(f"tar -xzf {file_path}.tar.gz -C {INSTALL_DIR}", shell=True, check=True)
         subprocess.run(f"chmod +x {file_path}", shell=True, check=True)
         if os.path.exists(f"{file_path}.tar.gz"): os.remove(f"{file_path}.tar.gz")
@@ -26,8 +28,7 @@ def install_hysteria_server_remote(ssh_ip, config):
     remote_script = f"""
     mkdir -p {INSTALL_DIR}
     if [ ! -f {INSTALL_DIR}/hysteria ]; then
-        curl -L -o {INSTALL_DIR}/hysteria.tar.gz {REPO_URL}/hysteria.tar.gz
-        tar -xzf {INSTALL_DIR}/hysteria.tar.gz -C {INSTALL_DIR}
+        curl -L -o {INSTALL_DIR}/hysteria {REMOTE_REPO}
         chmod +x {INSTALL_DIR}/hysteria
     fi
     
