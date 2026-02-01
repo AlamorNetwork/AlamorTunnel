@@ -261,60 +261,200 @@
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <form id="backhaulForm" class="modal-content glass-panel border-0 p-0">
             <div class="modal-header border-0 border-bottom border-secondary">
-                <h5 class="modal-title fw-bold text-backhaul">Backhaul Enterprise</h5>
+                <h5 class="modal-title fw-bold text-backhaul">
+                    <i class="fas fa-network-wired me-2"></i>Backhaul Enterprise Config
+                </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             
             <div class="modal-body p-4" style="max-height: 75vh; overflow-y: auto;">
-                <h6 class="text-accent text-uppercase mb-3 small fw-bold text-white">Basic Configuration</h6>
+                
+                <h6 class="text-accent text-uppercase mb-3 small fw-bold text-white border-bottom border-secondary pb-2">Basic Configuration</h6>
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
-                        <label class="form-label text-muted small">TRANSPORT</label>
-                        <select name="transport" class="form-select">
-                            <option value="tcp">TCP</option>
-                            <option value="tcpmux">TCP Mux</option>
-                            <option value="ws">WebSocket</option>
-                            <option value="wss">WebSocket Secure</option>
+                        <label class="form-label text-muted small">TRANSPORT PROTOCOL</label>
+                        <select name="transport" class="form-select bg-dark text-white border-secondary">
+                            <option value="tcp" selected>TCP (Standard)</option>
+                            <option value="tcpmux">TCP Mux (High Concurrency)</option>
+                            <option value="ws">WebSocket (CDN/Proxy)</option>
+                            <option value="wss">WebSocket Secure (TLS)</option>
                         </select>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label text-muted small">TUNNEL PORT</label>
-                        <input name="tunnel_port" type="number" class="form-control" placeholder="3080" required>
+                        <label class="form-label text-muted small">TUNNEL PORT (IRAN)</label>
+                        <input name="tunnel_port" type="number" class="form-control" placeholder="e.g. 3080" required>
+                        <div class="form-text text-white-50 small">Port for communication between servers.</div>
                     </div>
                     <div class="col-12">
-                        <label class="form-label text-muted small">PORT RULES</label>
-                        <textarea name="port_rules" class="form-control font-mono" rows="3" placeholder="443&#10;8080=8080"></textarea>
+                        <label class="form-label text-muted small">PORT FORWARDING RULES</label>
+                        <textarea name="port_rules" class="form-control font-monospace bg-dark text-warning border-secondary" rows="3" placeholder='Examples:&#10;"443" (Local 443 -> Remote 443)&#10;"8080=80" (Local 8080 -> Remote 80)&#10;"1000-1010" (Range forwarding)'></textarea>
                     </div>
                 </div>
 
-                <div class="text-center mb-3">
-                    <button class="btn btn-sm btn-outline-light rounded-pill px-4" type="button" data-bs-toggle="collapse" data-bs-target="#advSettings">
-                        <i class="fas fa-cog me-2"></i>Advanced Settings
-                    </button>
-                </div>
-
-                <div class="collapse" id="advSettings">
-                    <div class="p-3 bg-black bg-opacity-25 rounded border border-secondary border-opacity-25">
-                        <h6 class="text-white small fw-bold mb-3 pb-1 border-bottom border-secondary border-opacity-25">Optimization</h6>
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-4"><label class="form-label text-muted small">KEEPALIVE</label><input type="number" name="keepalive_period" class="form-control form-control-sm" value="75"></div>
-                            <div class="col-md-4"><label class="form-label text-muted small">HEARTBEAT</label><input type="number" name="heartbeat" class="form-control form-control-sm" value="40"></div>
-                            <div class="col-md-4"><label class="form-label text-muted small">MUX CON</label><input type="number" name="mux_con" class="form-control form-control-sm" value="8"></div>
-                        </div>
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="nodelay" checked><label class="form-check-label text-white small">TCP NoDelay</label></div>
+                <div class="accordion" id="backhaulAccordion">
+                    
+                    <div class="accordion-item bg-transparent border border-secondary mb-2 rounded">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed bg-white bg-opacity-5 text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#perfOptions">
+                                <i class="fas fa-tachometer-alt me-2 text-info"></i> Performance & Timing
+                            </button>
+                        </h2>
+                        <div id="perfOptions" class="accordion-collapse collapse" data-bs-parent="#backhaulAccordion">
+                            <div class="accordion-body">
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted">Keepalive (sec)</label>
+                                        <input type="number" name="keepalive_period" class="form-control form-control-sm" value="75">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted">Heartbeat (sec)</label>
+                                        <input type="number" name="heartbeat" class="form-control form-control-sm" value="40">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted">Dial Timeout (sec)</label>
+                                        <input type="number" name="dial_timeout" class="form-control form-control-sm" value="10">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted">Retry Interval (sec)</label>
+                                        <input type="number" name="retry_interval" class="form-control form-control-sm" value="3">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-check form-switch mt-4">
+                                            <input class="form-check-input" type="checkbox" name="nodelay" checked>
+                                            <label class="form-check-label text-white small">TCP NoDelay</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-check form-switch mt-4">
+                                            <input class="form-check-input" type="checkbox" name="skip_optz" checked>
+                                            <label class="form-check-label text-white small">Skip Optimization</label>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
+
+                    <div class="accordion-item bg-transparent border border-secondary mb-2 rounded">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed bg-white bg-opacity-5 text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#muxOptions">
+                                <i class="fas fa-layer-group me-2 text-warning"></i> Multiplexing (Mux)
+                            </button>
+                        </h2>
+                        <div id="muxOptions" class="accordion-collapse collapse" data-bs-parent="#backhaulAccordion">
+                            <div class="accordion-body">
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted">Mux Concurrency</label>
+                                        <input type="number" name="mux_con" class="form-control form-control-sm" value="8">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted">Mux Version</label>
+                                        <input type="number" name="mux_version" class="form-control form-control-sm" value="1">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small text-muted">Frame Size (Bytes)</label>
+                                        <input type="number" name="mux_framesize" class="form-control form-control-sm" value="32768">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted">Recv Buffer (Bytes)</label>
+                                        <input type="number" name="mux_recievebuffer" class="form-control form-control-sm" value="4194304">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted">Stream Buffer (Bytes)</label>
+                                        <input type="number" name="mux_streambuffer" class="form-control form-control-sm" value="65536">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item bg-transparent border border-secondary mb-2 rounded">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed bg-white bg-opacity-5 text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#bufferOptions">
+                                <i class="fas fa-memory me-2 text-danger"></i> Buffers & Limits
+                            </button>
+                        </h2>
+                        <div id="bufferOptions" class="accordion-collapse collapse" data-bs-parent="#backhaulAccordion">
+                            <div class="accordion-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted">Channel Size</label>
+                                        <input type="number" name="channel_size" class="form-control form-control-sm" value="2048">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted">MSS (Bytes)</label>
+                                        <input type="number" name="mss" class="form-control form-control-sm" value="1360">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted">SO_RCVBUF</label>
+                                        <input type="number" name="so_rcvbuf" class="form-control form-control-sm" value="4194304">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted">SO_SNDBUF</label>
+                                        <input type="number" name="so_sndbuf" class="form-control form-control-sm" value="1048576">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item bg-transparent border border-secondary rounded">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed bg-white bg-opacity-5 text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#advFeat">
+                                <i class="fas fa-microchip me-2 text-success"></i> Extra Features
+                            </button>
+                        </h2>
+                        <div id="advFeat" class="accordion-collapse collapse" data-bs-parent="#backhaulAccordion">
+                            <div class="accordion-body">
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-md-6">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" name="sniffer">
+                                            <label class="form-check-label text-white small">Enable Sniffer (Traffic Log)</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted">Web Port (Monitor)</label>
+                                        <input type="number" name="web_port" class="form-control form-control-sm" value="2060">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" name="accept_udp">
+                                            <label class="form-check-label text-white small">Accept UDP over TCP</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" name="aggressive_pool">
+                                            <label class="form-check-label text-white small">Aggressive Pool</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted">Connection Pool</label>
+                                        <input type="number" name="connection_pool" class="form-control form-control-sm" value="8">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted">Edge IP (WSS only)</label>
+                                        <input type="text" name="edge_ip" class="form-control form-control-sm" placeholder="Optional">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
+            
             <div class="modal-footer border-0 p-4 pt-0">
-                <button type="button" class="btn btn-glass w-100 py-2" onclick="startInstall('backhaul', 'backhaulForm')">Deploy Configuration (Async)</button>
+                <button type="button" class="btn btn-primary-glow w-100 py-3 fw-bold" onclick="startInstall('backhaul', 'backhaulForm')">
+                    <i class="fas fa-rocket me-2"></i>DEPLOY CONFIGURATION
+                </button>
             </div>
         </form>
     </div>
 </div>
+
 
 <div class="modal fade" id="gostModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">

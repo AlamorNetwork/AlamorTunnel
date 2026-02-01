@@ -106,17 +106,38 @@ def start_install(protocol):
         config['heartbeat'] = request.form.get('heartbeat') == 'on'
         task_queue.put((task_id, process_rathole, (server[0], iran_ip, config)))
     elif protocol == 'backhaul':
+        # دریافت IP ایران (اگر دستی وارد نشده بود، خودکار پیدا کن)
         iran_ip = request.form.get('iran_ip_manual') or get_server_public_ip()
+        
+        # تولید توکن امنیتی
         config['token'] = generate_token()
-        config['port_rules'] = [l.strip() for l in request.form.get('port_rules', '').split('\n') if l.strip()]
-        for f in ['accept_udp', 'nodelay', 'sniffer', 'skip_optz', 'aggressive_pool']:
-            config[f] = request.form.get(f) == 'on'
-        for f in ['keepalive_period', 'heartbeat', 'mux_con', 'channel_size', 'mss', 'so_rcvbuf', 'so_sndbuf']:
-            if config.get(f): 
-                try: config[f] = int(config[f])
-                except: pass
+        
+        # پردازش پورت‌های فورواردینگ (تبدیل خط به خط به لیست)
+        raw_ports = request.form.get('port_rules', '').strip()
+        config['port_rules'] = [l.strip() for l in raw_ports.split('\n') if l.strip()]
+        
+        # لیست فیلدهای بولین (چک‌باکس‌ها)
+        bool_fields = ['accept_udp', 'nodelay', 'sniffer', 'skip_optz', 'aggressive_pool']
+        for f in bool_fields:
+            config[f] = request.form.get(f) == 'on' # در HTML چک‌باکس اگر تیک بخورد مقدار 'on' می‌فرستد
+            
+        # لیست فیلدهای عددی
+        int_fields = [
+            'keepalive_period', 'heartbeat', 'mux_con', 'channel_size', 'mss', 
+            'so_rcvbuf', 'so_sndbuf', 'mux_version', 'mux_framesize', 
+            'mux_recievebuffer', 'mux_streambuffer', 'web_port', 
+            'dial_timeout', 'retry_interval', 'connection_pool'
+        ]
+        for f in int_fields:
+            val = request.form.get(f)
+            if val and val.isdigit():
+                config[f] = int(val)
+        
+        # مسیر سرتیفیکیت‌ها (برای WSS)
         config['tls_cert'] = '/root/certs/server.crt'
         config['tls_key'] = '/root/certs/server.key'
+        
+        # ارسال به صف پردازش
         task_queue.put((task_id, process_backhaul, (server[0], iran_ip, config)))
     
     return jsonify({'status': 'started', 'task_id': task_id})
