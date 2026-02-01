@@ -1,9 +1,20 @@
-import os
 import sys
+import os
+import sqlite3
 import subprocess
 import time
 
-# کلاس رنگ‌ها برای نمایش زیبا
+# تلاش برای ایمپورت ماژول‌ها؛ اگر نصب نبودند ارور ندهد
+try:
+    from core.config_loader import load_config
+    from core.database import DB_PATH
+except ImportError:
+    # مسیر پیش‌فرض برای مواقعی که در پوشه نیستیم
+    sys.path.append('/root/AlamorTunnel')
+    from core.config_loader import load_config
+    from core.database import DB_PATH
+
+# --- COLORS ---
 class Colors:
     HEADER = '\033[95m'
     BLUE = '\033[94m'
@@ -11,98 +22,134 @@ class Colors:
     GREEN = '\033[92m'
     YELLOW = '\033[93m'
     RED = '\033[91m'
-    ENDC = '\033[0m'
+    RESET = '\033[0m'
     BOLD = '\033[1m'
 
 def clear_screen():
     os.system('clear')
 
-def show_banner():
-    print(f"{Colors.GREEN}{Colors.BOLD}")
-    print(r"""
+def get_db_connection():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+# --- FUNCTIONS ---
+
+def show_info():
+    """نمایش اطلاعات حیاتی شامل آدرس مخفی"""
+    try:
+        ip = subprocess.check_output("curl -s --max-time 3 ifconfig.me", shell=True).decode().strip()
+    except:
+        ip = "SERVER_IP"
+        
+    config = load_config()
+    secret_path = config.get('panel_path', '')
+    
+    # دریافت پسورد
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute("SELECT * FROM users WHERE username='admin'")
+        user = c.fetchone()
+        conn.close()
+        username = user['username']
+        password = user['password']
+    except:
+        username = "admin"
+        password = "Unknown (DB Error)"
+
+    print(f"\n{Colors.CYAN}=== ALAMOR PANEL STATUS ==={Colors.RESET}")
+    print(f"{Colors.YELLOW}[+] Server IP:{Colors.RESET}   {ip}")
+    print(f"{Colors.YELLOW}[+] Admin User:{Colors.RESET}  {username}")
+    print(f"{Colors.YELLOW}[+] Admin Pass:{Colors.RESET}  {password}")
+    
+    print(f"\n{Colors.GREEN}[+] LOGIN URLs:{Colors.RESET}")
+    if secret_path:
+        print(f"  ➜ {Colors.BOLD}Secure (SSL):{Colors.RESET}  https://{ip}/{secret_path}/dashboard")
+        print(f"  ➜ {Colors.BOLD}Local (HTTP):{Colors.RESET}  http://{ip}:5050/{secret_path}/dashboard")
+    else:
+        print(f"  ➜ {Colors.BOLD}Standard:{Colors.RESET}      http://{ip}:5050/")
+    
+    print(f"\n{Colors.CYAN}==========================={Colors.RESET}")
+
+def manage_firewall(action, port, proto='tcp'):
+    """مدیریت پورت‌ها"""
+    if action not in ['allow', 'deny']:
+        print(f"{Colors.RED}[!] Invalid action. Use 'allow' or 'deny'.{Colors.RESET}")
+        return
+
+    print(f"{Colors.YELLOW}[*] {action.capitalize()}ing port {port}/{proto}...{Colors.RESET}")
+    os.system(f"ufw {action} {port}/{proto}")
+    os.system("ufw reload")
+    print(f"{Colors.GREEN}[✔] Firewall updated successfully.{Colors.RESET}")
+
+def reset_password():
+    conn = get_db_connection()
+    conn.execute("UPDATE users SET password='admin' WHERE username='admin'")
+    conn.commit()
+    conn.close()
+    print(f"\n{Colors.GREEN}[✔] Password reset to: admin{Colors.RESET}")
+
+def interactive_menu():
+    while True:
+        clear_screen()
+        print(f"{Colors.GREEN}{Colors.BOLD}")
+        print(r"""
     _    _                                   
    / \  | | __ _ _ __ ___   ___  _ __      
   / _ \ | |/ _` | '_ ` _ \ / _ \| '__|     
  / ___ \| | (_| | | | | | | (_) | |        
 /_/   \_\_|\__,_|_| |_| |_|\___/|_|        
-    SERVER MANAGEMENT CLI v2.1
     """)
-    print(f"{Colors.ENDC}")
-
-def get_public_ip():
-    commands = [
-        "curl -s --max-time 3 ifconfig.me",
-        "curl -s --max-time 3 api.ipify.org"
-    ]
-    for cmd in commands:
-        try:
-            ip = subprocess.check_output(cmd, shell=True).decode().strip()
-            if len(ip) < 20: return ip
-        except: continue
-    return "Unknown IP"
-
-def menu():
-    while True:
-        clear_screen()
-        show_banner()
-        print(f" {Colors.CYAN}1.{Colors.ENDC} Reset Admin Password")
-        print(f" {Colors.CYAN}2.{Colors.ENDC} Restart Panel Service")
-        print(f" {Colors.CYAN}3.{Colors.ENDC} View Logs (Live)")
-        print(f" {Colors.CYAN}4.{Colors.ENDC} Update Panel (Git Pull)")
-        print(f" {Colors.CYAN}5.{Colors.ENDC} Show Server IP")
-        print(f" {Colors.RED}0. Exit{Colors.ENDC}")
+        print(f"{Colors.CYAN}   ADMIN CLI DASHBOARD{Colors.RESET}")
+        print(f"{Colors.GREEN}============================{Colors.RESET}")
+        print(f" {Colors.CYAN}1.{Colors.RESET} Show Panel Info & URLs")
+        print(f" {Colors.CYAN}2.{Colors.RESET} Reset Admin Password")
+        print(f" {Colors.CYAN}3.{Colors.RESET} Restart Panel Service")
+        print(f" {Colors.CYAN}4.{Colors.RESET} Manage Firewall (Open Port)")
+        print(f" {Colors.CYAN}5.{Colors.RESET} Live Logs")
+        print(f" {Colors.RED}0. Exit{Colors.RESET}")
         
-        choice = input(f"\n {Colors.BOLD}Select option: {Colors.ENDC}")
+        choice = input(f"\n {Colors.BOLD}Select > {Colors.RESET}")
 
         if choice == '1':
-            try:
-                # LOCAL IMPORT: جلوگیری از خطای Circular Import
-                from core.database import update_password
-                
-                new_pass = input(f" {Colors.YELLOW}Enter new admin password: {Colors.ENDC}")
-                if new_pass:
-                    # فراخوانی با یک آرگومان (طبق تعریف جدید database.py)
-                    update_password(new_pass)
-                    print(f"\n {Colors.GREEN}[✔] Password updated successfully.{Colors.ENDC}")
-                else:
-                    print(f"\n {Colors.RED}[!] Password cannot be empty.{Colors.ENDC}")
-            except Exception as e:
-                print(f"\n {Colors.RED}[X] Error: {e}{Colors.ENDC}")
-            input(f"\n Press Enter to continue...")
-            
+            show_info()
+            input("\nPress Enter...")
         elif choice == '2':
-            print(f"\n {Colors.YELLOW}[*] Restarting alamor.service...{Colors.ENDC}")
-            os.system("systemctl restart alamor")
-            print(f" {Colors.GREEN}[✔] Service restarted.{Colors.ENDC}")
-            time.sleep(1)
-
+            reset_password()
+            input("\nPress Enter...")
         elif choice == '3':
-            print(f"\n {Colors.YELLOW}[*] Press Ctrl+C to exit logs...{Colors.ENDC}")
+            os.system("systemctl restart alamor")
+            print(f"{Colors.GREEN}[✔] Service Restarted.{Colors.RESET}")
+            time.sleep(1)
+        elif choice == '4':
+            p = input("Enter Port: ")
+            manage_firewall('allow', p)
+            input("\nPress Enter...")
+        elif choice == '5':
             try:
                 os.system("journalctl -u alamor -f -n 50")
-            except KeyboardInterrupt:
-                pass
-            
-        elif choice == '4':
-            print(f"\n {Colors.YELLOW}[*] Pulling latest changes...{Colors.ENDC}")
-            os.system("git reset --hard origin/main")
-            if os.system("git pull") == 0:
-                print(f"\n {Colors.GREEN}[✔] Updated. Restarting service...{Colors.ENDC}")
-                os.system("systemctl restart alamor")
-            else:
-                print(f"\n {Colors.RED}[!] Update failed.{Colors.ENDC}")
-            input("\n Press Enter...")
-            
-        elif choice == '5':
-             print(f"\n {Colors.YELLOW}[*] Fetching IP...{Colors.ENDC}")
-             print(f" {Colors.GREEN}Server IP: {get_public_ip()}{Colors.ENDC}")
-             input("\n Press Enter...")
-
+            except: pass
         elif choice == '0':
             sys.exit()
 
-if __name__ == "__main__":
-    try:
-        menu()
-    except KeyboardInterrupt:
-        sys.exit()
+# --- MAIN ---
+if __name__ == '__main__':
+    # اگر آرگومان داشت (مثلاً: alamor info)
+    if len(sys.argv) > 1:
+        cmd = sys.argv[1]
+        if cmd == 'info':
+            show_info()
+        elif cmd == 'reset_pass':
+            reset_password()
+        elif cmd == 'firewall':
+            # usage: alamor firewall allow 443 tcp
+            if len(sys.argv) >= 4:
+                manage_firewall(sys.argv[2], sys.argv[3], sys.argv[4] if len(sys.argv)>4 else 'tcp')
+            else:
+                print("Usage: alamor firewall <allow/deny> <port> [protocol]")
+        else:
+            print(f"Unknown command: {cmd}")
+    else:
+        # اگر بدون آرگومان بود، منو را باز کن
+        interactive_menu()
