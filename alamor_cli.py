@@ -34,14 +34,14 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-# --- تابع جدید دریافت IP ---
+# --- IP FUNCTION ---
 def get_public_ip():
     """دریافت آی‌پی سرور از چندین منبع مختلف با اعتبارسنجی"""
     providers = [
         "curl -s --max-time 3 https://api.ipify.org",
         "curl -s --max-time 3 https://icanhazip.com",
         "curl -s --max-time 3 http://ifconfig.me/ip",
-        "hostname -I | awk '{print $1}'" # آی‌پی داخلی به عنوان آخرین راه حل
+        "hostname -I | awk '{print $1}'" 
     ]
     
     ip_pattern = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$')
@@ -49,7 +49,6 @@ def get_public_ip():
     for cmd in providers:
         try:
             output = subprocess.check_output(cmd, shell=True).decode().strip()
-            # فقط اگر خروجی دقیقاً یک آی‌پی بود قبول کن (HTML نباشد)
             if ip_pattern.match(output):
                 return output
         except:
@@ -57,16 +56,16 @@ def get_public_ip():
             
     return "Unknown-IP"
 
-# --- FUNCTIONS ---
+# --- CORE FUNCTIONS ---
 
 def show_info():
     """نمایش اطلاعات حیاتی شامل آدرس مخفی"""
+    print(f"{Colors.YELLOW}[*] Fetching Server Data...{Colors.RESET}")
     ip = get_public_ip()
         
     config = load_config()
     secret_path = config.get('panel_path', '')
     
-    # دریافت پسورد
     try:
         conn = get_db_connection()
         c = conn.cursor()
@@ -79,6 +78,7 @@ def show_info():
         username = "admin"
         password = "Unknown (DB Error)"
 
+    clear_screen()
     print(f"\n{Colors.CYAN}=== ALAMOR PANEL STATUS ==={Colors.RESET}")
     print(f"{Colors.YELLOW}[+] Server IP:{Colors.RESET}   {ip}")
     print(f"{Colors.YELLOW}[+] Admin User:{Colors.RESET}  {username}")
@@ -87,7 +87,6 @@ def show_info():
     print(f"\n{Colors.GREEN}[+] LOGIN URLs:{Colors.RESET}")
     if secret_path:
         print(f"  ➜ {Colors.BOLD}Secure (SSL):{Colors.RESET}  https://{ip}/{secret_path}/dashboard")
-        # اگر آی‌پی درست پیدا نشد، لینک لوکال رو نشون بده
         if ip != "Unknown-IP":
              print(f"  ➜ {Colors.BOLD}Local (HTTP):{Colors.RESET}  http://{ip}:5050/{secret_path}/dashboard")
     else:
@@ -96,7 +95,6 @@ def show_info():
     print(f"\n{Colors.CYAN}==========================={Colors.RESET}")
 
 def manage_firewall(action, port, proto='tcp'):
-    """مدیریت پورت‌ها"""
     if action not in ['allow', 'deny']:
         print(f"{Colors.RED}[!] Invalid action. Use 'allow' or 'deny'.{Colors.RESET}")
         return
@@ -112,6 +110,21 @@ def reset_password():
     conn.commit()
     conn.close()
     print(f"\n{Colors.GREEN}[✔] Password reset to: admin{Colors.RESET}")
+
+def update_panel():
+    """آپدیت پنل از گیت‌هاب"""
+    print(f"\n{Colors.YELLOW}[*] Pulling latest changes from Git...{Colors.RESET}")
+    # ریست کردن تغییرات لوکال برای جلوگیری از تداخل
+    os.system("git fetch --all")
+    os.system("git reset --hard origin/main")
+    
+    if os.system("git pull") == 0:
+        print(f"\n{Colors.GREEN}[✔] Source code updated.{Colors.RESET}")
+        print(f"{Colors.YELLOW}[*] Restarting alamor service...{Colors.RESET}")
+        os.system("systemctl restart alamor")
+        print(f"{Colors.GREEN}[✔] Service restarted successfully.{Colors.RESET}")
+    else:
+        print(f"\n{Colors.RED}[!] Update failed. Check internet connection.{Colors.RESET}")
 
 def interactive_menu():
     while True:
@@ -130,7 +143,8 @@ def interactive_menu():
         print(f" {Colors.CYAN}2.{Colors.RESET} Reset Admin Password")
         print(f" {Colors.CYAN}3.{Colors.RESET} Restart Panel Service")
         print(f" {Colors.CYAN}4.{Colors.RESET} Manage Firewall (Open Port)")
-        print(f" {Colors.CYAN}5.{Colors.RESET} Live Logs")
+        print(f" {Colors.CYAN}5.{Colors.RESET} Update Panel (Git Pull)")
+        print(f" {Colors.CYAN}6.{Colors.RESET} Live Logs")
         print(f" {Colors.RED}0. Exit{Colors.RESET}")
         
         choice = input(f"\n {Colors.BOLD}Select > {Colors.RESET}")
@@ -150,13 +164,16 @@ def interactive_menu():
             manage_firewall('allow', p)
             input("\nPress Enter...")
         elif choice == '5':
+            update_panel()
+            input("\nPress Enter...")
+        elif choice == '6':
             try:
                 os.system("journalctl -u alamor -f -n 50")
             except: pass
         elif choice == '0':
             sys.exit()
 
-# --- MAIN ---
+# --- MAIN ENTRY POINT ---
 if __name__ == '__main__':
     # اگر آرگومان داشت (مثلاً: alamor info)
     if len(sys.argv) > 1:
@@ -165,6 +182,8 @@ if __name__ == '__main__':
             show_info()
         elif cmd == 'reset_pass':
             reset_password()
+        elif cmd == 'update':
+            update_panel()
         elif cmd == 'firewall':
             # usage: alamor firewall allow 443 tcp
             if len(sys.argv) >= 4:
