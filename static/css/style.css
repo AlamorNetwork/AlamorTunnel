@@ -193,3 +193,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 .modal-header { border-bottom: 1px solid var(--glass-border); }
 .modal-footer { border-top: 1px solid var(--glass-border); }
+
+
+/* اضافه کردن به بخش Protocol Colors */
+.text-gost { color: #14b8a6 !important; } /* Teal color */
+.border-gost { border-color: #14b8a6 !important; }

@@ -13,6 +13,7 @@ from core.hysteria_manager import (install_hysteria_server_remote,
 # ایمپورت Slipstream (نسخه Generator برای لاگ زنده)
 from core.slipstream_manager import (install_slipstream_server_remote_gen, 
                                      install_slipstream_client_local_gen)
+from core.gost_manager import install_gost_server_remote, install_gost_client_local
 # ایمپورت احراز هویت و تسک‌ها
 from routes.auth import login_required
 from core.tasks import task_queue, init_task
@@ -24,7 +25,17 @@ import uuid
 import re
 
 tunnels_bp = Blueprint('tunnels', __name__)
-
+def process_gost(server_ip, config):
+    yield 10, "Installing GOST on Remote Server..."
+    success, msg = install_gost_server_remote(server_ip, config)
+    if not success: raise Exception(f"Remote GOST Failed: {msg}")
+    
+    yield 50, "Configuring Local GOST Client..."
+    install_gost_client_local(server_ip, config)
+    
+    yield 90, "Saving Configuration..."
+    add_tunnel(f"GOST-{config['tunnel_port']}", "gost", config['client_port'], "N/A", config)
+    yield 100, "GOST Tunnel Established!"
 def get_server_public_ip():
     """تلاش برای پیدا کردن آی‌پی سرور ایران"""
     commands = ["curl -s --max-time 3 ifconfig.me", "curl -s --max-time 3 api.ipify.org"]
@@ -205,7 +216,14 @@ def start_install(protocol):
 
         task_queue.put((task_id, process_backhaul, (server[0], iran_ip, config)))
         return jsonify({'status': 'started', 'task_id': task_id})
-
+    elif protocol == 'gost':
+        # بررسی فیلدهای اجباری
+        if not config.get('tunnel_port') or not config.get('client_port') or not config.get('dest_port'):
+             return jsonify({'status': 'error', 'message': 'All ports are required'})
+        
+        task_queue.put((task_id, process_gost, (server[0], config)))
+        return jsonify({'status': 'started', 'task_id': task_id})
+    
     return jsonify({'status': 'error', 'message': 'Unknown protocol selected'})
 
 # ==========================================
@@ -268,6 +286,8 @@ def delete_tunnel(tunnel_id):
                 os.system("systemctl stop hysteria-client && systemctl disable hysteria-client")
             elif "slipstream" in transport:
                 os.system("systemctl stop slipstream-client && systemctl disable slipstream-client")
+            elif "gost" in transport:
+                os.system("systemctl stop gost-client && systemctl disable gost-client")
             else:
                 stop_and_delete_backhaul()
             

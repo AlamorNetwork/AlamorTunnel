@@ -320,7 +320,58 @@
         </div>
     </div>
 </div>
+<div class="col-md-6 col-lg-3">
+        <div class="glass-card h-100 text-center p-4" style="border-color: #14b8a6;">
+            <div class="mb-4">
+                <div class="d-inline-flex align-items-center justify-content-center bg-white bg-opacity-5 rounded-circle" style="width: 80px; height: 80px;">
+                    <i class="fas fa-ghost fa-3x" style="color: #14b8a6;"></i>
+                </div>
+            </div>
+            <h4 class="mb-2 text-white">GOST</h4>
+            <p class="text-muted small mb-4">Secure Relay+TLS Tunnel. Simple & Robust.</p>
+            <button class="btn btn-outline-light w-100" data-bs-toggle="modal" data-bs-target="#gostModal">Deploy</button>
+        </div>
+    </div>
 
+<div class="modal fade" id="gostModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="gostForm" class="modal-content glass-panel border-0 p-0">
+            <div class="modal-header border-0 border-bottom border-secondary">
+                <h5 class="modal-title fw-bold" style="color: #14b8a6;">
+                    <i class="fas fa-ghost me-2"></i>Configure GOST
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="alert alert-info bg-opacity-10 border-info border-opacity-25 text-info small mb-3">
+                    Mode: <b>Relay+TLS</b> (Secure Tunnel)
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label text-muted small">TUNNEL PORT (UDP/TCP)</label>
+                    <input name="tunnel_port" type="number" class="form-control" value="8443" placeholder="Communication Port">
+                    <div class="form-text text-white-50 small">Port used between Iran and Foreign server.</div>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-6">
+                        <label class="form-label text-muted small">CLIENT PORT (IRAN)</label>
+                        <input name="client_port" type="number" class="form-control" value="2080" placeholder="User connects here">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-muted small">DEST PORT (FOREIGN)</label>
+                        <input name="dest_port" type="number" class="form-control" value="8080" placeholder="Target App (e.g X-UI)">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 p-4 pt-0">
+                <button type="button" class="btn btn-primary-glow w-100 py-2" onclick="startInstall('gost', 'gostForm')">
+                    Install GOST (Async)
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 <script>
 function startInstall(protocol, formId) {
     const form = document.getElementById(formId);
