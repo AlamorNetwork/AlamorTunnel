@@ -14,6 +14,7 @@ from core.hysteria_manager import (install_hysteria_server_remote,
 from core.slipstream_manager import (install_slipstream_server_remote_gen, 
                                      install_slipstream_client_local_gen)
 from core.gost_manager import install_gost_server_remote, install_gost_client_local
+from core.traffic import get_traffic_stats, check_port_health, run_speedtest
 # ایمپورت احراز هویت و تسک‌ها
 from routes.auth import login_required
 from core.tasks import task_queue, init_task
@@ -132,7 +133,35 @@ def process_backhaul(server_ip, iran_ip, config):
 # ==========================================
 #  INSTALL ROUTE (Async Handler)
 # ==========================================
+@tunnels_bp.route('/tunnel/stats/<int:tunnel_id>')
+@login_required
+def tunnel_stats(tunnel_id):
+    tunnel = get_tunnel_by_id(tunnel_id)
+    if not tunnel:
+        return jsonify({'error': 'Tunnel not found'})
+    
+    # تشخیص پورت و پروتکل
+    port = int(tunnel[3])
+    transport = tunnel[2]
+    proto = 'udp' if 'hysteria' in transport or 'slipstream' in transport else 'tcp'
+    
+    # دریافت آمار
+    rx, tx = get_traffic_stats(port, proto)
+    health = check_port_health(port, proto)
+    
+    return jsonify({
+        'rx_bytes': rx,
+        'tx_bytes': tx,
+        'status': health['status'],
+        'latency': health.get('latency', 0)
+    })
 
+@tunnels_bp.route('/server/speedtest')
+@login_required
+def server_speedtest():
+    """تست سرعت خود سرور"""
+    res = run_speedtest()
+    return jsonify(res)
 @tunnels_bp.route('/start-install/<protocol>', methods=['POST'])
 @login_required
 def start_install(protocol):
