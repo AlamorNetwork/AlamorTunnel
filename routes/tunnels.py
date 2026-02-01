@@ -9,6 +9,7 @@ from core.hysteria_manager import (install_hysteria_server_remote,
 from core.slipstream_manager import (install_slipstream_server_remote, 
                                      install_slipstream_client_local)
 from routes.auth import login_required
+# ایمپورت حیاتی از فایل جدید
 from core.tasks import task_queue, init_task
 import json
 import os
@@ -27,11 +28,10 @@ def get_server_public_ip():
         except: continue
     return "YOUR_IRAN_IP"
 
-# --- GENERATOR FUNCTIONS (مراحل نصب برای نوار پیشرفت) ---
+# --- GENERATOR FUNCTIONS (مراحل نصب) ---
 
 def process_hysteria(server_ip, config):
     yield 10, "Installing Remote Hysteria Server..."
-    # همگام‌سازی زمان برای جلوگیری از ارور QUIC
     os.system("apt-get install -y ntpdate && ntpdate pool.ntp.org")
     
     success, msg = install_hysteria_server_remote(server_ip, config)
@@ -80,7 +80,7 @@ def process_backhaul(server_ip, iran_ip, config):
     add_tunnel("Backhaul Tunnel", config['transport'], config['tunnel_port'], config['token'], config)
     yield 100, "Done"
 
-# --- ASYNC INSTALL ROUTE (شروع نصب) ---
+# --- ASYNC INSTALL ROUTE ---
 
 @tunnels_bp.route('/start-install/<protocol>', methods=['POST'])
 @login_required
@@ -108,7 +108,6 @@ def start_install(protocol):
 
     elif protocol == 'slipstream':
         if not config.get('domain'): config['domain'] = 'dl.google.com'
-        # پورت‌های جدید برای Slipstream
         if not config.get('dest_port'): config['dest_port'] = '8080'
         if not config.get('client_port'): config['client_port'] = '8443'
         
@@ -132,10 +131,11 @@ def start_install(protocol):
         config['token'] = generate_token()
         config['port_rules'] = [line.strip() for line in request.form.get('port_rules', '').split('\n') if line.strip()]
         
-        # مدیریت چک‌باکس‌ها و اعداد
+        # مدیریت چک‌باکس‌ها
         for field in ['accept_udp', 'nodelay', 'sniffer', 'skip_optz', 'aggressive_pool']:
             config[field] = request.form.get(field) == 'on'
             
+        # مدیریت اعداد
         int_fields = ['keepalive_period', 'heartbeat', 'mux_con', 'channel_size', 'mss', 
                       'so_rcvbuf', 'so_sndbuf', 'client_so_rcvbuf', 'client_so_sndbuf', 
                       'connection_pool', 'retry_interval', 'dial_timeout', 'web_port']
@@ -183,7 +183,6 @@ def edit_tunnel(tunnel_id):
     except: current_config = {}
 
     if request.method == 'POST':
-        # فعلا ویرایش مستقیم را محدود می‌کنیم تا ناهماهنگی پیش نیاید
         flash('To edit core settings, please recreate the tunnel.', 'info')
         return redirect(url_for('tunnels.list_tunnels'))
 
@@ -196,7 +195,7 @@ def delete_tunnel(tunnel_id):
         tunnel = get_tunnel_by_id(tunnel_id)
         if tunnel:
             transport = tunnel[2]
-            # توقف سرویس‌ها بر اساس نوع تانل
+            # توقف سرویس‌ها
             if "rathole" in transport: 
                 svc = f"rathole-iran{tunnel[3]}"
                 os.system(f"systemctl stop {svc} && systemctl disable {svc} && rm /etc/systemd/system/{svc}.service")
