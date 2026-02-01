@@ -503,9 +503,27 @@ function toggleMuxSettings() {
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+// --- GLOBAL VARIABLES ---
+let chartInstance = null;
+let updateInterval = null;
+let currentTunnelId = null;
+let lastRx = 0;
+let lastTx = 0;
+
+// دریافت آدرس صحیح نصب از فلسک (با حفظ پیشوند امنیتی)
+// این خط حیاتی است: آدرس پایه را از سرور می‌گیرد
+const INSTALL_URL_TEMPLATE = "{{ url_for('tunnels.start_install', protocol='__PROTO__') }}";
+
+// --- CORE FUNCTIONS ---
+
 function startInstall(protocol, formId) {
     const form = document.getElementById(formId);
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
     const formData = new FormData(form);
     
     // بستن مودال کانفیگ
@@ -517,43 +535,55 @@ function startInstall(protocol, formId) {
     const progressModal = new bootstrap.Modal(document.getElementById('progressModal'));
     progressModal.show();
 
-    // ریست کردن وضعیت مودال
+    // ریست UI
     document.getElementById('progressBar').style.width = '5%';
-    document.getElementById('progressBar').classList.remove('bg-success', 'bg-danger');
-    document.getElementById('progressBar').classList.add('bg-primary');
-    document.querySelector('.spinner-border').classList.remove('d-none');
+    document.getElementById('progressBar').className = 'progress-bar progress-bar-striped progress-bar-animated bg-primary';
+    document.getElementById('progressLog').innerText = 'Initializing handshake...';
     document.getElementById('completionActions').classList.add('d-none');
     document.getElementById('errorActions').classList.add('d-none');
 
+    // ساخت آدرس داینامیک
+    const targetUrl = INSTALL_URL_TEMPLATE.replace('__PROTO__', protocol);
+
     // ارسال درخواست
-    fetch(`/start-install/${protocol}`, {
+    fetch(targetUrl, {
         method: 'POST',
         body: formData
     })
-    .then(response => response.json())
+    .then(async response => {
+        const text = await response.text();
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            throw new Error(`Server Response Error: ${text.substring(0, 100)}...`);
+        }
+    })
     .then(data => {
         if(data.status === 'started') {
             trackProgress(data.task_id);
         } else {
-            alert('Error: ' + data.message);
-            progressModal.hide();
+            throw new Error(data.message || 'Unknown error');
         }
     })
     .catch(err => {
-        alert('Network Error');
-        progressModal.hide();
+        console.error(err);
+        document.getElementById('progressBar').className = 'progress-bar bg-danger';
+        document.getElementById('progressLog').innerHTML = `<span class="text-danger">${err.message}</span>`;
+        document.querySelector('.spinner-border').classList.add('d-none');
+        document.getElementById('errorActions').classList.remove('d-none');
     });
 }
 
 function trackProgress(taskId) {
     const bar = document.getElementById('progressBar');
     const log = document.getElementById('progressLog');
-    const successDiv = document.getElementById('completionActions');
-    const errorDiv = document.getElementById('errorActions');
     const spinner = document.querySelector('.spinner-border');
 
+    // استفاده از آدرس صحیح برای وضعیت تسک
+    const statusUrl = "{{ url_for('get_task_status', task_id='__ID__') }}".replace('__ID__', taskId);
+
     const interval = setInterval(() => {
-        fetch(`/task-status/${taskId}`)
+        fetch(statusUrl)
         .then(res => res.json())
         .then(data => {
             const progress = data.progress || 0;
@@ -566,18 +596,162 @@ function trackProgress(taskId) {
 
             if(status === 'completed') {
                 clearInterval(interval);
-                bar.classList.replace('bg-primary', 'bg-success');
+                bar.className = 'progress-bar bg-success';
                 spinner.classList.add('d-none');
-                successDiv.classList.remove('d-none');
+                document.getElementById('completionActions').classList.remove('d-none');
             } else if(status === 'error') {
                 clearInterval(interval);
-                bar.classList.replace('bg-primary', 'bg-danger');
+                bar.className = 'progress-bar bg-danger';
                 spinner.classList.add('d-none');
-                errorDiv.classList.remove('d-none');
+                document.getElementById('errorActions').classList.remove('d-none');
             }
         })
-        .catch(err => console.log("Polling error:", err));
+        .catch(err => {
+            console.log("Polling error:", err);
+        });
     }, 1000);
+}
+
+// --- MONITORING FUNCTIONS ---
+
+function formatBytes(bytes, decimals = 2) {
+    if (!+bytes) return '0 B';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+}
+
+function openMonitor(id, name) {
+    currentTunnelId = id;
+    document.getElementById('monitorTitle').innerText = name;
+    
+    // Reset
+    document.getElementById('statusIndicator').innerHTML = '<span class="spinner-border spinner-border-sm text-primary"></span>';
+    document.getElementById('latencyDisplay').innerText = '-';
+    document.getElementById('txDisplay').innerText = '0 B';
+    document.getElementById('rxDisplay').innerText = '0 B';
+    document.getElementById('speedtestResult').innerText = '';
+
+    initChart();
+    fetchStats();
+    
+    if (updateInterval) clearInterval(updateInterval);
+    updateInterval = setInterval(fetchStats, 2000);
+
+    new bootstrap.Modal(document.getElementById('monitorModal')).show();
+}
+
+function initChart() {
+    const ctx = document.getElementById('trafficChart').getContext('2d');
+    if (chartInstance) chartInstance.destroy();
+
+    // نئونی‌تر کردن چارت
+    const gradientTx = ctx.createLinearGradient(0, 0, 0, 400);
+    gradientTx.addColorStop(0, 'rgba(0, 243, 255, 0.4)');
+    gradientTx.addColorStop(1, 'rgba(0, 243, 255, 0)');
+
+    const gradientRx = ctx.createLinearGradient(0, 0, 0, 400);
+    gradientRx.addColorStop(0, 'rgba(188, 19, 254, 0.4)');
+    gradientRx.addColorStop(1, 'rgba(188, 19, 254, 0)');
+
+    chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: Array(20).fill(''),
+            datasets: [{
+                label: 'Upload',
+                borderColor: '#00f3ff',
+                backgroundColor: gradientTx,
+                borderWidth: 2,
+                pointRadius: 0,
+                data: Array(20).fill(0),
+                tension: 0.4,
+                fill: true
+            }, {
+                label: 'Download',
+                borderColor: '#bc13fe',
+                backgroundColor: gradientRx,
+                borderWidth: 2,
+                pointRadius: 0,
+                data: Array(20).fill(0),
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: '#fff' } } },
+            scales: {
+                y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#888' } },
+                x: { display: false }
+            },
+            animation: false
+        }
+    });
+}
+
+function fetchStats() {
+    if (!currentTunnelId) return;
+
+    // آدرس صحیح برای آمار
+    const statsUrl = "{{ url_for('tunnels.tunnel_stats', tunnel_id='0') }}".replace('0', currentTunnelId);
+
+    fetch(statsUrl)
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('txDisplay').innerText = formatBytes(data.tx_bytes);
+            document.getElementById('rxDisplay').innerText = formatBytes(data.rx_bytes);
+            document.getElementById('latencyDisplay').innerText = data.latency;
+            
+            const statusEl = document.getElementById('statusIndicator');
+            if (data.status === 'active') {
+                statusEl.innerHTML = '<span class="text-success" style="text-shadow: 0 0 10px lime"><i class="fas fa-check-circle me-2"></i>ONLINE</span>';
+            } else {
+                statusEl.innerHTML = '<span class="text-danger" style="text-shadow: 0 0 10px red"><i class="fas fa-times-circle me-2"></i>OFFLINE</span>';
+            }
+
+            let deltaRx = 0; let deltaTx = 0;
+            if (lastRx !== 0) {
+                deltaRx = data.rx_bytes - lastRx;
+                deltaTx = data.tx_bytes - lastTx;
+            }
+            lastRx = data.rx_bytes; lastTx = data.tx_bytes;
+            if (deltaRx < 0) deltaRx = 0; if (deltaTx < 0) deltaTx = 0;
+
+            chartInstance.data.datasets[0].data.shift();
+            chartInstance.data.datasets[1].data.shift();
+            chartInstance.data.datasets[0].data.push(deltaTx);
+            chartInstance.data.datasets[1].data.push(deltaRx);
+            chartInstance.update();
+        });
+}
+
+function runServerSpeedtest() {
+    const resEl = document.getElementById('speedtestResult');
+    resEl.innerHTML = '<span class="spinner-border spinner-border-sm me-2 text-warning"></span>Running...';
+    
+    fetch("{{ url_for('tunnels.server_speedtest') }}")
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) {
+                resEl.innerHTML = `<span class="text-danger">${data.error}</span>`;
+            } else {
+                resEl.innerHTML = `<span class="text-success font-monospace">PING: ${data.ping} | DL: ${data.download} | UL: ${data.upload}</span>`;
+            }
+        });
+}
+
+// Cleanup
+document.getElementById('monitorModal').addEventListener('hidden.bs.modal', function () {
+    if (updateInterval) clearInterval(updateInterval);
+});
+
+// Helper for Backhaul Mux Toggle
+function toggleMuxSettings() {
+    // Logic if needed to hide/show tabs
 }
 </script>
 
