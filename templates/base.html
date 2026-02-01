@@ -1,8 +1,12 @@
-<nav class="navbar navbar-expand-lg navbar-glass sticky-top mb-5">
-    <div class="container">
-        <a class="navbar-brand d-flex align-items-center" href="{{ url_for('dashboard.index') }}">
-            <i class="fas fa-cube me-2 text-primary-neon fa-spin-hover"></i>
-            ALAMOR<span style="font-weight:300; color:var(--primary-neon)">HUB</span>
-        </a>
-        </div>
-</nav>
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="glass-card py-3 px-4 mb-4 d-flex align-items-center border-start border-4 border-{{ category }} animate__animated animate__fadeInDown" 
+                 style="background: rgba(0,0,0,0.6); border-radius: 4px; box-shadow: 0 5px 15px rgba(0,0,0,0.5);">
+                <i class="fas fa-bell me-3 text-{{ category }} fa-lg" style="text-shadow: 0 0 10px currentColor;"></i>
+                <span class="fw-bold text-white font-monospace">{{ message }}</span>
+                <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}

@@ -2,43 +2,49 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-lg-8">
+    <div class="col-lg-9">
         <div class="d-flex align-items-center mb-4">
-            <a href="{{ url_for('tunnels.list_tunnels') }}" class="btn btn-outline-light rounded-circle me-3" style="width:40px;height:40px;padding:6px;">
+            <a href="{{ url_for('tunnels.list_tunnels') }}" class="btn btn-outline-light rounded-circle me-3 d-flex align-items-center justify-content-center" style="width:50px;height:50px; border-color: rgba(255,255,255,0.2);">
                 <i class="fas fa-arrow-left"></i>
             </a>
             <div>
-                <h3 class="fw-bold mb-0 text-white">Tunnel Inspector</h3>
-                <span class="text-muted font-monospace small">ID: #{{ tunnel[0] }} | {{ tunnel[1] }}</span>
+                <h3 class="fw-bold mb-0 text-white font-monospace">TUNNEL INSPECTOR</h3>
+                <span class="text-primary-neon small" style="letter-spacing: 2px;">ID: {{ tunnel[0] }} // {{ tunnel[1] }}</span>
             </div>
             <div class="ms-auto">
-                 <span class="badge bg-success bg-opacity-25 text-success border border-success px-3 py-2">ACTIVE</span>
+                 <div class="spinner-grow spinner-grow-sm text-success" role="status"></div>
+                 <span class="text-success font-monospace ms-2" style="text-shadow: 0 0 10px lime;">SYSTEM ACTIVE</span>
             </div>
         </div>
 
-        <div class="glass-card p-0 overflow-hidden">
-            <div class="p-4 border-bottom border-secondary border-opacity-25 bg-black bg-opacity-25">
-                <h5 class="mb-0 fw-bold"><i class="fas fa-code me-2 text-accent"></i>Configuration Dump</h5>
+        <div class="glass-card p-0 overflow-hidden border-danger-glow-hover">
+            <div class="p-3 bg-black bg-opacity-50 border-bottom border-secondary border-opacity-25 d-flex align-items-center">
+                <i class="fas fa-terminal me-2 text-warning"></i>
+                <span class="font-monospace text-muted small">root@alamor:~# view_config --json</span>
             </div>
             
-            <div class="p-4">
-                <div class="alert alert-info bg-opacity-10 border-info border-opacity-25 text-info d-flex align-items-center mb-4">
-                    <i class="fas fa-exclamation-triangle me-3 fa-lg"></i>
-                    <div>
-                        <strong>Read Only Mode:</strong>
-                        To ensure consistency between local and remote servers, please delete and recreate the tunnel if you need to change ports or protocols.
+            <div class="p-0">
+                <div class="position-relative">
+                    <textarea class="form-control border-0 p-4" rows="15" readonly 
+                        style="background: #050505; 
+                               color: #0aff60; 
+                               font-family: 'Consolas', 'Monaco', monospace; 
+                               font-size: 0.9rem; 
+                               resize: none; 
+                               border-radius: 0;">{{ config | tojson(indent=4) }}</textarea>
+                    
+                    <div class="position-absolute bottom-0 end-0 p-3 opacity-25 pointer-events-none">
+                        <i class="fas fa-code fa-3x text-white"></i>
                     </div>
                 </div>
-
-                <label class="form-label text-muted small text-uppercase fw-bold mb-2">Internal Config (JSON)</label>
-                <div class="position-relative">
-                    <textarea class="form-control font-monospace bg-dark border-0 text-white-50 p-3" rows="12" readonly style="font-size: 0.85rem; resize: none;">{{ config | tojson(indent=4) }}</textarea>
-                </div>
             </div>
             
-            <div class="p-3 bg-black bg-opacity-25 text-end">
-                <a href="{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel[0]) }}" class="btn btn-glass-danger btn-sm px-4" onclick="return confirm('Are you sure you want to destroy this tunnel?')">
-                    <i class="fas fa-trash-alt me-2"></i>Destroy Tunnel
+            <div class="p-4 bg-black bg-opacity-25 text-end d-flex align-items-center justify-content-between">
+                <div class="text-muted small">
+                    <i class="fas fa-info-circle me-1"></i> Read-Only Mode (Immutable)
+                </div>
+                <a href="{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel[0]) }}" class="btn btn-glass-danger px-4" onclick="return confirm('WARNING: This action is irreversible. Proceed?')">
+                    <i class="fas fa-skull-crossbones me-2"></i>SELF DESTRUCT
                 </a>
             </div>
         </div>

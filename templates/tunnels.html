@@ -1,60 +1,65 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="fw-bold text-white"><i class="fas fa-network-wired me-2"></i>Active Tunnels</h2>
-    <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary-glow">
-        <i class="fas fa-plus me-2"></i>New Tunnel
+<div class="d-flex justify-content-between align-items-center mb-5 position-relative">
+    <div class="position-absolute top-50 start-0 translate-middle-y" style="width: 5px; height: 100%; background: var(--primary-neon); box-shadow: 0 0 15px var(--primary-neon);"></div>
+    <h2 class="fw-bold text-white ps-4 m-0" style="text-shadow: 0 0 10px rgba(255,255,255,0.2);">
+        <i class="fas fa-network-wired me-3 text-primary-neon"></i>ACTIVE LINKAGES
+    </h2>
+    <a href="{{ url_for('dashboard.index') }}" class="btn btn-glass">
+        <i class="fas fa-plus-circle me-2"></i>INITIATE NEW
     </a>
 </div>
 
-<div class="glass-panel p-0 overflow-hidden">
+<div class="glass-card p-0 overflow-hidden">
     <div class="table-responsive">
-        <table class="table table-dark table-hover mb-0 align-middle">
-            <thead class="bg-black bg-opacity-25 text-muted small">
-                <tr>
-                    <th class="ps-4">ID</th>
-                    <th>NAME</th>
-                    <th>PROTOCOL</th>
-                    <th>PORT</th>
-                    <th class="text-end pe-4">CONTROLS</th>
+        <table class="table mb-0 align-middle" style="color: #ccc;">
+            <thead style="background: rgba(0,0,0,0.3); border-bottom: 1px solid rgba(255,255,255,0.1);">
+                <tr class="text-uppercase small font-monospace" style="letter-spacing: 1px; color: var(--primary-neon);">
+                    <th class="ps-4 py-3 border-0">Identifier</th>
+                    <th class="py-3 border-0">Node Name</th>
+                    <th class="py-3 border-0">Protocol</th>
+                    <th class="py-3 border-0">Port</th>
+                    <th class="text-end pe-4 py-3 border-0">Operations</th>
                 </tr>
             </thead>
             <tbody>
                 {% for tunnel in tunnels %}
-                <tr>
-                    <td class="ps-4 text-muted">#{{ tunnel.id }}</td>
-                    <td class="fw-bold text-white">{{ tunnel.name }}</td>
-                    <td>
+                <tr style="transition: 0.2s; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td class="ps-4 border-0 font-monospace text-muted">#{{ tunnel.id }}</td>
+                    <td class="border-0 fw-bold text-white">{{ tunnel.name }}</td>
+                    <td class="border-0">
                         {% if 'hysteria' in tunnel.transport %}
-                            <span class="badge bg-danger bg-opacity-25 text-danger border border-danger">HYSTERIA</span>
+                            <span class="badge bg-transparent border border-danger text-danger shadow-sm">HYSTERIA</span>
                         {% elif 'rathole' in tunnel.transport %}
-                            <span class="badge bg-info bg-opacity-25 text-info border border-info">RATHOLE</span>
+                            <span class="badge bg-transparent border border-warning text-warning shadow-sm">RATHOLE</span>
                         {% elif 'gost' in tunnel.transport %}
-                            <span class="badge bg-success bg-opacity-25 text-success border border-success">GOST</span>
+                            <span class="badge bg-transparent border border-success text-success shadow-sm">GOST</span>
                         {% else %}
-                            <span class="badge bg-warning bg-opacity-25 text-warning border border-warning">BACKHAUL</span>
+                            <span class="badge bg-transparent border border-info text-info shadow-sm">BACKHAUL</span>
                         {% endif %}
                     </td>
-                    <td class="font-mono text-muted">{{ tunnel.port }}</td>
-                    <td class="text-end pe-4">
-                        <button class="btn btn-sm btn-outline-light me-1" onclick="openMonitor('{{tunnel.id}}', '{{tunnel.name}}')" title="Live Monitor">
-                            <i class="fas fa-chart-line"></i>
+                    <td class="border-0 font-monospace" style="color: var(--secondary-neon);">{{ tunnel.port }}</td>
+                    <td class="text-end pe-4 border-0">
+                        <button class="btn btn-sm btn-outline-light rounded-circle me-1" onclick="openMonitor('{{tunnel.id}}', '{{tunnel.name}}')" title="Live Telemetry" style="width: 35px; height: 35px;">
+                            <i class="fas fa-satellite-dish"></i>
                         </button>
                         
-                        <a href="{{ url_for('tunnels.edit_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-info me-1" title="Config">
-                            <i class="fas fa-cog"></i>
+                        <a href="{{ url_for('tunnels.edit_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-info rounded-circle me-1" title="Config" style="width: 35px; height: 35px;">
+                            <i class="fas fa-microchip"></i>
                         </a>
-                        <a href="{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this tunnel?')">
-                            <i class="fas fa-trash"></i>
+                        <a href="{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-danger rounded-circle" onclick="return confirm('Terminate this neural link?')" style="width: 35px; height: 35px;">
+                            <i class="fas fa-trash-alt"></i>
                         </a>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" class="text-center py-5 text-muted">
-                        <i class="fas fa-wind fa-2x mb-3 opacity-50"></i><br>
-                        No active tunnels found.
+                    <td colspan="5" class="text-center py-5">
+                        <div class="opacity-25">
+                            <i class="fas fa-wind fa-3x mb-3"></i>
+                            <p class="font-monospace">NO ACTIVE SIGNALS DETECTED</p>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
@@ -66,9 +71,9 @@
 <div class="modal fade" id="monitorModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content glass-panel border-0">
-            <div class="modal-header border-bottom border-secondary">
-                <h5 class="modal-title fw-bold text-white">
-                    <i class="fas fa-satellite-dish me-2 text-primary"></i>Live Monitor: <span id="monitorTitle" class="text-primary"></span>
+            <div class="modal-header border-bottom border-secondary border-opacity-25">
+                <h5 class="modal-title fw-bold text-white font-monospace">
+                    <i class="fas fa-wave-square me-2 text-primary-neon"></i>TELEMETRY: <span id="monitorTitle" class="text-primary-neon"></span>
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
@@ -76,40 +81,41 @@
                 
                 <div class="row g-3 mb-4">
                     <div class="col-md-4">
-                        <div class="p-3 bg-black bg-opacity-25 rounded border border-secondary text-center">
-                            <small class="text-muted text-uppercase">Status</small>
-                            <div class="mt-1 fw-bold fs-5" id="statusIndicator">
+                        <div class="p-3 rounded border border-secondary border-opacity-25 text-center" style="background: rgba(0,0,0,0.4);">
+                            <small class="text-muted text-uppercase font-monospace" style="font-size: 0.7rem;">Link Status</small>
+                            <div class="mt-2 fw-bold fs-5" id="statusIndicator">
                                 <span class="spinner-border spinner-border-sm text-muted"></span>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="p-3 bg-black bg-opacity-25 rounded border border-secondary text-center">
-                            <small class="text-muted text-uppercase">Latency (Local)</small>
-                            <div class="mt-1 fw-bold fs-5 text-white" id="latencyDisplay">0 ms</div>
+                        <div class="p-3 rounded border border-secondary border-opacity-25 text-center" style="background: rgba(0,0,0,0.4);">
+                            <small class="text-muted text-uppercase font-monospace" style="font-size: 0.7rem;">Latency</small>
+                            <div class="mt-2 fw-bold fs-5 text-white" id="latencyDisplay" style="text-shadow: 0 0 10px white;">0 ms</div>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="p-3 bg-black bg-opacity-25 rounded border border-secondary text-center">
-                            <small class="text-muted text-uppercase">Total Traffic</small>
-                            <div class="mt-1 fw-bold fs-6 text-white">
-                                <i class="fas fa-arrow-up text-success"></i> <span id="txDisplay">0 B</span>
-                                <span class="mx-2">|</span>
-                                <i class="fas fa-arrow-down text-info"></i> <span id="rxDisplay">0 B</span>
+                        <div class="p-3 rounded border border-secondary border-opacity-25 text-center" style="background: rgba(0,0,0,0.4);">
+                            <small class="text-muted text-uppercase font-monospace" style="font-size: 0.7rem;">Throughput</small>
+                            <div class="mt-2 fw-bold fs-6 text-white font-monospace">
+                                <i class="fas fa-arrow-up text-success me-1"></i><span id="txDisplay">0 B</span>
+                                <span class="mx-2 text-muted">|</span>
+                                <i class="fas fa-arrow-down text-info me-1"></i><span id="rxDisplay">0 B</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="bg-black bg-opacity-25 rounded p-3 border border-secondary mb-4">
-                    <canvas id="trafficChart" height="100"></canvas>
+                <div class="rounded p-3 border border-secondary border-opacity-25 mb-4 position-relative" style="background: rgba(0,0,0,0.6);">
+                    <div class="position-absolute top-0 start-0 w-100 h-100" style="background-image: linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px); background-size: 20px 20px; z-index: 0; pointer-events: none;"></div>
+                    <canvas id="trafficChart" height="100" class="position-relative z-1"></canvas>
                 </div>
 
                 <div class="d-flex justify-content-between align-items-center">
-                    <button class="btn btn-outline-light btn-sm" onclick="runServerSpeedtest()">
-                        <i class="fas fa-tachometer-alt me-2"></i>Test Server Speed
+                    <button class="btn btn-outline-light btn-sm font-monospace" onclick="runServerSpeedtest()">
+                        <i class="fas fa-tachometer-alt me-2"></i>PING TEST
                     </button>
-                    <small class="text-muted" id="speedtestResult"></small>
+                    <small class="text-muted font-monospace" id="speedtestResult"></small>
                 </div>
 
             </div>
@@ -117,7 +123,9 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+// ... (The rest of JS logic remains the same, just updating chart colors below) ...
 let chartInstance = null;
 let updateInterval = null;
 let currentTunnelId = null;
@@ -134,21 +142,16 @@ function formatBytes(bytes, decimals = 2) {
 function openMonitor(id, name) {
     currentTunnelId = id;
     document.getElementById('monitorTitle').innerText = name;
-    
-    // Reset Displays
-    document.getElementById('statusIndicator').innerHTML = '<span class="spinner-border spinner-border-sm"></span> Checking...';
+    document.getElementById('statusIndicator').innerHTML = '<span class="spinner-border spinner-border-sm text-primary"></span>';
     document.getElementById('latencyDisplay').innerText = '-';
     document.getElementById('txDisplay').innerText = '0 B';
     document.getElementById('rxDisplay').innerText = '0 B';
     document.getElementById('speedtestResult').innerText = '';
 
-    // Init Chart
     initChart();
-    
-    // Start Polling
     fetchStats();
     if (updateInterval) clearInterval(updateInterval);
-    updateInterval = setInterval(fetchStats, 2000); // Update every 2s
+    updateInterval = setInterval(fetchStats, 2000);
 
     new bootstrap.Modal(document.getElementById('monitorModal')).show();
 }
@@ -157,21 +160,34 @@ function initChart() {
     const ctx = document.getElementById('trafficChart').getContext('2d');
     if (chartInstance) chartInstance.destroy();
 
+    // CYBERPUNK COLORS
+    const gradientTx = ctx.createLinearGradient(0, 0, 0, 400);
+    gradientTx.addColorStop(0, 'rgba(0, 243, 255, 0.5)'); // Cyan
+    gradientTx.addColorStop(1, 'rgba(0, 243, 255, 0)');
+
+    const gradientRx = ctx.createLinearGradient(0, 0, 0, 400);
+    gradientRx.addColorStop(0, 'rgba(188, 19, 254, 0.5)'); // Purple
+    gradientRx.addColorStop(1, 'rgba(188, 19, 254, 0)');
+
     chartInstance = new Chart(ctx, {
         type: 'line',
         data: {
             labels: Array(20).fill(''),
             datasets: [{
-                label: 'Upload (TX)',
-                borderColor: '#10b981', // Green
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                label: 'TX (Upload)',
+                borderColor: '#00f3ff', // Cyan Neon
+                backgroundColor: gradientTx,
+                borderWidth: 2,
+                pointRadius: 0,
                 data: Array(20).fill(0),
                 tension: 0.4,
                 fill: true
             }, {
-                label: 'Download (RX)',
-                borderColor: '#3b82f6', // Blue
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                label: 'RX (Download)',
+                borderColor: '#bc13fe', // Purple Neon
+                backgroundColor: gradientRx,
+                borderWidth: 2,
+                pointRadius: 0,
                 data: Array(20).fill(0),
                 tension: 0.4,
                 fill: true
@@ -179,12 +195,14 @@ function initChart() {
         },
         options: {
             responsive: true,
-            plugins: { legend: { labels: { color: '#cbd5e1' } } },
+            plugins: { 
+                legend: { labels: { color: '#fff', font: {family: 'Outfit'} } } 
+            },
             scales: {
                 y: { 
                     beginAtZero: true, 
-                    grid: { color: '#334155' }, 
-                    ticks: { color: '#94a3b8' } 
+                    grid: { color: 'rgba(255,255,255,0.05)' }, 
+                    ticks: { color: '#888', font: {family: 'monospace'} } 
                 },
                 x: { display: false }
             },
@@ -193,8 +211,7 @@ function initChart() {
     });
 }
 
-let lastRx = 0;
-let lastTx = 0;
+let lastRx = 0; let lastTx = 0;
 
 function fetchStats() {
     if (!currentTunnelId) return;
@@ -202,46 +219,33 @@ function fetchStats() {
     fetch(`/tunnel/stats/${currentTunnelId}`)
         .then(res => res.json())
         .then(data => {
-            // Update Text Stats
             document.getElementById('txDisplay').innerText = formatBytes(data.tx_bytes);
             document.getElementById('rxDisplay').innerText = formatBytes(data.rx_bytes);
             document.getElementById('latencyDisplay').innerText = data.latency + ' ms';
             
             const statusEl = document.getElementById('statusIndicator');
             if (data.status === 'active') {
-                statusEl.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-2"></i>Connected</span>';
+                statusEl.innerHTML = '<span class="text-success" style="text-shadow: 0 0 10px lime"><i class="fas fa-check-circle me-2"></i>LOCKED</span>';
             } else {
-                statusEl.innerHTML = '<span class="text-danger"><i class="fas fa-times-circle me-2"></i>Disconnected</span>';
+                statusEl.innerHTML = '<span class="text-danger" style="text-shadow: 0 0 10px red"><i class="fas fa-times-circle me-2"></i>DOWN</span>';
             }
 
-            // Update Chart (Calculate Delta for Speed)
-            // Note: This is simplified. Ideally we calculate speed based on time delta.
-            // For now, we plot the Total Bytes or rough delta. Let's plot Delta (Speed).
-            
             let deltaRx = data.rx_bytes - lastRx;
             let deltaTx = data.tx_bytes - lastTx;
-            
-            // First run fix
             if (lastRx === 0) { deltaRx = 0; deltaTx = 0; }
-            
-            lastRx = data.rx_bytes;
-            lastTx = data.tx_bytes;
+            lastRx = data.rx_bytes; lastTx = data.tx_bytes;
 
-            // Remove old data
             chartInstance.data.datasets[0].data.shift();
             chartInstance.data.datasets[1].data.shift();
-            
-            // Add new data (Bytes per 2 sec check)
             chartInstance.data.datasets[0].data.push(deltaTx);
             chartInstance.data.datasets[1].data.push(deltaRx);
-            
             chartInstance.update();
         });
 }
 
 function runServerSpeedtest() {
     const resEl = document.getElementById('speedtestResult');
-    resEl.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Testing...';
+    resEl.innerHTML = '<span class="spinner-border spinner-border-sm me-2 text-secondary"></span>Analysing...';
     
     fetch('/server/speedtest')
         .then(res => res.json())
@@ -249,12 +253,11 @@ function runServerSpeedtest() {
             if (data.error) {
                 resEl.innerHTML = `<span class="text-danger">Error: ${data.error}</span>`;
             } else {
-                resEl.innerHTML = `<span class="text-success">Ping: ${data.ping} | DL: ${data.download} | UL: ${data.upload}</span>`;
+                resEl.innerHTML = `<span class="text-success font-monospace">PING: ${data.ping} | DL: ${data.download} | UL: ${data.upload}</span>`;
             }
         });
 }
 
-// Clean up interval on close
 document.getElementById('monitorModal').addEventListener('hidden.bs.modal', function () {
     if (updateInterval) clearInterval(updateInterval);
 });

@@ -3,62 +3,67 @@
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-10">
-        <h2 class="fw-bold text-white mb-4"><i class="fas fa-cogs me-2"></i>System Settings</h2>
+        <div class="d-flex align-items-center mb-5">
+            <div class="bg-primary bg-opacity-10 p-3 rounded-circle me-3">
+                <i class="fas fa-cogs fa-2x text-primary-neon"></i>
+            </div>
+            <h2 class="fw-bold text-white m-0">CORE SETTINGS</h2>
+        </div>
 
         <div class="row g-4">
             <div class="col-md-6">
-                <div class="glass-card h-100">
-                    <div class="d-flex align-items-center mb-4 border-bottom border-secondary border-opacity-25 pb-3">
-                        <div class="bg-primary bg-opacity-25 p-3 rounded-circle me-3 text-primary">
-                            <i class="fas fa-user-shield fa-lg"></i>
-                        </div>
+                <div class="glass-card h-100 position-relative">
+                    <div class="position-absolute top-0 end-0 p-3 opacity-10">
+                        <i class="fas fa-fingerprint fa-8x text-white"></i>
+                    </div>
+                    
+                    <div class="d-flex align-items-center mb-4 border-bottom border-secondary border-opacity-25 pb-3 position-relative z-1">
+                        <i class="fas fa-shield-alt fa-2x text-info me-3" style="text-shadow: 0 0 15px cyan;"></i>
                         <div>
-                            <h4 class="mb-0">Admin Security</h4>
-                            <small class="text-muted">Update your access credentials</small>
+                            <h4 class="mb-0">Access Control</h4>
+                            <small class="text-white-50">Credential Management</small>
                         </div>
                     </div>
                     
-                    <form method="POST">
+                    <form method="POST" class="position-relative z-1">
                         <div class="mb-3">
-                            <label class="form-label">New Password</label>
-                            <input type="password" name="new_password" class="form-control" placeholder="Enter strong password" required>
+                            <label class="form-label text-primary-neon small fw-bold">NEW SECRET</label>
+                            <input type="password" name="new_password" class="form-control" placeholder="Enter new password" required>
                         </div>
                         <div class="mb-4">
-                            <label class="form-label">Confirm Password</label>
+                            <label class="form-label text-primary-neon small fw-bold">CONFIRM SECRET</label>
                             <input type="password" name="confirm_password" class="form-control" placeholder="Repeat password" required>
                         </div>
                         <button type="submit" class="btn btn-glass w-100">
-                            <i class="fas fa-save me-2"></i>Update Password
+                            <i class="fas fa-save me-2"></i>UPDATE CREDENTIALS
                         </button>
                     </form>
                 </div>
             </div>
 
             <div class="col-md-6">
-                <div class="glass-card h-100 d-flex flex-column">
+                <div class="glass-card h-100 d-flex flex-column border-danger-hover">
                     <div class="d-flex align-items-center mb-4 border-bottom border-secondary border-opacity-25 pb-3">
-                        <div class="bg-danger bg-opacity-25 p-3 rounded-circle me-3 text-danger">
-                            <i class="fas fa-power-off fa-lg"></i>
-                        </div>
+                        <i class="fas fa-bolt fa-2x text-danger me-3" style="text-shadow: 0 0 15px red;"></i>
                         <div>
-                            <h4 class="mb-0">Power Controls</h4>
-                            <small class="text-muted">Manage panel service</small>
+                            <h4 class="mb-0">System Power</h4>
+                            <small class="text-white-50">Service & Reboot Operations</small>
                         </div>
                     </div>
                     
                     <div class="flex-grow-1">
-                        <p class="text-muted small">
-                            <i class="fas fa-info-circle me-1 text-info"></i>
-                            Restarting the panel will apply core updates and refresh the database connection. Active tunnels will <strong>not</strong> be interrupted.
+                        <p class="text-white-50 small mb-4">
+                            <i class="fas fa-exclamation-triangle me-2 text-warning"></i>
+                            Initiating a restart will reload the Neural Core. Active tunnels persist, but the dashboard connection may flicker momentarily.
                         </p>
                     </div>
                     
                     <div class="mt-auto">
-                        <button class="btn btn-glass-danger w-100 opacity-50" disabled title="Use CLI to restart service">
-                            <i class="fas fa-sync-alt me-2"></i>Restart Service (CLI Only)
+                        <button class="btn btn-glass-danger w-100 opacity-50 cursor-not-allowed" disabled>
+                            <i class="fas fa-sync-alt me-2 fa-spin"></i>RESTART SEQUENCE (CLI LOCKED)
                         </button>
-                        <div class="text-center mt-2">
-                            <small class="text-muted fst-italic">Use SSH menu to restart</small>
+                        <div class="text-center mt-3">
+                            <small class="text-muted font-monospace fst-italic">"Root access required via SSH"</small>
                         </div>
                     </div>
                 </div>
