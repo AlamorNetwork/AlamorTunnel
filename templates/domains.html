@@ -10,24 +10,37 @@
                     <i class="fas fa-globe fa-3x text-primary-neon fa-spin-hover"></i>
                 </div>
                 <h2 class="fw-bold text-white ls-2">DOMAIN COMMAND CENTER</h2>
-                <p class="text-white-50 font-monospace small">SSL PROVISIONING & DNS RESOLVER</p>
+                <p class="text-white-50 font-monospace small">NETWORK RECONNAISSANCE & SECURITY</p>
             </div>
             
-            <div class="mb-5 position-relative z-2">
-                <label class="text-primary-neon small fw-bold mb-2 ps-2 font-monospace">TARGET DOMAIN</label>
+            <div class="mb-4 position-relative z-2">
+                <label class="text-primary-neon small fw-bold mb-2 ps-2 font-monospace">TARGET DOMAIN / SNI</label>
                 <div class="input-group">
                     <span class="input-group-text glass-input border-end-0 text-primary-neon">
                         <i class="fas fa-terminal"></i>
                     </span>
-                    <input type="text" id="domainInput" class="form-control glass-input border-start-0 text-white font-monospace fs-5" placeholder="sub.example.com">
-                    <button class="btn btn-glass px-4 fw-bold" onclick="startDNSSequence()">
-                        <i class="fas fa-search-location me-2"></i>INITIATE PROBE
+                    <input type="text" id="domainInput" class="form-control glass-input border-start-0 text-white font-monospace fs-5" placeholder="sub.yourdomain.com">
+                </div>
+                <div class="form-text text-white-50 ms-2 small">
+                    <i class="fas fa-info-circle me-1"></i> For DNS Probe, ensure Cloudflare Proxy is <b>OFF</b> (Grey Cloud).
+                </div>
+            </div>
+
+            <div class="row g-3 mb-5">
+                <div class="col-md-6">
+                    <button class="btn btn-glass w-100 fw-bold py-3" onclick="startDNSSequence()">
+                        <i class="fas fa-search-location me-2"></i>DNS PROBE
+                    </button>
+                </div>
+                <div class="col-md-6">
+                    <button class="btn btn-glass w-100 fw-bold py-3" style="border-color: var(--secondary-neon); color: var(--secondary-neon);" onclick="startIPScan()">
+                        <i class="fas fa-radar me-2"></i>SCAN CLEAN IPS
                     </button>
                 </div>
             </div>
 
-            <div id="terminal-window" class="d-none rounded-3 overflow-hidden border border-secondary border-opacity-50 position-relative" 
-                 style="background: #050505; min-height: 250px; font-family: 'Courier New', monospace;">
+            <div id="terminal-window" class="d-none rounded-3 overflow-hidden border border-secondary border-opacity-50 position-relative mb-4" 
+                 style="background: #050505; min-height: 300px; font-family: 'Courier New', monospace; box-shadow: 0 0 30px rgba(0,0,0,0.8);">
                 
                 <div class="d-flex align-items-center px-3 py-2 border-bottom border-secondary border-opacity-25" style="background: rgba(255,255,255,0.05);">
                     <div class="d-flex gap-2 me-3">
@@ -35,21 +48,30 @@
                         <div class="rounded-circle bg-warning" style="width: 10px; height: 10px;"></div>
                         <div class="rounded-circle bg-success" style="width: 10px; height: 10px;"></div>
                     </div>
-                    <small class="text-muted font-monospace">root@alamor-node:~# dns_probe --verbose</small>
+                    <small class="text-muted font-monospace" id="terminal-title">root@alamor-node:~#</small>
                 </div>
 
-                <div class="p-3 text-start" id="console-logs">
+                <div class="p-3 text-start" id="console-logs" style="max-height: 250px; overflow-y: auto;">
                     </div>
                 
                 <div class="scan-line"></div>
             </div>
 
-            <div id="sslActionArea" class="mt-4 d-none text-center animate__animated animate__fadeInUp">
-                <div class="p-3 border border-success border-opacity-50 rounded bg-success bg-opacity-10 mb-3">
-                    <h5 class="text-success fw-bold m-0"><i class="fas fa-check-shield me-2"></i>DOMAIN VERIFIED</h5>
+            <div id="foundIPsArea" class="d-none animate__animated animate__fadeIn">
+                <div class="p-3 border border-secondary border-opacity-25 rounded bg-black bg-opacity-25">
+                    <h6 class="text-success font-monospace mb-3"><i class="fas fa-check-double me-2"></i>CLEAN IPS IDENTIFIED:</h6>
+                    <div class="d-flex flex-wrap gap-2" id="ipListBadge">
+                        </div>
+                    <p class="text-muted small mt-2 mb-0">Click on an IP to copy. These IPs are verified via SNI handshake.</p>
+                </div>
+            </div>
+
+            <div id="sslActionArea" class="d-none text-center animate__animated animate__fadeInUp mt-4">
+                <div class="p-2 border border-success border-opacity-50 rounded bg-success bg-opacity-10 mb-3">
+                    <small class="text-success fw-bold font-monospace">VERIFICATION COMPLETE</small>
                 </div>
                 <button class="btn btn-glass w-100 py-3 text-success border-success" onclick="issueCert()">
-                    <i class="fas fa-lock me-2"></i>DEPLOY SSL CERTIFICATE & FAKE SITE
+                    <i class="fas fa-lock me-2"></i>DEPLOY SSL & FAKE SITE
                 </button>
             </div>
 
@@ -61,84 +83,110 @@
     .glass-input {
         background: rgba(0, 0, 0, 0.4) !important;
         border-color: rgba(255, 255, 255, 0.1) !important;
+        color: #fff !important;
     }
     .glass-input:focus {
         box-shadow: 0 0 15px rgba(0, 243, 255, 0.1);
         border-color: var(--primary-neon) !important;
     }
     
-    /* Terminal Typing Effect */
-    .log-line {
-        margin-bottom: 5px;
-        opacity: 0;
-        animation: fadeIn 0.1s forwards;
-    }
-    .text-cmd { color: #fff; }
+    /* Terminal Styles */
+    .log-line { margin-bottom: 4px; display: block; font-size: 0.95rem; }
+    .text-cmd { color: #fff; font-weight: bold; }
     .text-info-log { color: #00f3ff; }
     .text-warn-log { color: #ff9d00; }
     .text-success-log { color: #0aff60; text-shadow: 0 0 5px #0aff60; }
     .text-error-log { color: #ff0055; text-shadow: 0 0 5px #ff0055; }
-    .text-dim { color: #666; }
-
-    @keyframes fadeIn { to { opacity: 1; } }
+    .text-dim { color: #666; font-size: 0.85em; margin-right: 8px; }
 
     /* Scan line effect */
     .scan-line {
         position: absolute;
-        top: 0; left: 0; width: 100%; height: 2px;
-        background: rgba(0, 243, 255, 0.3);
-        box-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
-        animation: scan 3s linear infinite;
-        opacity: 0.5;
+        top: 0; left: 0; width: 100%; height: 5px;
+        background: rgba(0, 243, 255, 0.1);
+        box-shadow: 0 0 10px rgba(0, 243, 255, 0.3);
+        animation: scan 2s linear infinite;
         pointer-events: none;
+        z-index: 10;
     }
-    @keyframes scan {
-        0% { top: 0%; }
-        100% { top: 100%; }
-    }
+    @keyframes scan { 0% { top: -10%; } 100% { top: 110%; } }
     
     .cursor::after {
         content: '▋';
         animation: blink 1s infinite;
         color: var(--primary-neon);
+        margin-left: 5px;
     }
     @keyframes blink { 50% { opacity: 0; } }
+
+    /* IP Badges */
+    .ip-badge {
+        background: rgba(10, 255, 96, 0.1);
+        border: 1px solid #0aff60;
+        color: #0aff60;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: 0.2s;
+        user-select: none;
+    }
+    .ip-badge:hover {
+        background: #0aff60;
+        color: #000;
+        box-shadow: 0 0 15px #0aff60;
+        transform: translateY(-2px);
+    }
+    .ip-badge:active {
+        transform: scale(0.95);
+    }
 </style>
 
 <script>
 const consoleEl = document.getElementById('console-logs');
 const terminalWin = document.getElementById('terminal-window');
 const sslArea = document.getElementById('sslActionArea');
+const ipsArea = document.getElementById('foundIPsArea');
 
-// تابع تایپ کردن متن شبیه هکرها
-async function typeLog(html, delay = 50) {
+async function typeLog(html, delay = 30) {
     const div = document.createElement('div');
     div.className = 'log-line';
-    div.innerHTML = `<span class="text-dim">[${new Date().toLocaleTimeString()}]</span> ${html}`;
+    div.innerHTML = `<span class="text-dim">[${new Date().toLocaleTimeString().split(' ')[0]}]</span>${html}`;
     consoleEl.appendChild(div);
-    
-    // Scroll to bottom
-    terminalWin.scrollTop = terminalWin.scrollHeight;
-    
-    // Fake delay for realism
-    await new Promise(r => setTimeout(r, delay));
+    consoleEl.scrollTop = consoleEl.scrollHeight;
+    if(delay > 0) await new Promise(r => setTimeout(r, delay));
 }
 
-async function startDNSSequence() {
-    const domain = document.getElementById('domainInput').value;
-    if(!domain) return;
-
-    // Reset UI
+function resetTerminal() {
     terminalWin.classList.remove('d-none');
     sslArea.classList.add('d-none');
+    ipsArea.classList.add('d-none');
     consoleEl.innerHTML = '';
     
-    // Start Simulation
-    await typeLog(`<span class="text-cmd">root@node:~# check_dns_record -d ${domain}</span>`, 300);
-    await typeLog(`<span class="text-info-log">ℹ Initializing DNS Resolver subsystem...</span>`, 600);
-    await typeLog(`<span class="text-info-log">ℹ Querying authoritative nameservers...</span>`, 800);
+    const cursor = document.querySelector('.cursor');
+    if(cursor) cursor.remove();
+}
+
+function addCursor() {
+    const cursorLine = document.createElement('div');
+    cursorLine.className = 'mt-2 text-primary-neon cursor';
+    cursorLine.innerText = 'root@alamor:~# ';
+    consoleEl.appendChild(cursorLine);
+    consoleEl.scrollTop = consoleEl.scrollHeight;
+}
+
+// --- DNS CHECK LOGIC ---
+async function startDNSSequence() {
+    const domain = document.getElementById('domainInput').value;
+    if(!domain) { alert("Please enter a domain first."); return; }
     
-    // Real Request
+    resetTerminal();
+    
+    await typeLog(`<span class="text-cmd">dns_probe --target ${domain} --verbose</span>`, 400);
+    await typeLog(`<span class="text-info-log">ℹ Initializing DNS Resolver subsystem...</span>`, 300);
+    await typeLog(`<span class="text-info-log">ℹ Querying global nameservers...</span>`, 300);
+    
     const formData = new FormData();
     formData.append('domain', domain);
     
@@ -146,31 +194,84 @@ async function startDNSSequence() {
         const response = await fetch("{{ url_for('domains.check_dns') }}", {method: 'POST', body: formData});
         const data = await response.json();
         
-        await typeLog(`<span>... Analying IP matching ...</span>`, 400);
+        await typeLog(`<span>... Verifying A-Record matches server IP ...</span>`, 400);
         
         if(data.status === 'ok') {
-            await typeLog(`<span class="text-success-log">✔ SUCCESS: DNS Record Match Found!</span>`, 200);
-            await typeLog(`<span class="text-success-log">✔ TARGET LOCKED: Domain points to this server.</span>`, 200);
-            await typeLog(`<span class="text-info-log">ℹ Security protocols available for deployment.</span>`, 200);
+            await typeLog(`<span class="text-success-log">✔ MATCH CONFIRMED: ${domain} -> Localhost</span>`, 200);
+            await typeLog(`<span class="text-success-log">✔ AUTHENTICATION: Domain ownership verified.</span>`, 200);
             sslArea.classList.remove('d-none');
         } else {
-            await typeLog(`<span class="text-error-log">✖ FAILURE: DNS Mismatch Detected.</span>`, 200);
-            await typeLog(`<span class="text-warn-log">⚠ ALERT: The domain does not point to this server IP.</span>`, 200);
-            await typeLog(`<span class="text-error-log">✖ ACTION ABORTED. Check your A-Record settings.</span>`, 200);
+            await typeLog(`<span class="text-error-log">✖ MISMATCH DETECTED: Domain IP != Server IP.</span>`, 200);
+            await typeLog(`<span class="text-warn-log">⚠ ROOT CAUSE: Cloudflare Proxy (Orange Cloud) is likely ON.</span>`, 100);
+            await typeLog(`<span class="text-warn-log">⚠ SUGGESTION: Switch to 'DNS Only' (Grey Cloud) temporarily.</span>`, 100);
         }
-        
     } catch (e) {
-        await typeLog(`<span class="text-error-log">✖ CRITICAL ERROR: Network Unreachable.</span>`);
+        await typeLog(`<span class="text-error-log">✖ FATAL ERROR: Network Unreachable.</span>`);
     }
-    
-    // Add blinking cursor at end
-    const cursorLine = document.createElement('div');
-    cursorLine.className = 'mt-2 text-primary-neon cursor';
-    cursorLine.innerText = 'root@node:~# ';
-    consoleEl.appendChild(cursorLine);
+    addCursor();
 }
 
-// تابع دریافت SSL با لاگ‌های جذاب
+// --- IP SCAN LOGIC ---
+async function startIPScan() {
+    const domain = document.getElementById('domainInput').value;
+    if(!domain) { alert("Enter a domain/SNI first!"); return; }
+    
+    resetTerminal();
+    
+    await typeLog(`<span class="text-cmd">scan_cf_ips --sni ${domain} --threads 20</span>`, 300);
+    await typeLog(`<span class="text-info-log">ℹ Initializing Mass Scanner Module...</span>`, 200);
+    await typeLog(`<span class="text-info-log">ℹ Loading Cloudflare CIDR ranges [173.245.48.0/20, 103.21.244.0/22...]</span>`, 300);
+    await typeLog(`<span class="text-warn-log">⚠ Starting Handshake Tests (This might take a while)...</span>`, 200);
+    
+    // شبیه سازی لودینگ
+    const loadingLine = document.createElement('div');
+    loadingLine.className = 'log-line text-info-log';
+    loadingLine.innerText = 'Scanning... [||||||    ]';
+    consoleEl.appendChild(loadingLine);
+
+    const formData = new FormData();
+    formData.append('domain', domain);
+    
+    try {
+        const response = await fetch("{{ url_for('domains.scan_ips') }}", {method: 'POST', body: formData});
+        const data = await response.json();
+        
+        loadingLine.remove(); // حذف لودینگ
+        
+        // نمایش لاگ‌های سمت سرور
+        if(data.logs) {
+            for(let log of data.logs) {
+                if(log.includes("HIT")) await typeLog(`<span class="text-success-log">${log}</span>`, 20);
+                else await typeLog(`<span class="text-dim">${log}</span>`, 5);
+            }
+        }
+        
+        if(data.status === 'ok' && data.ips.length > 0) {
+            await typeLog(`<span class="text-success-log">✔ SCAN COMPLETE. Found ${data.ips.length} clean IPs.</span>`, 200);
+            
+            // پر کردن لیست آی‌پی‌ها
+            const list = document.getElementById('ipListBadge');
+            list.innerHTML = '';
+            data.ips.forEach(item => {
+                list.innerHTML += `<span class="ip-badge" onclick="copyIp('${item.ip}')" title="Click to Copy">${item.ip}</span>`;
+            });
+            ipsArea.classList.remove('d-none');
+        } else {
+            await typeLog(`<span class="text-error-log">✖ NO CLEAN IPS FOUND. Try again later.</span>`, 200);
+        }
+        
+    } catch(e) {
+        await typeLog(`<span class="text-error-log">✖ SCAN FAILED: ${e}</span>`);
+    }
+    addCursor();
+}
+
+function copyIp(ip) {
+    navigator.clipboard.writeText(ip);
+    alert("IP Copied: " + ip);
+}
+
+// --- SSL ISSUE LOGIC ---
 async function issueCert() {
     const domain = document.getElementById('domainInput').value;
     sslArea.classList.add('d-none'); // Hide button
@@ -179,8 +280,8 @@ async function issueCert() {
     const oldCursor = document.querySelector('.cursor');
     if(oldCursor) oldCursor.remove();
 
-    await typeLog(`<span class="text-cmd">root@node:~# certbot --nginx -d ${domain}</span>`, 500);
-    await typeLog(`<span class="text-warn-log">⚠ Requesting Let's Encrypt Certificate... (This may take 30s)</span>`, 100);
+    await typeLog(`<span class="text-cmd">certbot --nginx -d ${domain} --agree-tos</span>`, 500);
+    await typeLog(`<span class="text-warn-log">⚠ Requesting Let's Encrypt Certificate... (Please Wait)</span>`, 100);
     
     const formData = new FormData();
     formData.append('domain', domain);
@@ -190,13 +291,13 @@ async function issueCert() {
         const data = await response.json();
         
         if(data.status === 'ok') {
-            await typeLog(`<span class="text-info-log">ℹ Challenge Accepted. Verifying ownership...</span>`, 1000);
-            await typeLog(`<span class="text-success-log">✔ CERTIFICATE ISSUED!</span>`, 200);
-            await typeLog(`<span class="text-info-log">ℹ Configuring Nginx Reverse Proxy...</span>`, 500);
-            await typeLog(`<span class="text-info-log">ℹ Deploying Fake Site Template...</span>`, 500);
+            await typeLog(`<span class="text-info-log">ℹ ACME Challenge Accepted.</span>`, 500);
+            await typeLog(`<span class="text-success-log">✔ CERTIFICATE ISSUED! [Valid for 90 days]</span>`, 200);
+            await typeLog(`<span class="text-info-log">ℹ Configuring Nginx Reverse Proxy...</span>`, 400);
+            await typeLog(`<span class="text-info-log">ℹ Deploying Stealth Fake Site Template...</span>`, 400);
             await typeLog(`<span class="text-success-log">✔ DEPLOYMENT COMPLETE. System Secure.</span>`, 200);
             
-            // Reload page after success
+            await typeLog(`<span class="text-dim">System will reload in 3 seconds...</span>`, 1000);
             setTimeout(() => location.reload(), 3000);
         } else {
             await typeLog(`<span class="text-error-log">✖ CERTBOT ERROR: ${data.message}</span>`);
@@ -206,11 +307,7 @@ async function issueCert() {
         await typeLog(`<span class="text-error-log">✖ CONNECTION ERROR.</span>`);
     }
     
-    // Restore cursor
-    const cursorLine = document.createElement('div');
-    cursorLine.className = 'mt-2 text-primary-neon cursor';
-    cursorLine.innerText = 'root@node:~# ';
-    consoleEl.appendChild(cursorLine);
+    addCursor();
 }
 </script>
 {% endblock %}
