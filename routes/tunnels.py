@@ -8,6 +8,7 @@ from core.hysteria_manager import (install_hysteria_server_remote,
                                    install_hysteria_client_local, generate_pass)
 from core.slipstream_manager import (install_slipstream_server_remote, 
                                      install_slipstream_client_local)
+from core.slipstream_manager import install_slipstream_server_remote_gen, install_slipstream_client_local_gen
 from routes.auth import login_required
 # ایمپورت حیاتی از فایل جدید
 from core.tasks import task_queue, init_task
@@ -18,8 +19,38 @@ import uuid
 import re
 
 tunnels_bp = Blueprint('tunnels', __name__)
-
-def get_server_public_ip():
+def process_slipstream(server_ip, config):
+    yield 5, "Initializing Remote Build Environment..."
+    
+    # --- Remote Install ---
+    # لاگ‌ها را زنده می‌خوانیم
+    for log in install_slipstream_server_remote_gen(server_ip, config):
+        # تخمین پیشرفت بر اساس متن لاگ‌ها
+        progress = 10
+        if "Updating submodules" in log: progress = 15
+        elif "Compiling" in log: progress = 20 # چون بیلد طولانی است
+        elif "Finished release" in log: progress = 45
+        elif "Server Service Started" in log: progress = 50
+        
+        # نمایش لاگ زنده به کاربر
+        # محدود کردن طول لاگ برای جلوگیری از بهم ریختن UI
+        clean_log = log[-50:] if len(log) > 50 else log
+        yield progress, f"Remote: {clean_log}"
+        
+    yield 50, "Starting Local Build (Takes 5-10 mins)..."
+    
+    # --- Local Install ---
+    for log in install_slipstream_client_local_gen(server_ip, config):
+        progress = 50
+        if "Compiling" in log: progress = 60
+        elif "Finished" in log: progress = 90
+        
+        clean_log = log[-50:] if len(log) > 50 else log
+        yield progress, f"Local: {clean_log}"
+    
+    yield 95, "Finalizing Config..."
+    add_tunnel(f"Slipstream-{config['tunnel_port']}", "slipstream", config['client_port'], "N/A", config)
+    yield 100, "Installation Complete!"def get_server_public_ip():
     commands = ["curl -s --max-time 3 ifconfig.me", "curl -s --max-time 3 api.ipify.org"]
     for cmd in commands:
         try:
