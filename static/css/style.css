@@ -1,200 +1,44 @@
-/* AlamorTunnel/static/css/style.css */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
-
 :root {
-    /* --- DARK THEME VARIABLES (Default) --- */
-    --bg-body: #0f0c29;
-    --bg-gradient: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-    
-    /* Glass Effect Colors (Dark) */
-    --glass-bg: rgba(255, 255, 255, 0.05);
-    --glass-border: rgba(255, 255, 255, 0.1);
-    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-    
-    /* Text Colors */
-    --text-primary: #ffffff;
-    --text-secondary: #a0a0a0;
-    --text-accent: #00d2ff;
-    
-    /* Brand Colors */
-    --primary: #3a7bd5;
-    --secondary: #00d2ff;
-    --danger: #ff416c;
-    --success: #00b09b;
-    --warning: #f7b733;
-}
-
-[data-theme="light"] {
-    /* --- LIGHT THEME VARIABLES --- */
-    --bg-body: #f0f2f5;
-    --bg-gradient: linear-gradient(135deg, #e0eafc, #cfdef3);
-    
-    /* Glass Effect Colors (Light) */
-    --glass-bg: rgba(255, 255, 255, 0.65);
-    --glass-border: rgba(255, 255, 255, 0.4);
-    --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
-    
-    /* Text Colors */
-    --text-primary: #1a1a1a;
-    --text-secondary: #555555;
-    --text-accent: #2c3e50;
-    
-    --primary: #2c3e50; 
+    --bg-body: #020617;
+    --bg-panel: #0f172a;
+    --border-color: #334155;
+    --primary: #3b82f6;
+    --text-main: #ffffff;
+    --text-muted: #94a3b8;
 }
 
 body {
-    background: var(--bg-body);
-    background-image: var(--bg-gradient);
-    background-attachment: fixed;
-    background-size: cover;
-    color: var(--text-primary);
-    font-family: 'Outfit', sans-serif;
-    min-height: 100vh;
-    transition: all 0.3s ease;
+    background-color: var(--bg-body);
+    color: var(--text-main);
+    font-family: 'Inter', sans-serif;
 }
 
-/* --- GLASSMORPHISM CARDS --- */
-.glass-card {
-    background: var(--glass-bg);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--glass-border);
-    border-radius: 20px;
-    box-shadow: var(--glass-shadow);
-    padding: 2rem;
-    margin-bottom: 1.5rem;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+.glass-panel {
+    background-color: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
 }
 
-.glass-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.45);
-    border-color: var(--text-accent);
-}
-
-/* --- TYPOGRAPHY --- */
-h1, h2, h3, h4, h5, h6 {
-    color: var(--text-primary) !important;
-    font-weight: 700;
-}
-
-.text-muted {
-    color: var(--text-secondary) !important;
-}
-
-.text-accent {
-    color: var(--text-accent) !important;
-}
-
-/* --- FORMS & INPUTS --- */
 .form-control, .form-select {
-    background: rgba(0, 0, 0, 0.2); 
-    border: 1px solid var(--glass-border);
-    color: #fff !important; 
-    border-radius: 12px;
-    padding: 12px 15px;
-    transition: all 0.3s;
+    background-color: #1e293b;
+    border: 1px solid var(--border-color);
+    color: #fff !important;
 }
 
-[data-theme="light"] .form-control, 
-[data-theme="light"] .form-select {
-    background: rgba(255, 255, 255, 0.8);
-    color: #333 !important;
-    border-color: #ccc;
-}
-
-.form-control:focus {
-    background: rgba(0, 0, 0, 0.3);
-    border-color: var(--secondary);
-    box-shadow: 0 0 15px rgba(0, 210, 255, 0.3);
-    color: #fff;
-}
-
-.form-label {
-    color: var(--text-primary);
-    font-weight: 600;
-    font-size: 0.9rem;
-    margin-bottom: 0.5rem;
-}
-
-/* --- BUTTONS --- */
-.btn-glass {
-    background: linear-gradient(45deg, var(--primary), var(--secondary));
-    border: none;
-    color: white;
-    padding: 12px 25px;
-    border-radius: 12px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-    transition: all 0.3s;
-}
-
-.btn-glass:hover {
-    filter: brightness(1.2);
-    transform: scale(1.02);
-    color: white;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-}
-
-.btn-glass-danger {
-    background: linear-gradient(45deg, #ff416c, #ff4b2b);
+.btn-primary-glow {
+    background-color: var(--primary);
     color: white;
     border: none;
-    border-radius: 12px;
+    padding: 8px 16px;
+    border-radius: 6px;
 }
 
-/* --- NAVBAR --- */
-.navbar-glass {
-    background: var(--glass-bg);
-    backdrop-filter: blur(15px);
-    border-bottom: 1px solid var(--glass-border);
-    padding: 1rem 0;
-    margin-bottom: 2rem;
-}
-
-.navbar-brand {
-    font-size: 1.8rem;
-    font-weight: 800;
-    background: -webkit-linear-gradient(45deg, var(--secondary), var(--success));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-/* --- TABLE --- */
-.table-glass {
-    color: var(--text-primary);
-    border-color: var(--glass-border);
-}
-.table-glass th {
-    background: rgba(0,0,0,0.2);
-    color: var(--text-accent);
-    border-bottom: 2px solid var(--glass-border);
-}
-[data-theme="light"] .table-glass th {
-    background: rgba(255,255,255,0.5);
-}
-.table-glass td {
-    background: transparent;
-    border-bottom: 1px solid var(--glass-border);
-    color: var(--text-primary);
-}
-
-/* --- MODALS --- */
 .modal-content {
-    background: #1a1a2e; 
-    border: 1px solid var(--glass-border);
-    border-radius: 20px;
-    color: #fff;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--border-color);
 }
-[data-theme="light"] .modal-content {
-    background: #fff;
-    color: #333;
-}
-.modal-header { border-bottom: 1px solid var(--glass-border); }
-.modal-footer { border-top: 1px solid var(--glass-border); }
 
-
-/* اضافه کردن به بخش Protocol Colors */
-.text-gost { color: #14b8a6 !important; } /* Teal color */
+/* Protocol Colors */
 .border-gost { border-color: #14b8a6 !important; }
+.border-hysteria { border-color: #f87171 !important; }

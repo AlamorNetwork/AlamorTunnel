@@ -1,117 +1,52 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="fw-bold text-white"><i class="fas fa-network-wired me-2"></i>Active Tunnels</h2>
-    <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary-glow">
-        <i class="fas fa-plus me-2"></i>New Tunnel
-    </a>
+<div class="d-flex justify-content-between align-items-center mb-4 mt-4">
+    <h2 class="fw-bold text-white">Active Tunnels</h2>
+    <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary-glow">New Tunnel</a>
 </div>
 
-<div class="glass-panel p-0 overflow-hidden">
-    <div class="table-responsive">
-        <table class="table table-dark table-hover mb-0 align-middle">
-            <thead class="bg-black bg-opacity-25 text-muted small">
-                <tr>
-                    <th class="ps-4">ID</th>
-                    <th>NAME</th>
-                    <th>PROTOCOL</th>
-                    <th>PORT</th>
-                    <th class="text-end pe-4">CONTROLS</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for tunnel in tunnels %}
-                <tr>
-                    <td class="ps-4 text-muted">#{{ tunnel.id }}</td>
-                    <td class="fw-bold text-white">{{ tunnel.name }}</td>
-                    <td>
-                        {% if 'hysteria' in tunnel.transport %}
-                            <span class="badge bg-danger bg-opacity-25 text-danger border border-danger">HYSTERIA</span>
-                        {% elif 'rathole' in tunnel.transport %}
-                            <span class="badge bg-info bg-opacity-25 text-info border border-info">RATHOLE</span>
-                        {% elif 'gost' in tunnel.transport %}
-                            <span class="badge bg-success bg-opacity-25 text-success border border-success">GOST</span>
-                        {% else %}
-                            <span class="badge bg-warning bg-opacity-25 text-warning border border-warning">BACKHAUL</span>
-                        {% endif %}
-                    </td>
-                    <td class="font-mono text-muted">{{ tunnel.port }}</td>
-                    <td class="text-end pe-4">
-                        <button class="btn btn-sm btn-outline-light me-1" onclick="openMonitor('{{tunnel.id}}', '{{tunnel.name}}')" title="Live Monitor">
-                            <i class="fas fa-chart-line"></i>
-                        </button>
-                        
-                        <a href="{{ url_for('tunnels.edit_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-info me-1" title="Config">
-                            <i class="fas fa-cog"></i>
-                        </a>
-                        <a href="{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this tunnel?')">
-                            <i class="fas fa-trash"></i>
-                        </a>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="5" class="text-center py-5 text-muted">
-                        <i class="fas fa-wind fa-2x mb-3 opacity-50"></i><br>
-                        No active tunnels found.
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+<div class="glass-panel p-0">
+    <table class="table table-dark table-hover mb-0 align-middle">
+        <thead>
+            <tr><th>Name</th><th>Type</th><th>Port</th><th class="text-end">Controls</th></tr>
+        </thead>
+        <tbody>
+            {% for tunnel in tunnels %}
+            <tr>
+                <td class="fw-bold">{{ tunnel.name }}</td>
+                <td><span class="badge bg-secondary">{{ tunnel.transport }}</span></td>
+                <td>{{ tunnel.port }}</td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-light me-1" onclick="openMonitor('{{tunnel.id}}', '{{tunnel.name}}')"><i class="fas fa-chart-line"></i></button>
+                    <a href="{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel.id) }}" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></a>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center py-4">No tunnels.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 
 <div class="modal fade" id="monitorModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content glass-panel border-0">
-            <div class="modal-header border-bottom border-secondary">
-                <h5 class="modal-title fw-bold text-white">
-                    <i class="fas fa-satellite-dish me-2 text-primary"></i>Live Monitor: <span id="monitorTitle" class="text-primary"></span>
-                </h5>
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title text-white">Monitor: <span id="monitorTitle" class="text-primary"></span></h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-4">
-                
                 <div class="row g-3 mb-4">
-                    <div class="col-md-4">
-                        <div class="p-3 bg-black bg-opacity-25 rounded border border-secondary text-center">
-                            <small class="text-muted text-uppercase">Status</small>
-                            <div class="mt-1 fw-bold fs-5" id="statusIndicator">
-                                <span class="spinner-border spinner-border-sm text-muted"></span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="p-3 bg-black bg-opacity-25 rounded border border-secondary text-center">
-                            <small class="text-muted text-uppercase">Latency (Local)</small>
-                            <div class="mt-1 fw-bold fs-5 text-white" id="latencyDisplay">0 ms</div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="p-3 bg-black bg-opacity-25 rounded border border-secondary text-center">
-                            <small class="text-muted text-uppercase">Total Traffic</small>
-                            <div class="mt-1 fw-bold fs-6 text-white">
-                                <i class="fas fa-arrow-up text-success"></i> <span id="txDisplay">0 B</span>
-                                <span class="mx-2">|</span>
-                                <i class="fas fa-arrow-down text-info"></i> <span id="rxDisplay">0 B</span>
-                            </div>
-                        </div>
-                    </div>
+                    <div class="col-md-4"><div class="p-3 bg-black bg-opacity-25 rounded border border-secondary text-center"><small class="text-muted">STATUS</small><div class="mt-1 fw-bold fs-5" id="statusIndicator">Checking...</div></div></div>
+                    <div class="col-md-4"><div class="p-3 bg-black bg-opacity-25 rounded border border-secondary text-center"><small class="text-muted">LATENCY</small><div class="mt-1 fw-bold fs-5 text-white" id="latencyDisplay">-</div></div></div>
+                    <div class="col-md-4"><div class="p-3 bg-black bg-opacity-25 rounded border border-secondary text-center"><small class="text-muted">TOTAL TRAFFIC</small><div class="mt-1 fw-bold fs-6 text-white"><span id="txDisplay">0 B</span> / <span id="rxDisplay">0 B</span></div></div></div>
                 </div>
-
-                <div class="bg-black bg-opacity-25 rounded p-3 border border-secondary mb-4">
-                    <canvas id="trafficChart" height="100"></canvas>
-                </div>
-
+                <div class="bg-black bg-opacity-25 rounded p-3 border border-secondary mb-4"><canvas id="trafficChart" height="100"></canvas></div>
                 <div class="d-flex justify-content-between align-items-center">
-                    <button class="btn btn-outline-light btn-sm" onclick="runServerSpeedtest()">
-                        <i class="fas fa-tachometer-alt me-2"></i>Test Server Speed
-                    </button>
+                    <button class="btn btn-outline-light btn-sm" onclick="runServerSpeedtest()">Test Server Speed</button>
                     <small class="text-muted" id="speedtestResult"></small>
                 </div>
-
             </div>
         </div>
     </div>
@@ -122,141 +57,63 @@ let chartInstance = null;
 let updateInterval = null;
 let currentTunnelId = null;
 
-function formatBytes(bytes, decimals = 2) {
+function formatBytes(bytes) {
     if (!+bytes) return '0 B';
     const k = 1024;
-    const dm = decimals < 0 ? 0 : decimals;
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 }
 
 function openMonitor(id, name) {
     currentTunnelId = id;
     document.getElementById('monitorTitle').innerText = name;
-    
-    // Reset Displays
-    document.getElementById('statusIndicator').innerHTML = '<span class="spinner-border spinner-border-sm"></span> Checking...';
-    document.getElementById('latencyDisplay').innerText = '-';
-    document.getElementById('txDisplay').innerText = '0 B';
-    document.getElementById('rxDisplay').innerText = '0 B';
-    document.getElementById('speedtestResult').innerText = '';
-
-    // Init Chart
-    initChart();
-    
-    // Start Polling
-    fetchStats();
-    if (updateInterval) clearInterval(updateInterval);
-    updateInterval = setInterval(fetchStats, 2000); // Update every 2s
-
-    new bootstrap.Modal(document.getElementById('monitorModal')).show();
-}
-
-function initChart() {
-    const ctx = document.getElementById('trafficChart').getContext('2d');
     if (chartInstance) chartInstance.destroy();
-
+    
+    const ctx = document.getElementById('trafficChart').getContext('2d');
     chartInstance = new Chart(ctx, {
         type: 'line',
         data: {
             labels: Array(20).fill(''),
-            datasets: [{
-                label: 'Upload (TX)',
-                borderColor: '#10b981', // Green
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                data: Array(20).fill(0),
-                tension: 0.4,
-                fill: true
-            }, {
-                label: 'Download (RX)',
-                borderColor: '#3b82f6', // Blue
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                data: Array(20).fill(0),
-                tension: 0.4,
-                fill: true
-            }]
+            datasets: [
+                { label: 'Upload', borderColor: '#10b981', data: Array(20).fill(0), tension: 0.4 },
+                { label: 'Download', borderColor: '#3b82f6', data: Array(20).fill(0), tension: 0.4 }
+            ]
         },
-        options: {
-            responsive: true,
-            plugins: { legend: { labels: { color: '#cbd5e1' } } },
-            scales: {
-                y: { 
-                    beginAtZero: true, 
-                    grid: { color: '#334155' }, 
-                    ticks: { color: '#94a3b8' } 
-                },
-                x: { display: false }
-            },
-            animation: false
-        }
+        options: { responsive: true, animation: false, scales: { x: { display: false } }, plugins: { legend: { labels: { color: '#cbd5e1' } } } }
+    });
+
+    if (updateInterval) clearInterval(updateInterval);
+    updateInterval = setInterval(fetchStats, 2000);
+    new bootstrap.Modal(document.getElementById('monitorModal')).show();
+}
+
+let lastRx = 0; let lastTx = 0;
+function fetchStats() {
+    fetch(`/tunnel/stats/${currentTunnelId}`).then(res => res.json()).then(data => {
+        document.getElementById('txDisplay').innerText = formatBytes(data.tx_bytes);
+        document.getElementById('rxDisplay').innerText = formatBytes(data.rx_bytes);
+        document.getElementById('latencyDisplay').innerText = data.latency + ' ms';
+        document.getElementById('statusIndicator').innerHTML = data.status === 'active' ? '<span class="text-success">Connected</span>' : '<span class="text-danger">Disconnected</span>';
+        
+        let deltaRx = data.rx_bytes - lastRx;
+        let deltaTx = data.tx_bytes - lastTx;
+        if (lastRx === 0) { deltaRx = 0; deltaTx = 0; }
+        lastRx = data.rx_bytes; lastTx = data.tx_bytes;
+
+        chartInstance.data.datasets[0].data.shift(); chartInstance.data.datasets[0].data.push(deltaTx);
+        chartInstance.data.datasets[1].data.shift(); chartInstance.data.datasets[1].data.push(deltaRx);
+        chartInstance.update();
     });
 }
 
-let lastRx = 0;
-let lastTx = 0;
-
-function fetchStats() {
-    if (!currentTunnelId) return;
-
-    fetch(`/tunnel/stats/${currentTunnelId}`)
-        .then(res => res.json())
-        .then(data => {
-            // Update Text Stats
-            document.getElementById('txDisplay').innerText = formatBytes(data.tx_bytes);
-            document.getElementById('rxDisplay').innerText = formatBytes(data.rx_bytes);
-            document.getElementById('latencyDisplay').innerText = data.latency + ' ms';
-            
-            const statusEl = document.getElementById('statusIndicator');
-            if (data.status === 'active') {
-                statusEl.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-2"></i>Connected</span>';
-            } else {
-                statusEl.innerHTML = '<span class="text-danger"><i class="fas fa-times-circle me-2"></i>Disconnected</span>';
-            }
-
-            // Update Chart (Calculate Delta for Speed)
-            // Note: This is simplified. Ideally we calculate speed based on time delta.
-            // For now, we plot the Total Bytes or rough delta. Let's plot Delta (Speed).
-            
-            let deltaRx = data.rx_bytes - lastRx;
-            let deltaTx = data.tx_bytes - lastTx;
-            
-            // First run fix
-            if (lastRx === 0) { deltaRx = 0; deltaTx = 0; }
-            
-            lastRx = data.rx_bytes;
-            lastTx = data.tx_bytes;
-
-            // Remove old data
-            chartInstance.data.datasets[0].data.shift();
-            chartInstance.data.datasets[1].data.shift();
-            
-            // Add new data (Bytes per 2 sec check)
-            chartInstance.data.datasets[0].data.push(deltaTx);
-            chartInstance.data.datasets[1].data.push(deltaRx);
-            
-            chartInstance.update();
-        });
-}
-
 function runServerSpeedtest() {
-    const resEl = document.getElementById('speedtestResult');
-    resEl.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Testing...';
-    
-    fetch('/server/speedtest')
-        .then(res => res.json())
-        .then(data => {
-            if (data.error) {
-                resEl.innerHTML = `<span class="text-danger">Error: ${data.error}</span>`;
-            } else {
-                resEl.innerHTML = `<span class="text-success">Ping: ${data.ping} | DL: ${data.download} | UL: ${data.upload}</span>`;
-            }
-        });
+    document.getElementById('speedtestResult').innerText = 'Testing...';
+    fetch('/server/speedtest').then(res => res.json()).then(data => {
+        document.getElementById('speedtestResult').innerText = data.error ? data.error : `Ping: ${data.ping} | DL: ${data.download} | UL: ${data.upload}`;
+    });
 }
 
-// Clean up interval on close
-document.getElementById('monitorModal').addEventListener('hidden.bs.modal', function () {
-    if (updateInterval) clearInterval(updateInterval);
-});
+document.getElementById('monitorModal').addEventListener('hidden.bs.modal', function () { if (updateInterval) clearInterval(updateInterval); });
 </script>
 {% endblock %}

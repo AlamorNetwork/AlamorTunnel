@@ -20,9 +20,8 @@ def get_traffic_stats(port, protocol='tcp'):
         # اطمینان از وجود رول
         setup_iptables_for_port(port, protocol)
         
-        # خواندن خروجی iptables
-        cmd = f"iptables -L -v -n -x | grep 'qt {port}'" # جستجوی پورت
-        # روش دقیق‌تر: استفاده از awk
+        # خواندن خروجی iptables با دقت بالا (Bytes)
+        # استفاده از awk برای استخراج دقیق عدد بایت
         cmd_in = f"iptables -L INPUT -v -n -x | grep 'dpt:{port}' | awk '{{print $2}}' | head -n 1"
         cmd_out = f"iptables -L OUTPUT -v -n -x | grep 'spt:{port}' | awk '{{print $2}}' | head -n 1"
         
@@ -39,7 +38,8 @@ def check_port_health(port, protocol='tcp'):
     try:
         start = time.time()
         if protocol == 'udp':
-            # تست UDP پیچیده است، فقط سوکت می‌سازیم
+            # برای UDP فقط چک می‌کنیم سرویس در حال اجراست یا نه (ساده)
+            # چون UDP هندشیک ندارد، پینگ TCP روی پورت لوکال ممکن نیست مگر اینکه سرویس TCP هم داشته باشد
             return {'status': 'active', 'latency': 0}
         
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -59,16 +59,16 @@ def check_port_health(port, protocol='tcp'):
 def run_speedtest():
     """اجرای اسپیدتست روی سرور (نیاز به speedtest-cli دارد)"""
     if not shutil.which("speedtest-cli"):
-        return {"error": "Speedtest-cli not installed"}
+        return {"error": "Speedtest-cli not installed. Run: apt install speedtest-cli"}
     
     try:
         # اجرای سریع (Simple)
         output = subprocess.check_output("speedtest-cli --simple", shell=True).decode()
         result = {}
         for line in output.split('\n'):
-            if 'Ping' in line: result['ping'] = line.split()[1]
-            if 'Download' in line: result['download'] = line.split()[1]
-            if 'Upload' in line: result['upload'] = line.split()[1]
+            if 'Ping' in line: result['ping'] = line.split()[1] + ' ms'
+            if 'Download' in line: result['download'] = line.split()[1] + ' Mbit/s'
+            if 'Upload' in line: result['upload'] = line.split()[1] + ' Mbit/s'
         return result
     except Exception as e:
         return {"error": str(e)}

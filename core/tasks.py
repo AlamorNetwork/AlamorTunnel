@@ -1,13 +1,11 @@
 import queue
 
-# صف مشترک برای تمام بخش‌های برنامه
+# صف مشترک برای مدیریت کارهای پس‌زمینه
 task_queue = queue.Queue()
-
-# وضعیت تسک‌ها
 task_status = {}
 
 def init_task(task_id):
-    """وضعیت اولیه را تنظیم می‌کند تا کاربر Undefined نبیند"""
+    """جلوگیری از نمایش Undefined در لحظه اول"""
     task_status[task_id] = {
         'progress': 0, 
         'status': 'queued', 
