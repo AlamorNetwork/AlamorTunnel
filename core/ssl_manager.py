@@ -1,46 +1,44 @@
-import os
 import subprocess
+import os
 
-CERT_DIR = "/root/certs"
-KEY_FILE = f"{CERT_DIR}/server.key"
-CSR_FILE = f"{CERT_DIR}/server.csr"
-CRT_FILE = f"{CERT_DIR}/server.crt"
-
-def generate_self_signed_cert(domain_or_ip="127.0.0.1"):
-    """
-    تولید سرتیفیکیت Self-Signed با OpenSSL برای WSS/WSSMUX
-    """
-    if not os.path.exists(CERT_DIR):
-        os.makedirs(CERT_DIR)
-
-    # اگر فایل‌ها موجود باشند، دوباره نمی‌سازیم تا سرعت بالا برود
-    if os.path.exists(CRT_FILE) and os.path.exists(KEY_FILE):
-        return True, CRT_FILE, KEY_FILE
-
-    print("[+] Generating OpenSSL Certificates...")
-
+def check_domain_dns(domain):
+    """بررسی اینکه آیا دامنه به سرور ما اشاره می‌کند یا نه"""
     try:
-        # 1. ساخت کلید خصوصی
-        subprocess.run(
-            ["openssl", "genpkey", "-algorithm", "RSA", "-out", KEY_FILE, "-pkeyopt", "rsa_keygen_bits:2048"],
-            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
-
-        # 2. ساخت CSR
-        subj = f"/C=US/ST=State/L=City/O=Alamor/CN={domain_or_ip}"
-        subprocess.run(
-            ["openssl", "req", "-new", "-key", KEY_FILE, "-out", CSR_FILE, "-subj", subj],
-            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
-
-        # 3. امضای سرتیفیکیت
-        subprocess.run(
-            ["openssl", "x509", "-req", "-in", CSR_FILE, "-signkey", KEY_FILE, "-out", CRT_FILE, "-days", "3650"],
-            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
+        # گرفتن IP سرور
+        server_ip = subprocess.check_output("curl -s ifconfig.me", shell=True).decode().strip()
+        # پینگ کردن دامنه
+        domain_ip = subprocess.check_output(f"dig +short {domain}", shell=True).decode().strip()
         
-        return True, CRT_FILE, KEY_FILE
+        return server_ip == domain_ip
+    except:
+        return False
 
+def generate_ssl_certificate(domain, email="admin@example.com"):
+    """دریافت گواهی SSL با استفاده از Certbot"""
+    try:
+        # 1. توقف موقت Nginx برای جلوگیری از تداخل پورت 80
+        os.system("systemctl stop nginx")
+        
+        # 2. دریافت گواهی (حالت Standalone برای راحتی)
+        cmd = f"certbot certonly --standalone -d {domain} --email {email} --agree-tos --non-interactive"
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        
+        # 3. روشن کردن دوباره Nginx
+        os.system("systemctl start nginx")
+        
+        if result.returncode == 0:
+            return True, f"Certificate generated for {domain}"
+        else:
+            return False, f"Certbot Error: {result.stderr}"
+            
     except Exception as e:
-        print(f"[!] SSL Gen Error: {e}")
-        return False, str(e), None
+        os.system("systemctl start nginx") # اطمینان از روشن شدن
+        return False, str(e)
+
+def get_cert_paths(domain):
+    """مسیر فایل‌های سرتیفیکیت"""
+    base_path = f"/etc/letsencrypt/live/{domain}"
+    return {
+        'cert': f"{base_path}/fullchain.pem",
+        'key': f"{base_path}/privkey.pem"
+    }
