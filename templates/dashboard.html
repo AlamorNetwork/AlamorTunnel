@@ -169,50 +169,34 @@
     <div class="modal-dialog modal-dialog-centered">
         <form id="slipstreamForm" class="modal-content glass-panel border-0 p-0">
             <div class="modal-header border-0 border-bottom border-secondary">
-                <h5 class="modal-title fw-bold" style="color: #a855f7;">
-                    <i class="fas fa-wind me-2"></i>Configure Slipstream (Rust)
-                </h5>
+                <h5 class="modal-title fw-bold" style="color: #a855f7;">Configure Slipstream</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-4">
-                
                 <div class="alert alert-info bg-opacity-10 border-info border-opacity-25 text-info small mb-3">
-                    <i class="fas fa-info-circle me-1"></i> 
-                    Builds from source (Rust). Initial setup takes ~5-10 minutes.
+                    <i class="fas fa-clock me-1"></i> Compilation takes 5-10 minutes.
                 </div>
-
                 <div class="mb-3">
                     <label class="form-label text-muted small">FAKE DOMAIN (SNI)</label>
-                    <input type="text" name="domain" class="form-control" value="dl.google.com" placeholder="e.g. example.com">
-                    <div class="form-text text-white-50 small">Used for QUIC handshake obfuscation.</div>
+                    <input type="text" name="domain" class="form-control" value="dl.google.com">
                 </div>
-
-                <div class="row g-3 mb-3">
-                    <div class="col-6">
+                <div class="row g-3">
+                    <div class="col-12">
                         <label class="form-label text-muted small">TUNNEL PORT (UDP)</label>
-                        <input name="tunnel_port" type="number" class="form-control" value="8853" placeholder="Outer Port">
+                        <input name="tunnel_port" class="form-control" value="8853">
                     </div>
-                    
                     <div class="col-6">
                         <label class="form-label text-muted small">CLIENT PORT (IRAN)</label>
-                        <input name="client_port" type="number" class="form-control" value="8443" placeholder="Local Listen">
+                        <input name="client_port" class="form-control" value="8443">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-muted small">DEST PORT (FOREIGN)</label>
+                        <input name="dest_port" class="form-control" value="8080">
                     </div>
                 </div>
-
-                <div class="mb-3">
-                    <label class="form-label text-muted small">TARGET PORT (FOREIGN)</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-dark border-secondary text-secondary">127.0.0.1:</span>
-                        <input name="dest_port" type="number" class="form-control" value="8080" placeholder="e.g. V2Ray Port">
-                    </div>
-                    <div class="form-text text-white-50 small">Where traffic is forwarded on the foreign server (e.g., your V2Ray/Socks inbound).</div>
-                </div>
-
             </div>
             <div class="modal-footer border-0 p-4 pt-0">
-                <button type="button" class="btn btn-primary-glow w-100 py-2" onclick="startInstall('slipstream', 'slipstreamForm')">
-                    Build & Install (Async)
-                </button>
+                <button type="button" class="btn btn-primary-glow w-100 py-2" onclick="startInstall('slipstream', 'slipstreamForm')">Build & Install (Async)</button>
             </div>
         </form>
     </div>
@@ -390,7 +374,6 @@ function trackProgress(taskId) {
         fetch(`/task-status/${taskId}`)
         .then(res => res.json())
         .then(data => {
-            // جلوگیری از Undefined
             const progress = data.progress || 0;
             const logMsg = data.log || "Processing...";
             const status = data.status || "queued";
