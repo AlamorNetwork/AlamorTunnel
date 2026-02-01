@@ -4,8 +4,15 @@ import os
 
 DB_PATH = "alamor.db"
 
-def init_db():
+def get_db():
+    """ایجاد اتصال به دیتابیس با قابلیت دسترسی نام‌دار به ستون‌ها"""
     conn = sqlite3.connect(DB_PATH)
+    # این خط حیاتی است: تبدیل خروجی‌ها به Row که مثل دیکشنری کار می‌کند
+    conn.row_factory = sqlite3.Row 
+    return conn
+
+def init_db():
+    conn = get_db()
     c = conn.cursor()
     
     # جدول کاربران
@@ -26,7 +33,7 @@ def init_db():
                   config TEXT,
                   status TEXT DEFAULT 'active')''')
     
-    # ساخت ادمین پیش‌فرض اگر وجود نداشته باشد
+    # ساخت ادمین پیش‌فرض
     c.execute("SELECT * FROM users WHERE username='admin'")
     if not c.fetchone():
         c.execute("INSERT INTO users VALUES ('admin', 'admin')")
@@ -36,7 +43,7 @@ def init_db():
 
 # --- بخش مدیریت کاربران ---
 def check_user(username, password):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     c.execute("SELECT * FROM users WHERE username=? AND password=?", (username, password))
     user = c.fetchone()
@@ -44,8 +51,7 @@ def check_user(username, password):
     return user
 
 def update_password(new_pass):
-    # فقط رمز جدید را می‌گیرد چون یوزر همیشه admin است
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     c.execute("UPDATE users SET password=? WHERE username='admin'", (new_pass,))
     conn.commit()
@@ -53,7 +59,7 @@ def update_password(new_pass):
 
 # --- بخش مدیریت سرورها ---
 def add_server(ip, user, password, port):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     c.execute("DELETE FROM servers") # فقط یک سرور نگه می‌داریم
     c.execute("INSERT INTO servers (ip, user, password, port) VALUES (?, ?, ?, ?)", (ip, user, password, port))
@@ -61,14 +67,14 @@ def add_server(ip, user, password, port):
     conn.close()
 
 def remove_server():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     c.execute("DELETE FROM servers")
     conn.commit()
     conn.close()
 
 def get_connected_server():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     c.execute("SELECT * FROM servers LIMIT 1")
     data = c.fetchone()
@@ -77,7 +83,7 @@ def get_connected_server():
 
 # --- بخش مدیریت تانل‌ها ---
 def add_tunnel(name, transport, port, token, config_dict):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     config_json = json.dumps(config_dict)
     c.execute("INSERT INTO tunnels (name, transport, port, token, config, status) VALUES (?, ?, ?, ?, ?, ?)", 
@@ -86,7 +92,7 @@ def add_tunnel(name, transport, port, token, config_dict):
     conn.close()
 
 def get_all_tunnels():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     c.execute("SELECT * FROM tunnels ORDER BY id DESC")
     data = c.fetchall()
@@ -94,7 +100,7 @@ def get_all_tunnels():
     return data
 
 def get_tunnel_by_id(tid):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     c.execute("SELECT * FROM tunnels WHERE id=?", (tid,))
     data = c.fetchone()
@@ -102,14 +108,14 @@ def get_tunnel_by_id(tid):
     return data
 
 def delete_tunnel_by_id(tid):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     c.execute("DELETE FROM tunnels WHERE id=?", (tid,))
     conn.commit()
     conn.close()
 
 def update_tunnel_config(tid, name, transport, port, config_dict):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     config_json = json.dumps(config_dict)
     c.execute("UPDATE tunnels SET name=?, transport=?, port=?, config=? WHERE id=?", 
