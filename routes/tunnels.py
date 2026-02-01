@@ -11,6 +11,7 @@ from routes.auth import login_required
 import uuid
 import os
 import subprocess
+import json  # اضافه شد برای پارس کردن کانفیگ
 
 tunnels_bp = Blueprint('tunnels', __name__)
 
@@ -125,7 +126,13 @@ def start_install(protocol):
 def tunnel_stats(tunnel_id):
     tunnel = get_tunnel_by_id(tunnel_id)
     if not tunnel: return jsonify({'error': 'Not found'})
-    port = int(tunnel[3]) if tunnel[3].isdigit() else 0
+    
+    # اطمینان از اینکه پورت عددی است
+    try:
+        port = int(tunnel[3])
+    except:
+        port = 0
+        
     proto = 'udp' if 'hysteria' in tunnel[2] or 'slipstream' in tunnel[2] else 'tcp'
     rx, tx = get_traffic_stats(port, proto)
     health = check_port_health(port, proto)
@@ -141,6 +148,23 @@ def list_tunnels():
     tunnels = get_all_tunnels()
     return render_template('tunnels.html', tunnels=tunnels)
 
+# --- این تابع قبلاً جا افتاده بود ---
+@tunnels_bp.route('/tunnel/edit/<int:tunnel_id>')
+@login_required
+def edit_tunnel(tunnel_id):
+    tunnel = get_tunnel_by_id(tunnel_id)
+    if not tunnel:
+        flash('Tunnel not found!', 'danger')
+        return redirect(url_for('tunnels.list_tunnels'))
+    
+    # پارس کردن کانفیگ از رشته JSON به دیکشنری
+    try:
+        config = json.loads(tunnel[5])
+    except:
+        config = {}
+        
+    return render_template('edit_tunnel.html', tunnel=tunnel, config=config)
+
 @tunnels_bp.route('/delete-tunnel/<int:tunnel_id>')
 @login_required
 def delete_tunnel(tunnel_id):
@@ -155,4 +179,5 @@ def delete_tunnel(tunnel_id):
         else: stop_and_delete_backhaul()
     delete_tunnel_by_id(tunnel_id)
     os.system("systemctl daemon-reload")
+    flash('Tunnel destroyed successfully.', 'warning')
     return redirect(url_for('tunnels.list_tunnels'))
