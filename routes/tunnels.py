@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, session, url_for, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from core.database import (get_connected_server, add_tunnel, get_all_tunnels, 
                            get_tunnel_by_id, delete_tunnel_by_id, update_tunnel_config)
 from core.backhaul_manager import (install_local_backhaul, install_remote_backhaul, 
@@ -9,6 +9,7 @@ from core.hysteria_manager import (install_hysteria_server_remote,
 from core.slipstream_manager import (install_slipstream_server_remote, 
                                      install_slipstream_client_local)
 from routes.auth import login_required
+from core.tasks import task_queue, init_task
 import json
 import os
 import subprocess
@@ -26,10 +27,11 @@ def get_server_public_ip():
         except: continue
     return "YOUR_IRAN_IP"
 
-# --- GENERATOR FUNCTIONS (Yielding Progress) ---
+# --- GENERATOR FUNCTIONS (مراحل نصب برای نوار پیشرفت) ---
 
 def process_hysteria(server_ip, config):
     yield 10, "Installing Remote Hysteria Server..."
+    # همگام‌سازی زمان برای جلوگیری از ارور QUIC
     os.system("apt-get install -y ntpdate && ntpdate pool.ntp.org")
     
     success, msg = install_hysteria_server_remote(server_ip, config)
@@ -47,7 +49,7 @@ def process_slipstream(server_ip, config):
     success, msg = install_slipstream_server_remote(server_ip, config)
     if not success: raise Exception(f"Remote Build Failed: {msg}")
     
-    yield 40, "Building Local Client (This may take 5-10 mins)..."
+    yield 40, "Building Local Client (This takes time)..."
     install_slipstream_client_local(server_ip, config)
     
     yield 90, "Finalizing..."
@@ -78,41 +80,38 @@ def process_backhaul(server_ip, iran_ip, config):
     add_tunnel("Backhaul Tunnel", config['transport'], config['tunnel_port'], config['token'], config)
     yield 100, "Done"
 
-# --- ASYNC INSTALL ROUTE ---
+# --- ASYNC INSTALL ROUTE (شروع نصب) ---
 
 @tunnels_bp.route('/start-install/<protocol>', methods=['POST'])
 @login_required
 def start_install(protocol):
-    from app import task_queue
-    
     server = get_connected_server()
     if not server:
         return jsonify({'status': 'error', 'message': 'Foreign server not connected'})
 
+    # دریافت داده‌های فرم
     form_data = request.form.to_dict()
     config = form_data.copy()
     
+    # ایجاد ID برای تسک
+    task_id = str(uuid.uuid4())
+    init_task(task_id) # جلوگیری از Undefined در لحظه اول
+
     if protocol == 'hysteria':
         raw_ports = config.get('forward_ports', '')
         config['ports'] = [p.strip() for p in raw_ports.split(',') if p.strip().isdigit()]
         config['password'] = config.get('password') or generate_pass()
         config['obfs_pass'] = config.get('obfs_pass') or generate_pass()
         
-        task_id = str(uuid.uuid4())
         task_queue.put((task_id, process_hysteria, (server[0], config)))
         return jsonify({'status': 'started', 'task_id': task_id})
 
     elif protocol == 'slipstream':
-        # دریافت فیلدها از فرم
-        if not config.get('domain'): config['domain'] = 'example.com' # دامین فیک
-        if not config.get('dest_port'): config['dest_port'] = '8080'  # پورت مقصد در خارج
+        if not config.get('domain'): config['domain'] = 'dl.google.com'
+        # پورت‌های جدید برای Slipstream
+        if not config.get('dest_port'): config['dest_port'] = '8080'
+        if not config.get('client_port'): config['client_port'] = '8443'
         
-        # اطمینان از وجود پورت‌ها
-        if not config.get('tunnel_port') or not config.get('client_port'):
-             return jsonify({'status': 'error', 'message': 'All ports are required'})
-
-        task_id = str(uuid.uuid4())
-        # ارسال به صف تسک‌های Async
         task_queue.put((task_id, process_slipstream, (server[0], config)))
         return jsonify({'status': 'started', 'task_id': task_id})
 
@@ -125,7 +124,6 @@ def start_install(protocol):
         config['nodelay'] = request.form.get('nodelay') == 'on'
         config['heartbeat'] = request.form.get('heartbeat') == 'on'
         
-        task_id = str(uuid.uuid4())
         task_queue.put((task_id, process_rathole, (server[0], iran_ip, config)))
         return jsonify({'status': 'started', 'task_id': task_id})
 
@@ -134,24 +132,27 @@ def start_install(protocol):
         config['token'] = generate_token()
         config['port_rules'] = [line.strip() for line in request.form.get('port_rules', '').split('\n') if line.strip()]
         
+        # مدیریت چک‌باکس‌ها و اعداد
         for field in ['accept_udp', 'nodelay', 'sniffer', 'skip_optz', 'aggressive_pool']:
             config[field] = request.form.get(field) == 'on'
             
         int_fields = ['keepalive_period', 'heartbeat', 'mux_con', 'channel_size', 'mss', 
-                      'so_rcvbuf', 'so_sndbuf', 'client_so_rcvbuf', 'client_so_sndbuf']
+                      'so_rcvbuf', 'so_sndbuf', 'client_so_rcvbuf', 'client_so_sndbuf', 
+                      'connection_pool', 'retry_interval', 'dial_timeout', 'web_port']
         for field in int_fields:
-            if config.get(field): config[field] = int(config[field])
+            if config.get(field): 
+                try: config[field] = int(config[field])
+                except: pass
             
         config['tls_cert'] = '/root/certs/server.crt'
         config['tls_key'] = '/root/certs/server.key'
 
-        task_id = str(uuid.uuid4())
         task_queue.put((task_id, process_backhaul, (server[0], iran_ip, config)))
         return jsonify({'status': 'started', 'task_id': task_id})
 
     return jsonify({'status': 'error', 'message': 'Unknown protocol'})
 
-# --- LIST & EDIT ROUTES ---
+# --- LIST & MANAGEMENT ROUTES ---
 
 @tunnels_bp.route('/tunnels')
 @login_required
@@ -170,7 +171,6 @@ def list_tunnels():
         flash(f'Error: {str(e)}', 'danger')
         return render_template('tunnels.html', tunnels=[])
 
-# این همان روتی است که گم شده بود! 👇
 @tunnels_bp.route('/edit-tunnel/<int:tunnel_id>', methods=['GET', 'POST'])
 @login_required
 def edit_tunnel(tunnel_id):
@@ -183,7 +183,8 @@ def edit_tunnel(tunnel_id):
     except: current_config = {}
 
     if request.method == 'POST':
-        flash('To change core settings, please delete and recreate the tunnel.', 'info')
+        # فعلا ویرایش مستقیم را محدود می‌کنیم تا ناهماهنگی پیش نیاید
+        flash('To edit core settings, please recreate the tunnel.', 'info')
         return redirect(url_for('tunnels.list_tunnels'))
 
     return render_template('edit_tunnel.html', tunnel=tunnel, config=current_config)
@@ -195,6 +196,7 @@ def delete_tunnel(tunnel_id):
         tunnel = get_tunnel_by_id(tunnel_id)
         if tunnel:
             transport = tunnel[2]
+            # توقف سرویس‌ها بر اساس نوع تانل
             if "rathole" in transport: 
                 svc = f"rathole-iran{tunnel[3]}"
                 os.system(f"systemctl stop {svc} && systemctl disable {svc} && rm /etc/systemd/system/{svc}.service")
@@ -204,9 +206,11 @@ def delete_tunnel(tunnel_id):
                 os.system("systemctl stop slipstream-client && systemctl disable slipstream-client")
             else:
                 stop_and_delete_backhaul()
+            
             delete_tunnel_by_id(tunnel_id)
             os.system("systemctl daemon-reload")
-            flash('Tunnel deleted.', 'success')
+            flash('Tunnel deleted successfully.', 'success')
     except Exception as e:
         flash(f'Error deleting tunnel: {str(e)}', 'danger')
+        
     return redirect(url_for('tunnels.list_tunnels'))

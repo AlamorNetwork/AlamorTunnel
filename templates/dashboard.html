@@ -390,22 +390,28 @@ function trackProgress(taskId) {
         fetch(`/task-status/${taskId}`)
         .then(res => res.json())
         .then(data => {
-            bar.style.width = data.progress + '%';
-            bar.innerText = data.progress + '%';
-            log.innerText = data.log;
+            // جلوگیری از Undefined
+            const progress = data.progress || 0;
+            const logMsg = data.log || "Processing...";
+            const status = data.status || "queued";
 
-            if(data.status === 'completed') {
+            bar.style.width = progress + '%';
+            bar.innerText = progress + '%';
+            log.innerText = logMsg;
+
+            if(status === 'completed') {
                 clearInterval(interval);
                 bar.classList.replace('bg-primary', 'bg-success');
                 spinner.classList.add('d-none');
                 successDiv.classList.remove('d-none');
-            } else if(data.status === 'error') {
+            } else if(status === 'error') {
                 clearInterval(interval);
                 bar.classList.replace('bg-primary', 'bg-danger');
                 spinner.classList.add('d-none');
                 errorDiv.classList.remove('d-none');
             }
-        });
+        })
+        .catch(err => console.log("Polling error:", err));
     }, 1000);
 }
 </script>
