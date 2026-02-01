@@ -117,5 +117,345 @@
     </div>
 </div>
 
-{% include "modals_partial.html" %} 
+<div class="modal fade" id="connectModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-panel border-0 p-0">
+            <div class="modal-header border-0 border-bottom border-secondary">
+                <h5 class="modal-title fw-bold text-white"><i class="fas fa-link me-2"></i>Connect Foreign Server</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form action="{{ url_for('dashboard.connect_server') }}" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label text-primary-neon small">SERVER IP ADDRESS</label>
+                        <input name="ip" class="form-control" placeholder="e.g. 192.168.1.1" required>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label text-primary-neon small">USERNAME</label>
+                            <input name="username" class="form-control" value="root">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label text-primary-neon small">SSH PORT</label>
+                            <input type="number" name="port" class="form-control" value="22">
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label text-primary-neon small">PASSWORD</label>
+                        <input name="password" type="password" class="form-control" required>
+                    </div>
+                    <button class="btn btn-glass w-100 py-2">Establish Connection</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="hysteriaModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="hysteriaForm" class="modal-content glass-panel border-0 p-0">
+            <div class="modal-header border-0 border-bottom border-secondary">
+                <h5 class="modal-title fw-bold text-hysteria">Configure Hysteria 2</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label text-muted small">TUNNEL PORT (UDP)</label>
+                        <input type="number" name="tunnel_port" class="form-control" placeholder="e.g. 443" required>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label text-muted small">PORTS TO FORWARD</label>
+                        <input type="text" name="forward_ports" class="form-control" placeholder="e.g. 8080, 8443" required>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-muted small">UPLOAD (Mbps)</label>
+                        <input type="number" name="up_mbps" class="form-control" value="100">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-muted small">DOWNLOAD (Mbps)</label>
+                        <input type="number" name="down_mbps" class="form-control" value="100">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 p-4 pt-0">
+                <button type="button" class="btn btn-glass w-100 py-2" onclick="startInstall('hysteria', 'hysteriaForm')">Install (Async)</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="slipstreamModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="slipstreamForm" class="modal-content glass-panel border-0 p-0">
+            <div class="modal-header border-0 border-bottom border-secondary">
+                <h5 class="modal-title fw-bold" style="color: #a855f7;">Configure Slipstream</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="alert alert-info bg-transparent border-info text-info small mb-3">
+                    <i class="fas fa-clock me-1"></i> Compilation takes 5-10 minutes.
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted small">FAKE DOMAIN (SNI)</label>
+                    <input type="text" name="domain" class="form-control" value="dl.google.com">
+                </div>
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label text-muted small">TUNNEL PORT (UDP)</label>
+                        <input name="tunnel_port" class="form-control" value="8853">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-muted small">CLIENT PORT (IRAN)</label>
+                        <input name="client_port" class="form-control" value="8443">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-muted small">DEST PORT (FOREIGN)</label>
+                        <input name="dest_port" class="form-control" value="8080">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 p-4 pt-0">
+                <button type="button" class="btn btn-glass w-100 py-2" onclick="startInstall('slipstream', 'slipstreamForm')">Build & Install (Async)</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="ratholeModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="ratholeForm" class="modal-content glass-panel border-0 p-0">
+            <div class="modal-header border-0 border-bottom border-secondary">
+                <h5 class="modal-title fw-bold text-rathole">Configure Rathole</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="mb-3">
+                    <label class="form-label text-muted small">TRANSPORT</label>
+                    <select name="transport" class="form-select">
+                        <option value="tcp">TCP (Standard)</option>
+                        <option value="websocket">WebSocket</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted small">TUNNEL PORT</label>
+                    <input name="tunnel_port" type="number" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted small">PORTS TO FORWARD</label>
+                    <input name="forward_ports" class="form-control" placeholder="8080, 2096" required>
+                </div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" name="nodelay" checked>
+                    <label class="form-check-label text-white small">TCP NoDelay</label>
+                </div>
+            </div>
+            <div class="modal-footer border-0 p-4 pt-0">
+                <button type="button" class="btn btn-glass w-100 py-2" onclick="startInstall('rathole', 'ratholeForm')">Install (Async)</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="backhaulModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <form id="backhaulForm" class="modal-content glass-panel border-0 p-0">
+            <div class="modal-header border-0 border-bottom border-secondary">
+                <h5 class="modal-title fw-bold text-backhaul">Backhaul Enterprise</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            
+            <div class="modal-body p-4" style="max-height: 75vh; overflow-y: auto;">
+                <h6 class="text-accent text-uppercase mb-3 small fw-bold text-white">Basic Configuration</h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">TRANSPORT</label>
+                        <select name="transport" class="form-select">
+                            <option value="tcp">TCP</option>
+                            <option value="tcpmux">TCP Mux</option>
+                            <option value="ws">WebSocket</option>
+                            <option value="wss">WebSocket Secure</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">TUNNEL PORT</label>
+                        <input name="tunnel_port" type="number" class="form-control" placeholder="3080" required>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label text-muted small">PORT RULES</label>
+                        <textarea name="port_rules" class="form-control font-mono" rows="3" placeholder="443&#10;8080=8080"></textarea>
+                    </div>
+                </div>
+
+                <div class="text-center mb-3">
+                    <button class="btn btn-sm btn-outline-light rounded-pill px-4" type="button" data-bs-toggle="collapse" data-bs-target="#advSettings">
+                        <i class="fas fa-cog me-2"></i>Advanced Settings
+                    </button>
+                </div>
+
+                <div class="collapse" id="advSettings">
+                    <div class="p-3 bg-black bg-opacity-25 rounded border border-secondary border-opacity-25">
+                        <h6 class="text-white small fw-bold mb-3 pb-1 border-bottom border-secondary border-opacity-25">Optimization</h6>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4"><label class="form-label text-muted small">KEEPALIVE</label><input type="number" name="keepalive_period" class="form-control form-control-sm" value="75"></div>
+                            <div class="col-md-4"><label class="form-label text-muted small">HEARTBEAT</label><input type="number" name="heartbeat" class="form-control form-control-sm" value="40"></div>
+                            <div class="col-md-4"><label class="form-label text-muted small">MUX CON</label><input type="number" name="mux_con" class="form-control form-control-sm" value="8"></div>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="nodelay" checked><label class="form-check-label text-white small">TCP NoDelay</label></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 p-4 pt-0">
+                <button type="button" class="btn btn-glass w-100 py-2" onclick="startInstall('backhaul', 'backhaulForm')">Deploy Configuration (Async)</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="gostModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="gostForm" class="modal-content glass-panel border-0 p-0">
+            <div class="modal-header border-0 border-bottom border-secondary">
+                <h5 class="modal-title fw-bold" style="color: #14b8a6;">
+                    <i class="fas fa-ghost me-2"></i>Configure GOST
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="alert alert-info bg-transparent border-info text-info small mb-3">
+                    Mode: <b>Relay+TLS</b> (Secure Tunnel)
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label text-muted small">TUNNEL PORT (UDP/TCP)</label>
+                    <input name="tunnel_port" type="number" class="form-control" value="8443" placeholder="Communication Port">
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-6">
+                        <label class="form-label text-muted small">CLIENT PORT (IRAN)</label>
+                        <input name="client_port" type="number" class="form-control" value="2080" placeholder="User connects here">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-muted small">DEST PORT (FOREIGN)</label>
+                        <input name="dest_port" type="number" class="form-control" value="8080" placeholder="Target App (e.g X-UI)">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 p-4 pt-0">
+                <button type="button" class="btn btn-glass w-100 py-2" onclick="startInstall('gost', 'gostForm')">
+                    Install GOST (Async)
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="progressModal" data-bs-backdrop="static" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-panel border-0">
+            <div class="modal-body p-5 text-center">
+                <div class="mb-4">
+                    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
+                </div>
+                <h4 class="text-white fw-bold mb-2">Installing Tunnel...</h4>
+                <p class="text-muted small mb-4" id="progressLog">Initializing installation process...</p>
+                <div class="progress bg-dark border border-secondary" style="height: 25px; border-radius: 12px;">
+                    <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 5%">5%</div>
+                </div>
+                <div id="completionActions" class="mt-4 d-none">
+                    <p class="text-success fw-bold"><i class="fas fa-check-circle me-2"></i>Installation Complete!</p>
+                    <button class="btn btn-glass px-4" onclick="location.reload()">Refresh Dashboard</button>
+                </div>
+                <div id="errorActions" class="mt-4 d-none">
+                    <p class="text-danger fw-bold"><i class="fas fa-times-circle me-2"></i>Installation Failed!</p>
+                    <button class="btn btn-outline-light px-4" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function startInstall(protocol, formId) {
+    const form = document.getElementById(formId);
+    const formData = new FormData(form);
+    
+    // بستن مودال کانفیگ
+    const configModalEl = form.closest('.modal');
+    const configModal = bootstrap.Modal.getInstance(configModalEl);
+    configModal.hide();
+
+    // باز کردن مودال پیشرفت
+    const progressModal = new bootstrap.Modal(document.getElementById('progressModal'));
+    progressModal.show();
+
+    // ریست کردن وضعیت مودال
+    document.getElementById('progressBar').style.width = '5%';
+    document.getElementById('progressBar').classList.remove('bg-success', 'bg-danger');
+    document.getElementById('progressBar').classList.add('bg-primary');
+    document.querySelector('.spinner-border').classList.remove('d-none');
+    document.getElementById('completionActions').classList.add('d-none');
+    document.getElementById('errorActions').classList.add('d-none');
+
+    // ارسال درخواست
+    fetch(`/start-install/${protocol}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.status === 'started') {
+            trackProgress(data.task_id);
+        } else {
+            alert('Error: ' + data.message);
+            progressModal.hide();
+        }
+    })
+    .catch(err => {
+        alert('Network Error');
+        progressModal.hide();
+    });
+}
+
+function trackProgress(taskId) {
+    const bar = document.getElementById('progressBar');
+    const log = document.getElementById('progressLog');
+    const successDiv = document.getElementById('completionActions');
+    const errorDiv = document.getElementById('errorActions');
+    const spinner = document.querySelector('.spinner-border');
+
+    const interval = setInterval(() => {
+        fetch(`/task-status/${taskId}`)
+        .then(res => res.json())
+        .then(data => {
+            const progress = data.progress || 0;
+            const logMsg = data.log || "Processing...";
+            const status = data.status || "queued";
+
+            bar.style.width = progress + '%';
+            bar.innerText = progress + '%';
+            log.innerText = logMsg;
+
+            if(status === 'completed') {
+                clearInterval(interval);
+                bar.classList.replace('bg-primary', 'bg-success');
+                spinner.classList.add('d-none');
+                successDiv.classList.remove('d-none');
+            } else if(status === 'error') {
+                clearInterval(interval);
+                bar.classList.replace('bg-primary', 'bg-danger');
+                spinner.classList.add('d-none');
+                errorDiv.classList.remove('d-none');
+            }
+        })
+        .catch(err => console.log("Polling error:", err));
+    }, 1000);
+}
+</script>
+
 {% endblock %}
