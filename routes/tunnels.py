@@ -32,7 +32,7 @@ def get_server_public_ip():
                 return output
         except:
             continue
-    return "127.0.0.1"  # اگر پیدا نشد، پیش‌فرض امن
+    return "127.0.0.1"
 
 # --- GENERATORS ---
 def process_gost(server_ip, config):
@@ -125,21 +125,17 @@ def start_install(protocol):
         task_queue.put((task_id, process_rathole, (server[0], iran_ip, config)))
         
     elif protocol == 'backhaul':
-        # اصلاح: دریافت IP واقعی به جای HTML خطا
         iran_ip = request.form.get('iran_ip_manual') or get_server_public_ip()
         
         config['token'] = generate_token()
         
-        # پردازش پورت‌ها
         raw_ports = request.form.get('port_rules', '').strip()
         config['port_rules'] = [l.strip() for l in raw_ports.split('\n') if l.strip()]
         
-        # فیلدهای بولین
         bool_fields = ['accept_udp', 'nodelay', 'sniffer', 'skip_optz', 'aggressive_pool']
         for f in bool_fields:
             config[f] = request.form.get(f) == 'on'
             
-        # فیلدهای عددی
         int_fields = [
             'keepalive_period', 'heartbeat', 'mux_con', 'channel_size', 'mss', 
             'so_rcvbuf', 'so_sndbuf', 'mux_version', 'mux_framesize', 
@@ -151,7 +147,6 @@ def start_install(protocol):
             if val and val.isdigit():
                 config[f] = int(val)
         
-        # مسیر سرتیفیکیت
         config['tls_cert'] = '/root/certs/server.crt'
         config['tls_key'] = '/root/certs/server.key'
         
@@ -166,7 +161,6 @@ def tunnel_stats(tunnel_id):
     if not tunnel: return jsonify({'error': 'Not found'})
     
     try:
-        # مدیریت انواع داده برای جلوگیری از کرش
         port_val = tunnel['port'] if tunnel['port'] else "0"
         port = int(port_val)
     except:
@@ -179,9 +173,10 @@ def tunnel_stats(tunnel_id):
     health = check_port_health(port, proto)
     return jsonify({'rx_bytes': rx, 'tx_bytes': tx, 'status': health['status'], 'latency': health['latency']})
 
+# --- اصلاح نام تابع در اینجا انجام شد ---
 @tunnels_bp.route('/server/speedtest')
 @login_required
-def server_speedtest_route():
+def server_speedtest():
     return jsonify(run_speedtest())
 
 @tunnels_bp.route('/tunnels')
@@ -219,7 +214,7 @@ def delete_tunnel(tunnel_id):
         elif "rathole" in transport: 
             svc = f"rathole-iran{port}"
             os.system(f"systemctl stop {svc} && systemctl disable {svc} && rm /etc/systemd/system/{svc}.service")
-        elif "backhaul" in transport: # حذف مخصوص بکهال
+        elif "backhaul" in transport: 
              stop_and_delete_backhaul()
              
     delete_tunnel_by_id(tunnel_id)
