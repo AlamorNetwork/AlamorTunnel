@@ -6,69 +6,51 @@ from core.ssl_manager import generate_self_signed_cert
 
 # --- CONFIGURATION ---
 INSTALL_DIR = "/root/AlamorTunnel/bin"
-
-# لینک دانلود برای سرور ایران (مخزن شخصی)
 LOCAL_REPO = "http://files.irplatforme.ir/files/backhaul.tar.gz"
-
-# لینک دانلود کمکی (گیت‌هاب) - اگر مخزن شخصی کار نکرد
 REMOTE_REPO = "https://github.com/Musixal/Backhaul/releases/latest/download/backhaul_linux_amd64.tar.gz"
 
 def check_binary(binary_name):
-    """دانلود هوشمند با بررسی حجم فایل"""
+    """دانلود هوشمند (نسخه بهبود یافته)"""
     file_path = f"{INSTALL_DIR}/{binary_name}"
     
-    # 1. اگر فایل وجود دارد و سالم است (حجم > 1MB)
     if os.path.exists(file_path) and os.path.getsize(file_path) > 1024 * 1024: 
         return True
     
-    # اگر فایل ناقص وجود دارد، پاکش کن
     if os.path.exists(file_path): os.remove(file_path)
     
-    print(f"[Manager] Downloading {binary_name} from Private Repo...")
     try:
         if not os.path.exists(INSTALL_DIR): os.makedirs(INSTALL_DIR)
         
-        # دانلود فایل فشرده
-        # تلاش اول: مخزن شخصی
-        archive_path = f"{file_path}.tar.gz"
-        subprocess.run(f"curl -L -f -o {archive_path} {LOCAL_REPO}", shell=True, check=True)
+        # دانلود از مخزن شخصی
+        subprocess.run(f"curl -L -f -o {file_path}.tar.gz {LOCAL_REPO}", shell=True, check=True)
         
-        # بررسی حجم فایل دانلود شده (باید بیشتر از 100 کیلوبایت باشد)
-        if os.path.getsize(archive_path) < 100 * 1024:
-            print(f"[Error] Downloaded file is too small ({os.path.getsize(archive_path)} bytes). It's likely an HTML error page.")
-            os.remove(archive_path)
-            raise Exception("Invalid file size from Local Repo")
+        # چک حجم
+        if os.path.getsize(f"{file_path}.tar.gz") < 100 * 1024:
+            raise Exception("File too small")
 
-        # اکسترکت
-        subprocess.run(f"tar -xzf {archive_path} -C {INSTALL_DIR}", shell=True, check=True)
+        subprocess.run(f"tar -xzf {file_path}.tar.gz -C {INSTALL_DIR}", shell=True, check=True)
         subprocess.run(f"chmod +x {file_path}", shell=True, check=True)
         
-        # پاک کردن آرشیو
-        if os.path.exists(archive_path): os.remove(archive_path)
+        if os.path.exists(f"{file_path}.tar.gz"): os.remove(f"{file_path}.tar.gz")
         return True
 
-    except Exception as e:
-        print(f"[Manager] Local Download Failed: {e}")
-        print("[Manager] Switching to GitHub Backup...")
+    except:
+        # فال‌بک به گیت‌هاب
         try:
-            # تلاش دوم: دانلود از گیت‌هاب
-            archive_path = f"{file_path}.tar.gz"
-            subprocess.run(f"curl -L -f -o {archive_path} {REMOTE_REPO}", shell=True, check=True)
-            subprocess.run(f"tar -xzf {archive_path} -C {INSTALL_DIR}", shell=True, check=True)
+            subprocess.run(f"curl -L -f -o {file_path}.tar.gz {REMOTE_REPO}", shell=True, check=True)
+            subprocess.run(f"tar -xzf {file_path}.tar.gz -C {INSTALL_DIR}", shell=True, check=True)
             subprocess.run(f"chmod +x {file_path}", shell=True, check=True)
-            if os.path.exists(archive_path): os.remove(archive_path)
+            if os.path.exists(f"{file_path}.tar.gz"): os.remove(f"{file_path}.tar.gz")
             return True
-        except Exception as e2:
-             print(f"[Manager] Critical Failure: {e2}")
-             return False
+        except:
+            return False
 
 def generate_token():
     return secrets.token_hex(16)
 
 def install_local_backhaul(config):
-    # چک کردن باینری
     if not check_binary("backhaul"):
-        raise Exception("Binary installation failed. Check server logs.")
+        raise Exception("Backhaul binary failed to download locally.")
 
     tls_lines = ""
     if config['transport'] in ["wss", "wssmux"]:
@@ -78,6 +60,7 @@ def install_local_backhaul(config):
     port_rules = config.get('port_rules', [])
     formatted_ports = ",\n    ".join([f'"{p.strip()}"' for p in port_rules if p.strip()])
 
+    # کانفیگ سرور ایران (Server Mode)
     config_content = f"""
 [server]
 bind_addr = "0.0.0.0:{config['tunnel_port']}"
@@ -103,9 +86,7 @@ so_rcvbuf = {config.get('so_rcvbuf', 4194304)}
 so_sndbuf = {config.get('so_sndbuf', 1048576)}
 {tls_lines}
 
-ports = [
-    {formatted_ports}
-]
+ports = [ {formatted_ports} ]
 """
     with open(f"{INSTALL_DIR}/backhaul_config.toml", "w") as f:
         f.write(config_content)
@@ -135,16 +116,25 @@ def install_remote_backhaul(ssh_target_ip, iran_connect_ip, config):
     clean_ip = iran_connect_ip.strip()
     edge_line = f'edge_ip = "{config["edge_ip"]}"' if config.get('edge_ip') else ""
     
-    # سرور خارج می‌تواند مستقیم از گیت‌هاب بگیرد
+    # اسکریپت نصب روی سرور خارج (Client Mode)
     remote_script = f"""
+    # اطمینان از نصب ابزارهای لازم
+    if ! command -v curl &> /dev/null; then
+        apt-get update && apt-get install -y curl
+    fi
+
     mkdir -p {INSTALL_DIR}
+    
+    # دانلود باینری (اگر نیست)
     if [ ! -f {INSTALL_DIR}/backhaul ]; then
-        echo "Downloading Backhaul from GitHub..."
+        echo "Downloading Backhaul..."
         curl -L -f --max-time 60 -o {INSTALL_DIR}/backhaul.tar.gz {REMOTE_REPO}
+        if [ $? -ne 0 ]; then echo "Download Failed"; exit 1; fi
         tar -xzf {INSTALL_DIR}/backhaul.tar.gz -C {INSTALL_DIR}
         chmod +x {INSTALL_DIR}/backhaul
     fi
     
+    # ساخت کانفیگ کلاینت
     cat > {INSTALL_DIR}/client_config.toml <<EOL
 [client]
 remote_addr = "{clean_ip}:{config['tunnel_port']}"
@@ -171,6 +161,7 @@ so_rcvbuf = {config.get('so_rcvbuf', 4194304)}
 so_sndbuf = {config.get('so_sndbuf', 1048576)}
 EOL
 
+    # ساخت سرویس
     cat > /etc/systemd/system/backhaul.service <<EOL
 [Unit]
 Description=Backhaul Client
@@ -186,7 +177,10 @@ WantedBy=multi-user.target
 EOL
 
     systemctl daemon-reload && systemctl enable backhaul && systemctl restart backhaul
+    echo "Backhaul Client Started Successfully."
     """
+    
+    # اجرای دستور و بازگرداندن نتیجه
     return run_remote_command(ssh_target_ip, remote_script)
 
 def stop_and_delete_backhaul():
