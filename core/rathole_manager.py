@@ -4,7 +4,7 @@ from core.ssh_manager import run_remote_command
 
 # --- CONFIGURATION ---
 INSTALL_DIR = "/root/AlamorTunnel/bin"
-LOCAL_REPO = "https://files.irplatforme.ir/files/rathole.tar.gz"
+LOCAL_REPO = "http://files.irplatforme.ir/files/rathole.tar.gz"
 REMOTE_REPO = "https://github.com/rapiz1/rathole/releases/latest/download/rathole-x86_64-unknown-linux-gnu.zip"
 
 def check_binary(binary_name):

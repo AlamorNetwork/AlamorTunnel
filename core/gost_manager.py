@@ -4,7 +4,7 @@ from core.ssh_manager import run_remote_command
 
 # --- CONFIGURATION ---
 INSTALL_DIR = "/root/AlamorTunnel/bin"
-LOCAL_REPO = "https://files.irplatforme.ir/files/gost.tar.gz"
+LOCAL_REPO = "http://files.irplatforme.ir/files/gost.tar.gz"
 REMOTE_REPO = "https://github.com/ginuerzh/gost/releases/download/v2.11.5/gost-linux-amd64-2.11.5.gz"
 
 def check_binary(binary_name):

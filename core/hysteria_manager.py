@@ -5,7 +5,7 @@ from core.ssh_manager import run_remote_command
 
 # --- CONFIGURATION ---
 INSTALL_DIR = "/root/AlamorTunnel/bin"
-LOCAL_REPO = "https://files.irplatforme.ir/files/hysteria.tar.gz"
+LOCAL_REPO = "http://files.irplatforme.ir/files/hysteria.tar.gz"
 REMOTE_REPO = "https://github.com/apernet/hysteria/releases/latest/download/hysteria-linux-amd64"
 
 def check_binary(binary_name):

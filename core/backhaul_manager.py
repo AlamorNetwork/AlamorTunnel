@@ -6,7 +6,7 @@ from core.ssl_manager import generate_self_signed_cert
 
 # --- CONFIGURATION ---
 INSTALL_DIR = "/root/AlamorTunnel/bin"
-LOCAL_REPO = "https://files.irplatforme.ir/files/backhaul.tar.gz"
+LOCAL_REPO = "http://files.irplatforme.ir/files/backhaul.tar.gz"
 REMOTE_REPO = "https://github.com/Musixal/Backhaul/releases/latest/download/backhaul_linux_amd64.tar.gz"
 
 def check_binary(binary_name):
