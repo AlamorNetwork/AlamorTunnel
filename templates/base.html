@@ -1,12 +1,60 @@
-{% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div class="glass-card py-3 px-4 mb-4 d-flex align-items-center border-start border-4 border-{{ category }} animate__animated animate__fadeInDown" 
-                 style="background: rgba(0,0,0,0.6); border-radius: 4px; box-shadow: 0 5px 15px rgba(0,0,0,0.5);">
-                <i class="fas fa-bell me-3 text-{{ category }} fa-lg" style="text-shadow: 0 0 10px currentColor;"></i>
-                <span class="fw-bold text-white font-monospace">{{ message }}</span>
-                <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="alert"></button>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AlamorHub | Neural Network</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css', v='3.0') }}" rel="stylesheet">
+</head>
+<body>
+    
+    <nav class="navbar navbar-expand-lg navbar-glass sticky-top mb-5">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('dashboard.index') }}">
+                <i class="fas fa-cube me-2 text-primary-neon fa-spin-hover"></i>
+                ALAMOR<span style="font-weight:300; color:var(--primary-neon)">HUB</span>
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
+                <i class="fas fa-bars text-white"></i>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navMenu">
+                <ul class="navbar-nav ms-auto align-items-center">
+                    <li class="nav-item"><a class="nav-link fw-bold mx-2" href="{{ url_for('dashboard.index') }}">OVERVIEW</a></li>
+                    <li class="nav-item"><a class="nav-link mx-2" href="{{ url_for('tunnels.list_tunnels') }}">ACTIVE LINKS</a></li>
+                    <li class="nav-item"><a class="nav-link mx-2" href="{{ url_for('settings.index') }}">SYSTEM</a></li>
+                    
+                    <li class="nav-item ms-4">
+                        <a href="{{ url_for('auth.logout') }}" class="btn btn-glass-danger px-4 py-2 text-white text-decoration-none shadow-sm" style="font-size: 0.8rem;">
+                            LOGOUT
+                        </a>
+                    </li>
+                </ul>
             </div>
-        {% endfor %}
-    {% endif %}
-{% endwith %}
+        </div>
+    </nav>
+
+    <div class="container pb-5">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="glass-card py-3 px-4 mb-4 d-flex align-items-center border-start border-4 border-{{ category }} animate__animated animate__fadeInDown" 
+                         style="background: rgba(0,0,0,0.6); border-radius: 4px; box-shadow: 0 5px 15px rgba(0,0,0,0.5);">
+                        <i class="fas fa-bell me-3 text-{{ category }} fa-lg" style="text-shadow: 0 0 10px currentColor;"></i>
+                        <span class="fw-bold text-white font-monospace">{{ message }}</span>
+                        <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</body>
+</html>
