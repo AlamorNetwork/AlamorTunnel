@@ -1,4 +1,3 @@
-# AlamorTunnel/routes/auth.py
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from core.database import check_user
 import functools
@@ -16,7 +15,6 @@ def login_required(view):
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
-    # اگر کاربر قبلا لاگین بود، مستقیم برود به داشبورد
     if 'user' in session:
         return redirect(url_for('dashboard.index'))
 
@@ -24,24 +22,20 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         
-        try:
-            # بررسی اعتبار سنجی در دیتابیس
-            user = check_user(username, password)
-            
-            if user:
-                session.permanent = True  # فعال سازی ماندگاری سشن
-                session['user'] = user[0]
-                flash(f'Welcome back, {username}!', 'success')
-                return redirect(url_for('dashboard.index'))
-            else:
-                flash('Invalid credentials. Please try again.', 'danger')
-        except Exception as e:
-            flash(f'System Error: {str(e)}', 'danger')
+        user = check_user(username, password)
+        
+        if user:
+            session.permanent = True
+            session['user'] = user[0]
+            # اینجا خودکار به /dashboard/ میره
+            return redirect(url_for('dashboard.index'))
+        else:
+            flash('Invalid credentials.', 'danger')
             
     return render_template('login.html')
 
 @auth_bp.route('/logout')
 def logout():
     session.pop('user', None)
-    flash('You have been logged out.', 'info')
+    flash('Logged out.', 'info')
     return redirect(url_for('auth.login'))

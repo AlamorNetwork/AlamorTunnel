@@ -7,10 +7,10 @@ from routes.settings import settings_bp
 from core.tasks import task_queue, task_status
 import os
 import threading
-import time
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+# یک کلید ثابت برای جلوگیری از لاگ‌اوت شدن بعد از هر ریستارت
+app.secret_key = 'alamor_super_secret_fixed_key_change_this'
 
 def worker():
     while True:
@@ -38,13 +38,19 @@ def get_task_status(task_id):
     return jsonify(task_status.get(task_id, {'status': 'queued', 'progress': 0}))
 
 init_db()
+
+# --- REGISTER BLUEPRINTS ---
 app.register_blueprint(auth_bp)
-app.register_blueprint(dashboard_bp)
+# اصلاح مهم: افزودن پیشوند برای جلوگیری از لوپ
+app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
 app.register_blueprint(tunnels_bp)
 app.register_blueprint(settings_bp)
 
 @app.route('/')
-def root(): return redirect(url_for('dashboard.index'))
+def root():
+    # حالا این ریدایرکت امن است چون به /dashboard/ می‌رود
+    return redirect(url_for('dashboard.index'))
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5050, debug=True, use_reloader=False)
+    # use_reloader=True برای اعمال تغییرات بدون ریستارت دستی
+    app.run(host='0.0.0.0', port=5050, debug=True, use_reloader=True)

@@ -1,5 +1,5 @@
 # AlamorTunnel/routes/dashboard.py
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash
 from core.database import get_connected_server, add_server, remove_server
 from core.ssh_manager import verify_ssh_connection
 from routes.auth import login_required
@@ -11,14 +11,11 @@ dashboard_bp = Blueprint('dashboard', __name__)
 def index():
     try:
         server = get_connected_server()
-        # server[0] همان IP است
         server_ip = server[0] if server else None
-        
-        # اصلاح مهم: تغییر نام فایل از index.html به dashboard.html
+        # رندر کردن قالب جدید و کامل
         return render_template('dashboard.html', server_ip=server_ip)
     except Exception as e:
         flash(f"Error loading dashboard: {str(e)}", "danger")
-        # اینجا هم باید dashboard.html باشد
         return render_template('dashboard.html', server_ip=None)
 
 @dashboard_bp.route('/connect-server', methods=['POST'])
@@ -36,7 +33,6 @@ def connect_server():
         flash('IP and Password are required.', 'warning')
         return redirect(url_for('dashboard.index'))
 
-    # تست اتصال SSH قبل از ذخیره
     if verify_ssh_connection(ip, user, password, port):
         add_server(ip, user, password, port)
         flash('Foreign Server Connected Successfully!', 'success')
