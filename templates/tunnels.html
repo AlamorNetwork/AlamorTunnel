@@ -13,61 +13,67 @@
 
 <div class="glass-card p-0 overflow-hidden">
     <div class="table-responsive">
-        <table class="table mb-0 align-middle" style="color: #ccc;">
-            <thead style="background: rgba(0,0,0,0.3); border-bottom: 1px solid rgba(255,255,255,0.1);">
-                <tr class="text-uppercase small font-monospace" style="letter-spacing: 1px; color: var(--primary-neon);">
-                    <th class="ps-4 py-3 border-0">ID</th>
-                    <th class="py-3 border-0">Node Name</th>
-                    <th class="py-3 border-0">Protocol</th>
-                    <th class="py-3 border-0">Port</th>
-                    <th class="text-end pe-4 py-3 border-0">Operations</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for tunnel in tunnels %}
-                <tr style="transition: 0.2s; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td class="ps-4 border-0 font-monospace text-muted">#{{ tunnel['id'] }}</td>
-                    <td class="border-0 fw-bold text-white">{{ tunnel['name'] }}</td>
-                    <td class="border-0">
-                        {% if 'hysteria' in tunnel['transport'] %}
-                            <span class="badge bg-transparent border border-danger text-danger shadow-sm">HYSTERIA</span>
-                        {% elif 'rathole' in tunnel['transport'] %}
-                            <span class="badge bg-transparent border border-warning text-warning shadow-sm">RATHOLE</span>
-                        {% elif 'gost' in tunnel['transport'] %}
-                            <span class="badge bg-transparent border border-success text-success shadow-sm">GOST</span>
-                        {% else %}
-                            <span class="badge bg-transparent border border-info text-info shadow-sm">BACKHAUL</span>
-                        {% endif %}
-                    </td>
-                    <td class="border-0 font-monospace" style="color: var(--secondary-neon);">{{ tunnel['port'] }}</td>
-                    <td class="text-end pe-4 border-0">
-                        <button class="btn btn-sm btn-outline-light rounded-circle me-1" 
-                                onclick="openMonitor('{{tunnel['id']}}', '{{tunnel['name']}}')" 
-                                title="Live Telemetry" style="width: 35px; height: 35px;">
-                            <i class="fas fa-satellite-dish"></i>
-                        </button>
-                        
-                        <a href="{{ url_for('tunnels.edit_tunnel', tunnel_id=tunnel['id']) }}" class="btn btn-sm btn-outline-info rounded-circle me-1" title="Config" style="width: 35px; height: 35px;">
-                            <i class="fas fa-microchip"></i>
-                        </a>
-                        <a href="{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel['id']) }}" class="btn btn-sm btn-outline-danger rounded-circle" onclick="return confirm('Terminate this neural link?')" style="width: 35px; height: 35px;">
-                            <i class="fas fa-trash-alt"></i>
-                        </a>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="5" class="text-center py-5">
-                        <div class="opacity-25">
-                            <i class="fas fa-wind fa-3x mb-3"></i>
-                            <p class="font-monospace">NO ACTIVE SIGNALS DETECTED</p>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+    <table class="table mb-0 align-middle"> 
+        <thead style="background: rgba(0,0,0,0.4); border-bottom: 2px solid rgba(255,255,255,0.1);">
+            <tr class="text-uppercase small font-monospace" style="letter-spacing: 1px;">
+                <th class="ps-4 py-3 border-0">ID</th>
+                <th class="py-3 border-0">Node Name</th>
+                <th class="py-3 border-0">Protocol</th>
+                <th class="py-3 border-0">Port</th>
+                <th class="text-end pe-4 py-3 border-0">Operations</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for tunnel in tunnels %}
+            <tr style="transition: 0.2s; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                <td class="ps-4 border-0 font-monospace fw-bold text-white-50">#{{ tunnel['id'] }}</td>
+                <td class="border-0 fw-bold fs-5">{{ tunnel['name'] }}</td>
+                <td class="border-0">
+                    {% if 'hysteria' in tunnel['transport'] %}
+                        <span class="badge bg-danger bg-opacity-25 border border-danger text-danger shadow-sm px-3">HYSTERIA</span>
+                    {% elif 'rathole' in tunnel['transport'] %}
+                        <span class="badge bg-warning bg-opacity-25 border border-warning text-warning shadow-sm px-3">RATHOLE</span>
+                    {% elif 'gost' in tunnel['transport'] %}
+                        <span class="badge bg-success bg-opacity-25 border border-success text-success shadow-sm px-3">GOST</span>
+                    {% else %}
+                        <span class="badge bg-info bg-opacity-25 border border-info text-info shadow-sm px-3">BACKHAUL</span>
+                    {% endif %}
+                </td>
+                <td class="border-0 font-monospace fs-5" style="color: var(--primary-neon); text-shadow: 0 0 5px var(--primary-neon);">{{ tunnel['port'] }}</td>
+                <td class="text-end pe-4 border-0 py-3">
+                    <button class="btn-icon-glow btn-monitor me-2" 
+                            onclick="openMonitor('{{tunnel['id']}}', '{{tunnel['name']}}')" 
+                            title="Live Telemetry">
+                        <i class="fas fa-satellite-dish"></i>
+                    </button>
+                    
+                    <a href="{{ url_for('tunnels.edit_tunnel', tunnel_id=tunnel['id']) }}" 
+                       class="btn-icon-glow btn-config me-2" 
+                       title="Config">
+                        <i class="fas fa-microchip"></i>
+                    </a>
+                    
+                    <a href="{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel['id']) }}" 
+                       class="btn-icon-glow btn-delete" 
+                       onclick="return confirm('Terminate this neural link?')" 
+                       title="Delete">
+                        <i class="fas fa-trash-alt"></i>
+                    </a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" class="text-center py-5 text-white-50">
+                    <div class="opacity-50">
+                        <i class="fas fa-wind fa-3x mb-3"></i>
+                        <p class="font-monospace fs-5">NO ACTIVE SIGNALS DETECTED</p>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 </div>
 
 <div class="modal fade" id="monitorModal" tabindex="-1">
