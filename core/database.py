@@ -13,25 +13,47 @@ def get_db():
 def init_db():
     conn = get_db()
     c = conn.cursor()
+    
+    # ساخت جداول
     c.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, password TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS servers (ip TEXT PRIMARY KEY, user TEXT, password TEXT, port INTEGER)''')
     c.execute('''CREATE TABLE IF NOT EXISTS tunnels (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, transport TEXT, port TEXT, token TEXT, config TEXT, status TEXT DEFAULT 'active')''')
     
+    # یوزر پیش‌فرض
     c.execute("SELECT * FROM users WHERE username='admin'")
     if not c.fetchone():
         c.execute("INSERT INTO users VALUES ('admin', 'admin')")
     
     conn.commit()
     
-    # --- بازیابی خودکار از فایل‌ها ---
-    c.execute("SELECT count(*) FROM tunnels")
-    if c.fetchone()[0] == 0:
-        print("Restoring tunnels from file backups...")
-        backups = load_all_configs()
-        for b in backups:
-            c.execute("INSERT INTO tunnels (name, transport, port, token, config, status) VALUES (?, ?, ?, ?, ?, ?)", 
-                      (b['name'], b['transport'], b['port'], b['token'], b['config'], 'active'))
-        conn.commit()
+    # --- بازیابی هوشمند از فایل‌ها (Fix KeyError) ---
+    try:
+        c.execute("SELECT count(*) FROM tunnels")
+        if c.fetchone()[0] == 0:
+            print("Restoring tunnels from file backups...")
+            backups = load_all_configs()
+            for b in backups:
+                try:
+                    # استفاده از .get() برای جلوگیری از ارور در صورت ناقص بودن بکاپ
+                    name = b.get('name', f"Recovered-{b.get('transport', 'tunnel')}-{b.get('port', '0')}")
+                    transport = b.get('transport', 'unknown')
+                    port = str(b.get('port', '0'))
+                    token = b.get('token', '')
+                    config = b.get('config', '{}')
+                    
+                    # اطمینان از اینکه کانفیگ استرینگ است
+                    if not isinstance(config, str):
+                        config = json.dumps(config)
+                        
+                    c.execute("INSERT INTO tunnels (name, transport, port, token, config, status) VALUES (?, ?, ?, ?, ?, ?)", 
+                              (name, transport, port, token, config, 'active'))
+                    print(f"Restored tunnel: {name}")
+                except Exception as e:
+                    print(f"Skipping corrupt backup file: {e}")
+            conn.commit()
+    except Exception as e:
+        print(f"Database Init Error: {e}")
+        
     conn.close()
 
 # --- توابع کاربر ---
@@ -94,7 +116,7 @@ def add_tunnel(name, transport, port, token, config_dict):
     conn.commit()
     conn.close()
     
-    # 2. فایل
+    # 2. فایل (برای بکاپ)
     save_tunnel_config({
         'id': tunnel_id, 'name': name, 'transport': transport, 
         'port': str(port), 'token': token, 'config': config_dict
