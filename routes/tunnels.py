@@ -8,7 +8,7 @@ from core.gost_manager import install_gost_server_remote, install_gost_client_lo
 from core.traffic import get_traffic_stats, check_port_health, run_speedtest
 from core.tasks import task_queue, init_task, task_status
 from routes.auth import login_required
-import uuid
+from core.ssl_manager import set_root_tunnel 
 import os
 import subprocess
 import json
@@ -25,6 +25,31 @@ def get_task_status(task_id):
     status = task_status.get(task_id, {'progress': 0, 'status': 'queued', 'log': 'Waiting...'})
     return jsonify(status)
 
+
+
+
+def process_backhaul(server_ip, iran_ip, config):
+    yield 10, f"Connecting to Remote Server..."
+    success, msg = install_remote_backhaul(server_ip, iran_ip, config)
+    if not success: raise Exception(msg)
+    
+    yield 50, "Remote Done. Installing Local..."
+    install_local_backhaul(config)
+    
+    # === تنظیم تانل روی Root (443) ===
+    if config['transport'] in ['ws', 'wss', 'wsmux', 'wssmux']:
+        yield 70, "Binding Tunnel to Domain Root (443)..."
+        ok, nginx_msg = set_root_tunnel(config['tunnel_port'])
+        if ok:
+            config['ws_path'] = "/"
+            config['domain_url'] = f"https://{load_config().get('panel_domain')}"
+        else:
+            yield 75, f"Warning: Nginx Error ({nginx_msg})"
+    # =================================
+    
+    yield 90, "Saving..."
+    add_tunnel("Backhaul Tunnel", config['transport'], config['tunnel_port'], config['token'], config)
+    yield 100, "Done!"
 # --- WORKER FUNCTION ---
 def run_task_in_background(task_id, func, args):
     try:

@@ -580,7 +580,7 @@ function trackProgress(taskId) {
     const spinner = document.querySelector('.spinner-border');
 
     // استفاده از آدرس صحیح برای وضعیت تسک
-    const statusUrl = "{{ url_for('get_task_status', task_id='__ID__') }}".replace('__ID__', taskId);
+    const statusUrl = "{{ url_for('tunnels.get_task_status', task_id='__ID__') }}".replace('__ID__', taskId);
 
     const interval = setInterval(() => {
         fetch(statusUrl)
