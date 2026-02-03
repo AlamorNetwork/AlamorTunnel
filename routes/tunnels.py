@@ -9,13 +9,14 @@ from core.traffic import get_traffic_stats, check_port_health, run_speedtest
 from core.tasks import task_queue, init_task, task_status
 from routes.auth import login_required
 from core.ssl_manager import set_root_tunnel 
+from core.config_loader import load_config
 import os
 import subprocess
 import json
 import re
 import threading
 import time
-
+import uuid
 tunnels_bp = Blueprint('tunnels', __name__)
 
 # --- API وضعیت تسک (برای پروگرس بار) ---
