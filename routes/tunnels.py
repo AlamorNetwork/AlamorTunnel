@@ -9,6 +9,7 @@ from core.traffic import get_traffic_stats, check_port_health, run_speedtest
 from core.tasks import task_queue, init_task, task_status
 from routes.auth import login_required
 from core.ssl_manager import set_root_tunnel 
+import psutil
 from core.config_loader import load_config
 import os
 import subprocess
@@ -128,6 +129,23 @@ def process_rathole(server_ip, iran_ip, config):
     yield 100, "Done!"
 
 # --- ROUTES ---
+@tunnels_bp.route('/stats/<int:id>')
+def get_tunnel_stats(id):
+    try:
+        # دریافت آمار واقعی سرور
+        net = psutil.net_io_counters()
+        cpu = psutil.cpu_percent(interval=None)
+        
+        return jsonify({
+            'status': 'online',
+            'cpu': cpu,
+            'ram': psutil.virtual_memory().percent,
+            # تبدیل بایت به مگابایت
+            'tx': round(net.bytes_sent / 1024 / 1024, 2),
+            'rx': round(net.bytes_recv / 1024 / 1024, 2)
+        })
+    except:
+        return jsonify({'status': 'offline', 'cpu': 0, 'tx': 0, 'rx': 0})
 @tunnels_bp.route('/start-install/<protocol>', methods=['POST'])
 @login_required
 def start_install(protocol):
@@ -213,7 +231,7 @@ def list_tunnels():
     tunnels = get_all_tunnels()
     return render_template('tunnels.html', tunnels=tunnels)
 
-@tunnels_bp.route('/tunnel/stats/<int:tunnel_id>')
+@tunnels_bp.route('/stats/<int:tunnel_id>')
 @login_required
 def tunnel_stats(tunnel_id):
     tunnel = get_tunnel_by_id(tunnel_id)
@@ -239,7 +257,7 @@ def delete_tunnel(tunnel_id):
     return redirect(url_for('tunnels.list_tunnels'))
 
 # --- روت ویرایش (که باعث خطا شده بود) ---
-@tunnels_bp.route('/tunnel/edit/<int:tunnel_id>')
+@tunnels_bp.route('/edit/<int:tunnel_id>')
 @login_required
 def edit_tunnel(tunnel_id):
     tunnel = get_tunnel_by_id(tunnel_id)

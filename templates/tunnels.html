@@ -163,6 +163,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+// اضافه کردن این خط در ابتدای اسکریپت
+const BASE_URL = "{{ url_for('tunnels.index') }}".replace(/\/tunnel\/$/, '');
 let chartInstance = null;
 let updateInterval = null;
 let currentTunnelId = null;
@@ -258,7 +260,7 @@ function initChart() {
 function fetchStats() {
     if (!currentTunnelId) return;
 
-    fetch(`/tunnel/stats/${currentTunnelId}`)
+    fetch(${BASE_URL}/tunnel/stats/${currentTunnelId})
         .then(res => res.json())
         .then(data => {
             // آپدیت متن‌ها
