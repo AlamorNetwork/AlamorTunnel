@@ -164,7 +164,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 // اضافه کردن این خط در ابتدای اسکریپت
-const BASE_URL = "{{ url_for('tunnels.index') }}".replace(/\/tunnel\/$/, '');
+const BASE_URL = "{{ url_for('tunnels.list_tunnels') }}".replace(/\/tunnels$/, '');
 let chartInstance = null;
 let updateInterval = null;
 let currentTunnelId = null;
