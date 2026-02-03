@@ -167,8 +167,20 @@ def start_install(protocol):
     elif protocol == 'hysteria':
         raw = config.get('forward_ports', '')
         config['ports'] = [p.strip() for p in raw.split(',') if p.strip().isdigit()]
+        
+        # دریافت پسوردها (اگر خالی بود، تولید کن)
         config['password'] = config.get('password') or generate_pass()
         config['obfs_pass'] = config.get('obfs_pass') or generate_pass()
+        
+        # دریافت تنظیمات پیشرفته از فرم
+        # اگر کاربر چیزی وارد نکرد، مقادیر پیش‌فرض را ست می‌کنیم
+        config['hop_start'] = config.get('hop_start', '20000')
+        config['hop_end'] = config.get('hop_end', '50000')
+        config['hop_interval'] = config.get('hop_interval', '30s')
+        config['up_mbps'] = config.get('up_mbps', '1000')
+        config['down_mbps'] = config.get('down_mbps', '1000')
+        config['masq_url'] = config.get('masq_url', 'https://www.bing.com')
+        
         target_func = process_hysteria
         args = (server[0], config)
         

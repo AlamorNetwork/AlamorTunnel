@@ -152,34 +152,75 @@
 </div>
 
 <div class="modal fade" id="hysteriaModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
         <form id="hysteriaForm" class="modal-content glass-panel border-0 p-0">
             <div class="modal-header border-0 border-bottom border-secondary">
-                <h5 class="modal-title fw-bold text-hysteria">Configure Hysteria 2</h5>
+                <h5 class="modal-title fw-bold text-hysteria">
+                    <i class="fas fa-dragon me-2"></i>Hysteria 2 Advanced Config
+                </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body p-4">
-                <div class="row g-3">
-                    <div class="col-12">
-                        <label class="form-label text-muted small">TUNNEL PORT (UDP)</label>
-                        <input type="number" name="tunnel_port" class="form-control" placeholder="e.g. 443" required>
+            <div class="modal-body p-4" style="max-height: 75vh; overflow-y: auto;">
+                
+                <h6 class="text-white-50 border-bottom border-secondary pb-2 mb-3">CORE SETTINGS</h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">MAIN PORT (TCP/UDP)</label>
+                        <input type="number" name="tunnel_port" class="form-control" placeholder="e.g. 443" value="443" required>
+                        <div class="form-text text-white-50 small">The actual listening port on server.</div>
                     </div>
-                    <div class="col-12">
-                        <label class="form-label text-muted small">PORTS TO FORWARD</label>
-                        <input type="text" name="forward_ports" class="form-control" placeholder="e.g. 8080, 8443" required>
-                    </div>
-                    <div class="col-6">
-                        <label class="form-label text-muted small">UPLOAD (Mbps)</label>
-                        <input type="number" name="up_mbps" class="form-control" value="100">
-                    </div>
-                    <div class="col-6">
-                        <label class="form-label text-muted small">DOWNLOAD (Mbps)</label>
-                        <input type="number" name="down_mbps" class="form-control" value="100">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">OBFUSCATION PASSWORD</label>
+                        <input type="text" name="obfs_pass" class="form-control font-monospace" placeholder="Random if empty">
                     </div>
                 </div>
+
+                <h6 class="text-white-50 border-bottom border-secondary pb-2 mb-3">PORT HOPPING (ANTI-FILTER)</h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label text-muted small">HOP START PORT</label>
+                        <input type="number" name="hop_start" class="form-control" value="20000">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted small">HOP END PORT</label>
+                        <input type="number" name="hop_end" class="form-control" value="50000">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted small">INTERVAL (Seconds)</label>
+                        <input type="text" name="hop_interval" class="form-control" value="30s">
+                    </div>
+                    <div class="col-12">
+                        <div class="alert alert-info bg-opacity-10 border-info border-opacity-25 p-2 small mb-0">
+                            <i class="fas fa-info-circle me-1"></i> Client connects to random ports in this range. Server redirects them to Main Port via iptables.
+                        </div>
+                    </div>
+                </div>
+
+                <h6 class="text-white-50 border-bottom border-secondary pb-2 mb-3">BRUTAL & STEALTH</h6>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">UPLOAD (Mbps)</label>
+                        <input type="number" name="up_mbps" class="form-control" value="1000">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">DOWNLOAD (Mbps)</label>
+                        <input type="number" name="down_mbps" class="form-control" value="1000">
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label text-muted small">MASQUERADE URL (Fake Site)</label>
+                        <input type="url" name="masq_url" class="form-control font-monospace" value="https://www.bing.com">
+                    </div>
+                    <div class="col-12">
+                         <label class="form-label text-muted small">PORTS TO FORWARD (LOCAL)</label>
+                         <input type="text" name="forward_ports" class="form-control" placeholder="e.g. 8080, 8443" required>
+                    </div>
+                </div>
+
             </div>
             <div class="modal-footer border-0 p-4 pt-0">
-                <button type="button" class="btn btn-glass w-100 py-2" onclick="startInstall('hysteria', 'hysteriaForm')">Install (Async)</button>
+                <button type="button" class="btn btn-glass w-100 py-2" onclick="startInstall('hysteria', 'hysteriaForm')">
+                    DEPLOY ADVANCED HYSTERIA
+                </button>
             </div>
         </form>
     </div>

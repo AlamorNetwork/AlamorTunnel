@@ -3,48 +3,55 @@ import secrets
 import subprocess
 from core.ssh_manager import run_remote_command
 from core.ssl_manager import generate_self_signed_cert
-
+import hashlib
 # --- CONFIGURATION ---
 INSTALL_DIR = "/root/AlamorTunnel/bin"
 LOCAL_REPO = "http://files.irplatforme.ir/files/backhaul.tar.gz"
 REMOTE_REPO = "https://github.com/Musixal/Backhaul/releases/latest/download/backhaul_linux_amd64.tar.gz"
 
+def calculate_md5(file_path):
+    hash_md5 = hashlib.md5()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_md5.update(chunk)
+    return hash_md5.hexdigest()
+
 def check_binary(binary_name):
-    """دانلود هوشمند (نسخه بهبود یافته)"""
-    file_path = f"{INSTALL_DIR}/{binary_name}"
+    # مسیر باینری را دینامیک می‌سازیم
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    install_dir = os.path.join(base_dir, "bin")
+    file_path = os.path.join(install_dir, binary_name)
     
-    if os.path.exists(file_path) and os.path.getsize(file_path) > 1024 * 1024: 
+    # اگر فایل هست و حجمش منطقی است (زیر 1 مگ نباشد)
+    if os.path.exists(file_path) and os.path.getsize(file_path) > 1024 * 1024:
         return True
     
     if os.path.exists(file_path): os.remove(file_path)
-    
+    if not os.path.exists(install_dir): os.makedirs(install_dir)
+
+    print(f"Downloading {binary_name}...")
+
+    # تلاش اول: ریپوی شخصی (پرسرعت)
     try:
-        if not os.path.exists(INSTALL_DIR): os.makedirs(INSTALL_DIR)
-        
-        # دانلود از مخزن شخصی
-        subprocess.run(f"curl -L -f -o {file_path}.tar.gz {LOCAL_REPO}", shell=True, check=True)
-        
-        # چک حجم
-        if os.path.getsize(f"{file_path}.tar.gz") < 100 * 1024:
-            raise Exception("File too small")
-
-        subprocess.run(f"tar -xzf {file_path}.tar.gz -C {INSTALL_DIR}", shell=True, check=True)
-        subprocess.run(f"chmod +x {file_path}", shell=True, check=True)
-        
-        if os.path.exists(f"{file_path}.tar.gz"): os.remove(f"{file_path}.tar.gz")
-        return True
-
+        subprocess.run(f"curl -L -f --max-time 10 -o {file_path}.tar.gz {LOCAL_REPO}", shell=True, check=True)
     except:
-        # فال‌بک به گیت‌هاب
+        print("Local repo failed, switching to GitHub...")
+        # تلاش دوم: گیت‌هاب (فال‌بک)
         try:
             subprocess.run(f"curl -L -f -o {file_path}.tar.gz {REMOTE_REPO}", shell=True, check=True)
-            subprocess.run(f"tar -xzf {file_path}.tar.gz -C {INSTALL_DIR}", shell=True, check=True)
-            subprocess.run(f"chmod +x {file_path}", shell=True, check=True)
-            if os.path.exists(f"{file_path}.tar.gz"): os.remove(f"{file_path}.tar.gz")
-            return True
-        except:
+        except Exception as e:
+            print(f"FATAL: Could not download {binary_name} from any source.")
             return False
 
+    # استخراج
+    try:
+        subprocess.run(f"tar -xzf {file_path}.tar.gz -C {install_dir}", shell=True, check=True)
+        subprocess.run(f"chmod +x {file_path}", shell=True, check=True)
+        if os.path.exists(f"{file_path}.tar.gz"): os.remove(f"{file_path}.tar.gz")
+        return True
+    except Exception as e:
+        print(f"Extraction failed: {e}")
+        return False
 def generate_token():
     return secrets.token_hex(16)
 
