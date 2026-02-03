@@ -1,12 +1,11 @@
 import psutil
-import time
 import subprocess
 import json
 import re
 
 def get_traffic_stats(port=None, proto='tcp'):
     """
-    دریافت میزان مصرف شبکه کل سرور (دقیق‌ترین روش).
+    دریافت میزان مصرف شبکه کل سرور.
     """
     try:
         net_io = psutil.net_io_counters()
@@ -15,9 +14,8 @@ def get_traffic_stats(port=None, proto='tcp'):
         return 0, 0
 
 def check_port_health(port, proto='tcp'):
-    """بررسی سلامت پورت و سرویس"""
+    """بررسی سلامت پورت با استفاده از ss"""
     try:
-        # استفاده از ss برای سرعت بالا
         cmd = f"ss -l{proto}n | grep :{port}"
         output = subprocess.check_output(cmd, shell=True).decode()
         if str(port) in output:
@@ -27,49 +25,52 @@ def check_port_health(port, proto='tcp'):
     except:
         return {'status': 'inactive', 'latency': 'Down'}
 
-def run_speedtest():
+def run_advanced_speedtest(target_ip=None, local_port=None):
     """
-    اجرای تست سرعت بهینه شده برای ایران:
-    به جای speedtest-cli که فیلتر است، از curl و ping سیستم استفاده می‌کند.
+    اجرای تست سرعت هوشمند:
+    1. پینگ: اگر IP سرور خارج داده شود، به آن پینگ می‌زند (تأخیر تانل).
+    2. دانلود: یک فایل 10MB از کلادفلر دانلود می‌کند تا ظرفیت شبکه سرور را بسنجد.
     """
+    result = {
+        'ping': 'N/A',
+        'download': 'N/A',
+        'upload': 'N/A'
+    }
+
+    # 1. تست پینگ (Latency)
     try:
-        result = {}
-        
-        # 1. تست پینگ (به گوگل DNS)
-        try:
-            # ارسال 3 پکت و گرفتن میانگین
-            ping_cmd = "ping -c 3 8.8.8.8 | tail -1 | awk '{print $4}' | cut -d '/' -f 2"
-            ping_out = subprocess.check_output(ping_cmd, shell=True).decode().strip()
+        # اگر آی‌پی هدف (سرور خارج) داریم به آن پینگ بزن، اگر نه به گوگل
+        dest = target_ip if target_ip else "8.8.8.8"
+        ping_cmd = f"ping -c 3 {dest} | tail -1 | awk '{{print $4}}' | cut -d '/' -f 2"
+        ping_out = subprocess.check_output(ping_cmd, shell=True, timeout=5).decode().strip()
+        if ping_out:
             result['ping'] = f"{float(ping_out):.0f} ms"
-        except:
+        else:
             result['ping'] = "Timeout"
+    except:
+        result['ping'] = "Timeout"
 
-        # 2. تست سرعت دانلود (از Cloudflare)
-        try:
-            # دانلود 10 مگابایت و اندازه گیری سرعت
-            # فرمت خروجی: سرعت به بایت بر ثانیه
-            dl_cmd = "curl -L -o /dev/null -w '%{speed_download}' --max-time 15 http://speed.cloudflare.com/__down?bytes=10000000"
-            dl_out = subprocess.check_output(dl_cmd, shell=True).decode().strip()
-            
-            # تبدیل بایت/ثانیه به مگابیت/ثانیه (bps * 8 / 1,000,000)
-            speed_bps = float(dl_out)
-            speed_mbps = (speed_bps * 8) / (1024 * 1024)
-            result['download'] = f"{speed_mbps:.2f} Mbps"
-        except:
-            result['download'] = "Error"
-
-        # 3. آپلود (تخمین یا Skip)
-        # تست دقیق آپلود بدون سرور مقصد دشوار است، فعلاً N/A میزنیم تا سریع باشد
-        result['upload'] = "N/A"
+    # 2. تست دانلود (Throughput)
+    try:
+        # دانلود از کلادفلر (معمولاً در ایران باز است و سرعت واقعی را نشان می‌دهد)
+        # تایم‌اوت 15 ثانیه برای جلوگیری از گیر کردن پنل
+        dl_cmd = "curl -L -o /dev/null -w '%{speed_download}' --max-time 15 http://speed.cloudflare.com/__down?bytes=10000000"
         
-        # نام سرور (دریافت نام هاست خودمان)
-        try:
-            hostname = subprocess.check_output("hostname", shell=True).decode().strip()
-            result['server'] = f"Local: {hostname}"
-        except:
-            result['server'] = "Local Server"
-
-        return result
-
+        # اگر پورت پراکسی (SOCKS5) داده شده باشد، از داخل تانل تست کن (اختیاری)
+        # فعلاً مستقیم تست می‌کنیم چون کانفیگ‌های فعلی SOCKS نیستند
+        
+        dl_out = subprocess.check_output(dl_cmd, shell=True).decode().strip()
+        
+        # تبدیل بایت/ثانیه به مگابیت/ثانیه
+        speed_bps = float(dl_out)
+        speed_mbps = (speed_bps * 8) / (1024 * 1024)
+        result['download'] = f"{speed_mbps:.2f} Mbps"
+        
     except Exception as e:
-        return {'error': str(e)}
+        result['download'] = "Error"
+
+    # 3. تست آپلود (N/A)
+    # تست آپلود دقیق بدون سرور مقصد دشوار است
+    result['upload'] = "N/A"
+
+    return result
