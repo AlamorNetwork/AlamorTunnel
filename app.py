@@ -6,27 +6,37 @@ from routes.tunnels import tunnels_bp
 from routes.settings import settings_bp
 from routes.domains import domains_bp
 from core.tasks import task_queue, task_status
-from core.config_loader import load_config
+from core.config_loader import load_config, save_config
 from datetime import timedelta
 import os
 import threading
+import secrets
 
-# بارگذاری تنظیمات امنیتی
+# بارگذاری تنظیمات
 sys_config = load_config()
-PANEL_PATH = sys_config.get('panel_path', '') # مسیر مخفی (خالی یعنی پیش‌فرض)
+PANEL_PATH = sys_config.get('panel_path', '') 
 URL_PREFIX = f"/{PANEL_PATH}" if PANEL_PATH else ""
 
-# تنظیم مسیر استاتیک داینامیک (برای مخفی‌سازی کامل)
 app = Flask(__name__, static_url_path=f"{URL_PREFIX}/static")
 
-# --- SECURITY CONFIG ---
-app.secret_key = sys_config.get('secret_key', os.urandom(24).hex())
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30) # کوکی ۳۰ روزه
-app.config['SESSION_COOKIE_HTTPONLY'] = True # غیرقابل دسترسی توسط جاواسکریپت
-app.config['SESSION_COOKIE_SECURE'] = True if PANEL_PATH else False # فقط روی HTTPS (اگر پنل امن شده باشه)
-app.config['SESSION_COOKIE_NAME'] = 'alamor_secure_session'
+# --- SECURITY CONFIG (FIXED) ---
+# 1. Secret Key Persistence: جلوگیری از پریدن لاگین با ریستارت
+secret_key = sys_config.get('secret_key')
+if not secret_key:
+    secret_key = secrets.token_hex(32)
+    save_config('secret_key', secret_key)
+app.secret_key = secret_key
 
-# سیستم تسک‌ها (بدون تغییر)
+# 2. Session Config
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_NAME'] = 'alamor_session'
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
+# غیرفعال کردن موقت Secure برای حل مشکل لوپ لاگین در حالت IP
+app.config['SESSION_COOKIE_SECURE'] = False 
+
+# --- TASK SYSTEM ---
 def worker():
     while True:
         try:
@@ -54,24 +64,23 @@ def get_task_status(task_id):
 
 init_db()
 
-# --- REGISTER BLUEPRINTS (WITH DYNAMIC PREFIX) ---
-# همه بلوپرینت‌ها میرن زیر مسیر مخفی
+# --- BLUEPRINTS ---
 app.register_blueprint(auth_bp, url_prefix=f"{URL_PREFIX}/auth")
 app.register_blueprint(dashboard_bp, url_prefix=f"{URL_PREFIX}/dashboard")
 app.register_blueprint(tunnels_bp, url_prefix=f"{URL_PREFIX}/tunnel")
 app.register_blueprint(settings_bp, url_prefix=f"{URL_PREFIX}/settings")
 app.register_blueprint(domains_bp, url_prefix=f"{URL_PREFIX}/domains")
 
-# ریدایرکت روت اصلی به داشبورد مخفی
+# ریدایرکت روت
 @app.route(f'{URL_PREFIX}/')
 def root_redirect():
     return redirect(url_for('dashboard.index'))
 
-# اگر کسی آدرس قدیمی رو زد (بدون مسیر)، بره به مسیر جدید (یا ۴۰۴ بده که امن‌تره، ولی اینجا ریدایرکت می‌کنیم)
 if PANEL_PATH:
     @app.route('/')
     def global_root():
         return "Access Denied", 403
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5050, debug=True, use_reloader=True)
+    # Debug=False برای محیط پروداکشن
+    app.run(host='0.0.0.0', port=5050, debug=False, use_reloader=False)
