@@ -18,40 +18,9 @@ import re
 import threading
 import time
 import uuid
+
 tunnels_bp = Blueprint('tunnels', __name__)
 
-# --- API وضعیت تسک (برای پروگرس بار) ---
-@tunnels_bp.route('/api/task_status/<task_id>')
-@login_required
-def get_task_status(task_id):
-    status = task_status.get(task_id, {'progress': 0, 'status': 'queued', 'log': 'Waiting...'})
-    return jsonify(status)
-
-
-
-
-def process_backhaul(server_ip, iran_ip, config):
-    yield 10, f"Connecting to Remote Server..."
-    success, msg = install_remote_backhaul(server_ip, iran_ip, config)
-    if not success: raise Exception(msg)
-    
-    yield 50, "Remote Done. Installing Local..."
-    install_local_backhaul(config)
-    
-    # === تنظیم تانل روی Root (443) ===
-    if config['transport'] in ['ws', 'wss', 'wsmux', 'wssmux']:
-        yield 70, "Binding Tunnel to Domain Root (443)..."
-        ok, nginx_msg = set_root_tunnel(config['tunnel_port'])
-        if ok:
-            config['ws_path'] = "/"
-            config['domain_url'] = f"https://{load_config().get('panel_domain')}"
-        else:
-            yield 75, f"Warning: Nginx Error ({nginx_msg})"
-    # =================================
-    
-    yield 90, "Saving..."
-    add_tunnel("Backhaul Tunnel", config['transport'], config['tunnel_port'], config['token'], config)
-    yield 100, "Done!"
 # --- WORKER FUNCTION ---
 def run_task_in_background(task_id, func, args):
     try:
@@ -93,8 +62,18 @@ def process_backhaul(server_ip, iran_ip, config):
     try:
         install_local_backhaul(config)
     except Exception as e: raise Exception(f"Local Install Failed: {e}")
-        
-    yield 80, "Local Configured. Saving to DB..."
+    
+    # === تنظیم تانل روی Root (443) ===
+    if config['transport'] in ['ws', 'wss', 'wsmux', 'wssmux']:
+        yield 70, "Binding Tunnel to Domain Root (443)..."
+        ok, nginx_msg = set_root_tunnel(config['tunnel_port'])
+        if ok:
+            config['ws_path'] = "/"
+            config['domain_url'] = f"https://{load_config().get('panel_domain')}"
+        else:
+            yield 75, f"Warning: Nginx Error ({nginx_msg})"
+            
+    yield 90, "Local Configured. Saving to DB..."
     add_tunnel("Backhaul Tunnel", config['transport'], config['tunnel_port'], config['token'], config)
     yield 100, "Done!"
 
@@ -129,23 +108,13 @@ def process_rathole(server_ip, iran_ip, config):
     yield 100, "Done!"
 
 # --- ROUTES ---
-@tunnels_bp.route('/stats/<int:id>')
-def get_tunnel_stats(id):
-    try:
-        # دریافت آمار واقعی سرور
-        net = psutil.net_io_counters()
-        cpu = psutil.cpu_percent(interval=None)
-        
-        return jsonify({
-            'status': 'online',
-            'cpu': cpu,
-            'ram': psutil.virtual_memory().percent,
-            # تبدیل بایت به مگابایت
-            'tx': round(net.bytes_sent / 1024 / 1024, 2),
-            'rx': round(net.bytes_recv / 1024 / 1024, 2)
-        })
-    except:
-        return jsonify({'status': 'offline', 'cpu': 0, 'tx': 0, 'rx': 0})
+
+@tunnels_bp.route('/api/task_status/<task_id>')
+@login_required
+def get_task_status(task_id):
+    status = task_status.get(task_id, {'progress': 0, 'status': 'queued', 'log': 'Waiting...'})
+    return jsonify(status)
+
 @tunnels_bp.route('/start-install/<protocol>', methods=['POST'])
 @login_required
 def start_install(protocol):
@@ -166,9 +135,11 @@ def start_install(protocol):
         raw_ports = request.form.get('port_rules', '').strip()
         config['port_rules'] = [l.strip() for l in raw_ports.split('\n') if l.strip()]
         
+        # تبدیل چک‌باکس‌ها
         bool_fields = ['accept_udp', 'nodelay', 'sniffer', 'skip_optz', 'aggressive_pool']
         for f in bool_fields: config[f] = request.form.get(f) == 'on'
             
+        # تبدیل اعداد
         int_fields = ['keepalive_period', 'heartbeat', 'mux_con', 'channel_size', 'mss', 'so_rcvbuf', 'so_sndbuf', 'mux_version', 'mux_framesize', 'mux_recievebuffer', 'mux_streambuffer', 'web_port', 'dial_timeout', 'retry_interval', 'connection_pool', 'tunnel_port']
         for f in int_fields:
             if config.get(f) and config[f].isdigit(): config[f] = int(config[f])
@@ -186,20 +157,8 @@ def start_install(protocol):
     elif protocol == 'hysteria':
         raw = config.get('forward_ports', '')
         config['ports'] = [p.strip() for p in raw.split(',') if p.strip().isdigit()]
-        
-        # دریافت پسوردها (اگر خالی بود، تولید کن)
         config['password'] = config.get('password') or generate_pass()
         config['obfs_pass'] = config.get('obfs_pass') or generate_pass()
-        
-        # دریافت تنظیمات پیشرفته از فرم
-        # اگر کاربر چیزی وارد نکرد، مقادیر پیش‌فرض را ست می‌کنیم
-        config['hop_start'] = config.get('hop_start', '20000')
-        config['hop_end'] = config.get('hop_end', '50000')
-        config['hop_interval'] = config.get('hop_interval', '30s')
-        config['up_mbps'] = config.get('up_mbps', '1000')
-        config['down_mbps'] = config.get('down_mbps', '1000')
-        config['masq_url'] = config.get('masq_url', 'https://www.bing.com')
-        
         target_func = process_hysteria
         args = (server[0], config)
         
@@ -220,10 +179,13 @@ def start_install(protocol):
     
     return jsonify({'status': 'error', 'message': 'Unknown protocol'})
 
+# --- SPEEDTEST ROUTE (FIXED) ---
 @tunnels_bp.route('/server/speedtest')
 @login_required
 def server_speedtest():
-    return jsonify(run_speedtest())
+    """فراخوانی تست سرعت از traffic.py و بازگرداندن JSON"""
+    result = run_speedtest()
+    return jsonify(result)
 
 @tunnels_bp.route('/tunnels')
 @login_required
@@ -231,7 +193,7 @@ def list_tunnels():
     tunnels = get_all_tunnels()
     return render_template('tunnels.html', tunnels=tunnels)
 
-@tunnels_bp.route('/stats/<int:tunnel_id>')
+@tunnels_bp.route('/tunnel/stats/<int:tunnel_id>')
 @login_required
 def tunnel_stats(tunnel_id):
     tunnel = get_tunnel_by_id(tunnel_id)
@@ -256,8 +218,7 @@ def delete_tunnel(tunnel_id):
     flash('Tunnel deleted.', 'warning')
     return redirect(url_for('tunnels.list_tunnels'))
 
-# --- روت ویرایش (که باعث خطا شده بود) ---
-@tunnels_bp.route('/edit/<int:tunnel_id>')
+@tunnels_bp.route('/tunnel/edit/<int:tunnel_id>')
 @login_required
 def edit_tunnel(tunnel_id):
     tunnel = get_tunnel_by_id(tunnel_id)
@@ -272,7 +233,6 @@ def edit_tunnel(tunnel_id):
         
     return render_template('edit_tunnel.html', tunnel=tunnel, config=config)
 
-# --- روت آپدیت (POST) ---
 @tunnels_bp.route('/tunnel/update/<int:tunnel_id>', methods=['POST'])
 @login_required
 def update_tunnel(tunnel_id):
@@ -282,12 +242,9 @@ def update_tunnel(tunnel_id):
         return redirect(url_for('tunnels.list_tunnels'))
 
     config = request.form.to_dict()
-    # اینجا می‌توانید لاجیک آپدیت کانفیگ و ریستارت سرویس را اضافه کنید
-    # فعلاً فقط دیتابیس را آپدیت می‌کنیم
-    
     try:
         current_config = json.loads(tunnel['config'])
-        current_config.update(config) # آپدیت مقادیر جدید
+        current_config.update(config) 
         update_tunnel_config(tunnel_id, tunnel['name'], tunnel['transport'], tunnel['port'], current_config)
         flash('Tunnel configuration updated (Service restart required).', 'success')
     except Exception as e:
