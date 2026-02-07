@@ -305,3 +305,16 @@ def update_tunnel(tunnel_id):
         flash(f'Update failed: {str(e)}', 'danger')
         
     return redirect(url_for('tunnels.list_tunnels'))
+
+
+# --- SPEEDTEST SERVER (NEW) ---
+@tunnels_bp.route('/server-speedtest')
+@login_required
+def server_speedtest():
+    """تست سرعت کلی سرور (پینگ به گوگل و سرعت دانلود)"""
+    try:
+        # استفاده از همان تابع advanced speedtest بدون پارامتر (پیش‌فرض: تست اینترنت)
+        result = run_advanced_speedtest()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
