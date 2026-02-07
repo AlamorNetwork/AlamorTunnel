@@ -2,16 +2,27 @@ import os
 import yaml
 import secrets
 import logging
+import subprocess
 from core.ssh_manager import SSHManager
 
-# تنظیم لاگ برای عیب‌یابی داخل پنل
+# LOGGING
 logging.basicConfig(filename='/root/AlamorTunnel/install_debug.log', level=logging.DEBUG, format='%(asctime)s %(message)s')
 
-# --- CONSTANTS ---
-HYSTERIA_BIN_PATH = "/root/alamor/bin/hysteria"
-SERVER_CONFIG_PATH = "/root/alamor/bin/config.yaml"
+# CONSTANTS
+REMOTE_BIN_PATH = "/root/alamor/bin/hysteria"
+REMOTE_CONFIG_PATH = "/root/alamor/bin/config.yaml"
+LOCAL_BIN_PATH = "/root/AlamorTunnel/bin/hysteria"
+LOCAL_CONFIG_PATH = "/root/AlamorTunnel/bin/client.yaml"
 STATS_PORT = 9999
 HOP_RANGE = "20000:50000"
+
+# ==========================================
+# 1. HELPER FUNCTIONS
+# ==========================================
+
+def generate_pass():
+    """تولید رمز تصادفی برای تانل"""
+    return secrets.token_hex(16)
 
 def generate_server_config(config):
     stats_secret = secrets.token_hex(8)
@@ -42,12 +53,15 @@ def generate_server_config(config):
     }
     return yaml.dump(server_conf), stats_secret
 
+# ==========================================
+# 2. REMOTE SERVER INSTALLATION (KHAAREJ)
+# ==========================================
+
 def install_hysteria_server_remote(server_ip, config):
     ssh = SSHManager()
     ssh_port = int(config.get('ssh_port', 22))
     ssh_pass = config.get('ssh_pass')
 
-    # تابع اجرای دستور (ساده شده)
     def run(name, cmd):
         logging.info(f"CMD [{name}]: {cmd}")
         ok, out = ssh.run_remote_command(server_ip, "root", ssh_pass, cmd, ssh_port)
@@ -57,46 +71,33 @@ def install_hysteria_server_remote(server_ip, config):
         logging.info(f"OK [{name}]: {out[:50]}...")
         return True, out
 
-    # 1. تست اتصال
-    ok, msg = run("Check Connection", "whoami")
-    if not ok: return False, msg
-
-    # 2. ساخت پوشه‌ها
+    # Steps
+    if not run("Check Connection", "whoami")[0]: return False, "SSH Connection Failed"
     run("Mkdir", "mkdir -p /root/alamor/bin /root/alamor/certs")
-
-    # 3. نصب پیش‌نیازها (دقیقاً کدی که در تست جواب داد)
+    
     deps_cmd = "export DEBIAN_FRONTEND=noninteractive; apt-get update -y && apt-get install -y iptables iptables-persistent openssl ca-certificates"
-    ok, msg = run("Install Deps", deps_cmd)
-    if not ok: return False, msg
+    if not run("Install Deps", deps_cmd)[0]: return False, "Deps Failed"
 
-    # 4. ساخت سرتیفیکیت
     cert_cmd = (
         "openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 "
         "-subj '/CN=www.bing.com' "
         "-keyout /root/alamor/certs/server.key -out /root/alamor/certs/server.crt"
     )
-    ok, msg = run("Generate Cert", cert_cmd)
-    if not ok: return False, msg
+    if not run("Generate Cert", cert_cmd)[0]: return False, "Cert Failed"
 
-    # 5. دانلود هسته
     dl_cmd = (
-        f"curl -L -k -o {HYSTERIA_BIN_PATH} "
+        f"curl -L -k -o {REMOTE_BIN_PATH} "
         "https://github.com/apernet/hysteria/releases/latest/download/hysteria-linux-amd64 "
-        f"&& chmod +x {HYSTERIA_BIN_PATH}"
+        f"&& chmod +x {REMOTE_BIN_PATH}"
     )
-    ok, msg = run("Download Core", dl_cmd)
-    if not ok: return False, msg
+    if not run("Download Core", dl_cmd)[0]: return False, "Download Failed"
 
-    # 6. کانفیگ
     yaml_content, stats_secret = generate_server_config(config)
     config['stats_secret'] = stats_secret
     
-    # نوشتن کانفیگ
-    write_cmd = f"cat <<EOF > {SERVER_CONFIG_PATH}\n{yaml_content}\nEOF"
-    ok, msg = run("Write Config", write_cmd)
-    if not ok: return False, msg
+    write_cmd = f"cat <<EOF > {REMOTE_CONFIG_PATH}\n{yaml_content}\nEOF"
+    if not run("Write Config", write_cmd)[0]: return False, "Config Failed"
 
-    # 7. فایروال (Port Hopping)
     tunnel_port = config['tunnel_port']
     fw_cmd = (
         f"iptables -t nat -F PREROUTING; "
@@ -105,29 +106,101 @@ def install_hysteria_server_remote(server_ip, config):
     )
     run("Firewall", fw_cmd)
 
-    # 8. فایل سرویس
     svc_content = f"""[Unit]
 Description=Hysteria 2 Server
 After=network.target
-
 [Service]
 Type=simple
-ExecStart={HYSTERIA_BIN_PATH} server -c {SERVER_CONFIG_PATH}
+ExecStart={REMOTE_BIN_PATH} server -c {REMOTE_CONFIG_PATH}
 WorkingDirectory=/root/alamor/bin
 User=root
 Restart=always
 RestartSec=3
-
 [Install]
 WantedBy=multi-user.target
 """
     svc_cmd = f"cat <<EOF > /etc/systemd/system/hysteria-server.service\n{svc_content}\nEOF"
     run("Service File", svc_cmd)
 
-    # 9. استارت نهایی
     ok, msg = run("Start", "systemctl daemon-reload && systemctl restart hysteria-server && systemctl is-active hysteria-server")
     
     if "active" in msg or "running" in msg:
         return True, "Installation Successful"
-    else:
-        return False, f"Service failed to start. Status: {msg}"
+    return False, f"Service Failed: {msg}"
+
+# ==========================================
+# 3. LOCAL CLIENT INSTALLATION (IRAN)
+# ==========================================
+
+def install_hysteria_client_local(server_ip, config):
+    """
+    نصب کلاینت روی سرور ایران برای اتصال به خارج
+    """
+    try:
+        # 1. Download Local Binary
+        if not os.path.exists(LOCAL_BIN_PATH):
+            os.makedirs(os.path.dirname(LOCAL_BIN_PATH), exist_ok=True)
+            subprocess.run(f"curl -L -k -o {LOCAL_BIN_PATH} https://github.com/apernet/hysteria/releases/latest/download/hysteria-linux-amd64", shell=True, check=True)
+            subprocess.run(f"chmod +x {LOCAL_BIN_PATH}", shell=True, check=True)
+
+        # 2. Generate Client Config
+        client_conf = {
+            "server": f"{server_ip}:{HOP_RANGE}",
+            "auth": config['password'],
+            "tls": {
+                "sni": "www.bing.com",
+                "insecure": True
+            },
+            "bandwidth": {
+                "up": config.get('up_mbps', '100 mbps'),
+                "down": config.get('down_mbps', '100 mbps')
+            },
+            "socks5": {
+                "listen": "0.0.0.0:1080" # Default Socks5
+            },
+            "http": {
+                "listen": "0.0.0.0:8080" # Default HTTP
+            }
+        }
+        
+        # Port Forwarding (اگر کاربر پورت خاصی خواسته بود)
+        if 'ports' in config and config['ports']:
+            tcp_fw = []
+            udp_fw = []
+            ports = str(config['ports']).split(',')
+            for p in ports:
+                if p.strip():
+                    tcp_fw.append({"listen": f"0.0.0.0:{p}", "remote": f"127.0.0.1:{p}"})
+                    udp_fw.append({"listen": f"0.0.0.0:{p}", "remote": f"127.0.0.1:{p}", "timeout": "60s"})
+            client_conf['tcpForwarding'] = tcp_fw
+            client_conf['udpForwarding'] = udp_fw
+
+        with open(LOCAL_CONFIG_PATH, 'w') as f:
+            yaml.dump(client_conf, f)
+
+        # 3. Create Local Service
+        svc_content = f"""[Unit]
+Description=Hysteria Client (Iran)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart={LOCAL_BIN_PATH} client -c {LOCAL_CONFIG_PATH}
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+"""
+        with open("/etc/systemd/system/hysteria-client.service", "w") as f:
+            f.write(svc_content)
+
+        # 4. Start Local Service
+        os.system("systemctl daemon-reload")
+        os.system("systemctl enable hysteria-client")
+        os.system("systemctl restart hysteria-client")
+        
+        return True, "Client Installed Successfully"
+
+    except Exception as e:
+        return False, f"Local Install Error: {str(e)}"
