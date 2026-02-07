@@ -8,25 +8,24 @@ class SSHManager:
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         
         try:
-            # اتصال با تایم‌اوت مشخص
-            client.connect(ip, port=int(port), username=user, password=password, timeout=10, banner_timeout=10)
+            # اتصال به سرور
+            client.connect(ip, port=int(port), username=user, password=password, timeout=15, banner_timeout=15)
             
-            # اجرای دستور
-            # get_pty=False برای جلوگیری از کاراکترهای عجیب ترمینال
-            stdin, stdout, stderr = client.exec_command(command, get_pty=False)
+            # نکته طلایی: get_pty=True
+            # این گزینه باعث می‌شود سرور فکر کند ما یک ترمینال واقعی هستیم و دستور را Kill نکند
+            stdin, stdout, stderr = client.exec_command(command, get_pty=True)
             
-            # خواندن خروجی‌ها
+            # خواندن خروجی
             out = stdout.read().decode('utf-8', errors='ignore').strip()
+            # در حالت PTY، ارورها هم معمولا در stdout می آیند، اما stderr را هم میخوانیم
             err = stderr.read().decode('utf-8', errors='ignore').strip()
             
             exit_status = stdout.channel.recv_exit_status()
             client.close()
 
-            # ترکیب خروجی و ارور برای دیباگ بهتر
             full_output = f"{out}\n{err}".strip()
             
             if exit_status != 0:
-                # اگر دستور با خطا بسته شد
                 return False, f"Exit Code {exit_status}: {full_output}"
             
             return True, full_output
@@ -34,8 +33,6 @@ class SSHManager:
         except socket.timeout:
             return False, "SSH Connection Timed Out"
         except paramiko.AuthenticationException:
-            return False, "SSH Authentication Failed (Wrong Password)"
-        except paramiko.SSHException as e:
-            return False, f"SSH Protocol Error: {str(e)}"
+            return False, "SSH Authentication Failed"
         except Exception as e:
-            return False, f"General Error: {str(e)}"
+            return False, f"SSH Error: {str(e)}"

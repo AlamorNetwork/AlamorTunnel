@@ -4,7 +4,7 @@ import secrets
 import logging
 from core.ssh_manager import SSHManager
 
-# --- LOGGING ---
+# تنظیم لاگ
 logging.basicConfig(filename='/root/AlamorTunnel/install_debug.log', level=logging.DEBUG, format='%(asctime)s %(message)s')
 
 # --- CONSTANTS ---
@@ -47,26 +47,26 @@ def install_hysteria_server_remote(server_ip, config):
     ssh_port = int(config.get('ssh_port', 22))
     ssh_pass = config.get('ssh_pass')
 
-    # تابع اجرای دستور ساده شده
+    # تابع اجرای دستور (ساده و بدون پیچیدگی)
     def run(name, cmd):
         logging.info(f"CMD [{name}]: {cmd}")
-        # حذف timeout و bash -c که باعث ارور exit-signal می‌شدند
         ok, out = ssh.run_remote_command(server_ip, "root", ssh_pass, cmd, ssh_port)
         if not ok:
             logging.error(f"FAIL [{name}]: {out}")
-            return False, f"{name} Failed: {out}"
+            # اینجا ارور دقیق را برمی‌گرداند
+            return False, f"Step '{name}' Failed: {out}"
         logging.info(f"OK [{name}]: {out[:50]}...")
         return True, out
 
-    # 1. تست اتصال
-    ok, msg = run("Check Connection", "echo 'SSH OK'")
+    # 1. تست اتصال (ساده‌ترین دستور ممکن)
+    ok, msg = run("Check Connection", "whoami")
     if not ok: return False, msg
 
-    # 2. ساخت پوشه
+    # 2. ساخت پوشه‌ها
     run("Mkdir", "mkdir -p /root/alamor/bin /root/alamor/certs")
 
-    # 3. نصب پیش‌نیازها (ساده شده)
-    # اضافه کردن DEBIAN_FRONTEND=noninteractive بسیار حیاتی است
+    # 3. نصب پیش‌نیازها
+    # استفاده از DEBIAN_FRONTEND برای جلوگیری از گیر کردن apt
     apt_cmd = "export DEBIAN_FRONTEND=noninteractive; apt-get update -y && apt-get install -y iptables iptables-persistent openssl"
     ok, msg = run("Install Deps", apt_cmd)
     if not ok: return False, msg
@@ -80,7 +80,7 @@ def install_hysteria_server_remote(server_ip, config):
     ok, msg = run("Generate Cert", cert_cmd)
     if not ok: return False, msg
 
-    # 5. دانلود هسته (با -k برای نادیده گرفتن SSL سرورهای قدیمی)
+    # 5. دانلود هسته
     dl_cmd = (
         f"curl -L -k -o {HYSTERIA_BIN_PATH} "
         "https://github.com/apernet/hysteria/releases/latest/download/hysteria-linux-amd64 "
@@ -93,12 +93,12 @@ def install_hysteria_server_remote(server_ip, config):
     yaml_content, stats_secret = generate_server_config(config)
     config['stats_secret'] = stats_secret
     
-    # نوشتن کانفیگ (حذف فایل قبلی برای اطمینان)
-    write_cmd = f"rm -f {SERVER_CONFIG_PATH}; cat <<EOF > {SERVER_CONFIG_PATH}\n{yaml_content}\nEOF"
+    # نوشتن کانفیگ
+    write_cmd = f"cat <<EOF > {SERVER_CONFIG_PATH}\n{yaml_content}\nEOF"
     ok, msg = run("Write Config", write_cmd)
     if not ok: return False, msg
 
-    # 7. فایروال (Port Hopping)
+    # 7. فایروال
     tunnel_port = config['tunnel_port']
     fw_cmd = (
         f"iptables -t nat -A PREROUTING -p udp --dport {HOP_RANGE} -j REDIRECT --to-ports {tunnel_port}; "
@@ -106,7 +106,7 @@ def install_hysteria_server_remote(server_ip, config):
     )
     run("Firewall", fw_cmd)
 
-    # 8. سرویس
+    # 8. فایل سرویس
     svc_content = f"""[Unit]
 Description=Hysteria 2 Server
 After=network.target
@@ -131,4 +131,4 @@ WantedBy=multi-user.target
     if "active" in msg or "running" in msg:
         return True, "Installation Successful"
     else:
-        return False, f"Service failed to start. Status: {msg}"
+        return False, f"Service status error: {msg}"
