@@ -41,7 +41,7 @@
 دستورات زیر را در سرور **ایران** خود اجرا کنید (پیشنهاد ما: Ubuntu 20.04+ یا Debian 11+):
 
 ```bash
-git clone https://github.com/Alamor/AlamorTunnel.git
+git clone https://github.com/AlamorNetwork/AlamorTunnel.git
 cd AlamorTunnel
 chmod +x install.sh
 ./install.sh

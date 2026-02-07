@@ -13,9 +13,9 @@ init(autoreset=True)
 
 # --- CONFIGURATION ---
 INSTALL_DIR = "/root/AlamorTunnel"
-GITHUB_REPO = "https://github.com/Alamor/AlamorTunnel"  # لینک پیش‌فرض (قابل تغییر)
+GITHUB_REPO = "https://github.com/Alamor/AlamorTunnel.git"
 TELEGRAM_CHANNEL = "https://t.me/Alamor_Network"
-VERSION = "v3.5.0"
+VERSION = "v3.5.1"
 
 class AlamorCLI:
     def __init__(self):
@@ -23,6 +23,9 @@ class AlamorCLI:
         self.text_color = Fore.WHITE
         self.option_color = Fore.YELLOW
         self.accent_color = Fore.MAGENTA
+        # جایگزینی رنگ DARK_GREY با LIGHTBLACK_EX که در تمام سیستم‌ها کار می‌کند
+        self.dim_color = Fore.LIGHTBLACK_EX 
+        
         self.success = Fore.GREEN + " [✓] "
         self.error = Fore.RED + " [✖] "
         self.info = Fore.BLUE + " [i] "
@@ -35,18 +38,35 @@ class AlamorCLI:
         os.system('clear' if os.name == 'posix' else 'cls')
 
     def get_public_ip(self):
-        try:
-            return subprocess.check_output("curl -s --max-time 2 ifconfig.me", shell=True).decode().strip()
-        except:
-            return "127.0.0.1"
+        # استفاده از چندین منبع برای جلوگیری از ارور 403
+        providers = [
+            "https://api.ipify.org",
+            "https://icanhazip.com",
+            "https://ifconfig.me/ip",
+            "http://checkip.amazonaws.com"
+        ]
+        
+        for url in providers:
+            try:
+                # استفاده از python requests به جای curl برای مدیریت بهتر خطا
+                response = requests.get(url, timeout=3)
+                if response.status_code == 200:
+                    ip = response.text.strip()
+                    # اعتبارسنجی ساده که html نباشد
+                    if len(ip) < 20 and "html" not in ip:
+                        return ip
+            except:
+                continue
+        
+        return "127.0.0.1"
 
     def get_configured_domain(self):
-        # بررسی فایل‌های Nginx برای پیدا کردن دامنه فعال
         try:
-            sites = os.listdir("/etc/nginx/sites-enabled/")
-            for site in sites:
-                if site != "default":
-                    return site # معمولا اسم فایل کانفیگ همان دامنه است
+            if os.path.exists("/etc/nginx/sites-enabled/"):
+                sites = os.listdir("/etc/nginx/sites-enabled/")
+                for site in sites:
+                    if site != "default":
+                        return site
         except:
             pass
         return None
@@ -87,8 +107,6 @@ class AlamorCLI:
 
     def update_panel(self):
         print(f"\n{self.info}Checking for updates from GitHub...")
-        
-        # بررسی اینکه آیا پوشه گیت است یا خیر
         if not os.path.exists(f"{INSTALL_DIR}/.git"):
             print(f"{self.warning}Directory is not a Git repository.")
             print(f"{self.info}Initializing Git and pulling latest version...")
@@ -100,12 +118,9 @@ class AlamorCLI:
         self.loading_animation("Updating Files")
         print(f"\n{self.success}Update finished!")
         
-        # پرسش برای ریستارت
         choice = input(f"{self.option_color}Restart panel to apply changes? (y/n): {Fore.RESET}")
         if choice.lower() == 'y':
             self.restart_panel()
-        else:
-            input("Press Enter to continue...")
 
     def show_logs(self):
         print(f"\n{self.info}Showing live logs (Press Ctrl+C to exit)...")
@@ -127,7 +142,6 @@ class AlamorCLI:
         domain = input(f"{self.option_color}Enter your domain (e.g., panel.example.com): {Fore.RESET}")
         if not domain: return
         
-        # 1. Config Nginx
         nginx_conf = f"""
 server {{
     listen 80;
@@ -149,12 +163,10 @@ server {{
         os.system(f"ln -sf /etc/nginx/sites-available/{domain} /etc/nginx/sites-enabled/")
         os.system("systemctl restart nginx")
         
-        # 2. Get Cert
         print(f"{self.info}Requesting Certificate from Let's Encrypt...")
         os.system(f"certbot --nginx -d {domain} --non-interactive --agree-tos -m admin@{domain}")
         print(f"\n{self.success}SSL Setup Complete! Access panel at https://{domain}")
         
-        # بروزرسانی دامنه در حافظه
         self.domain = domain
         input("Press Enter to continue...")
 
@@ -178,15 +190,16 @@ server {{
             self.draw_header()
             
             print(f" {self.accent_color}[ MENU OPTIONS ]{Fore.RESET}")
-            print(f" {self.text_color}1) {self.option_color}Start/Restart Panel    {Fore.DARK_GREY}(Apply configs)")
-            print(f" {self.text_color}2) {self.option_color}View Live Logs         {Fore.DARK_GREY}(Debug issues)")
-            print(f" {self.text_color}3) {self.option_color}Setup Domain & SSL     {Fore.DARK_GREY}(Certbot)")
+            # استفاده از self.dim_color که همان LIGHTBLACK_EX است
+            print(f" {self.text_color}1) {self.option_color}Start/Restart Panel    {self.dim_color}(Apply configs)")
+            print(f" {self.text_color}2) {self.option_color}View Live Logs         {self.dim_color}(Debug issues)")
+            print(f" {self.text_color}3) {self.option_color}Setup Domain & SSL     {self.dim_color}(Certbot)")
             print(f" {self.text_color}4) {self.option_color}Update Panel (Git)     {Fore.GREEN}(NEW!)")
-            print(f" {self.text_color}5) {self.option_color}Re-install Cores       {Fore.DARK_GREY}(Hysteria/Backhaul)")
-            print(f" {self.text_color}6) {self.option_color}Reset Admin Password   {Fore.DARK_GREY}(Recovery)")
+            print(f" {self.text_color}5) {self.option_color}Re-install Cores       {self.dim_color}(Hysteria/Backhaul)")
+            print(f" {self.text_color}6) {self.option_color}Reset Admin Password   {self.dim_color}(Recovery)")
             print(f" {self.text_color}0) {self.option_color}Exit")
             
-            print(f"\n {Fore.DARK_GREY}Type number and press Enter...")
+            print(f"\n {self.dim_color}Type number and press Enter...")
             choice = input(f" {Fore.CYAN}alamor > {Fore.RESET}")
 
             if choice == '1':
