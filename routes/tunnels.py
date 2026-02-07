@@ -208,9 +208,29 @@ def start_install(protocol):
 @tunnels_bp.route('/run-speedtest/<int:tunnel_id>')
 @login_required
 def run_tunnel_speedtest_route(tunnel_id):
+    """تست کامل تانل: اتصال، پینگ، دانلود، آپلود"""
     tunnel = get_tunnel_by_id(tunnel_id)
-    result = run_advanced_speedtest()
+    target_ip = None
+    
+    if tunnel:
+        # تلاش برای پیدا کردن IP سرور خارج از کانفیگ
+        try:
+            config = json.loads(tunnel['config'])
+            # در اکثر پروتکل‌ها IP در فیلد server یا remote_addr است
+            # اما ما اینجا سعی می‌کنیم از دیتابیس سرورها پیدا کنیم اگر وصل باشد
+            connected_server = get_connected_server()
+            if connected_server:
+                target_ip = connected_server[0]
+        except:
+            pass
+
+    # اجرای تست کامل
+    result = run_advanced_speedtest(target_ip=target_ip)
+    
+    # اضافه کردن نام تانل به نتیجه برای نمایش
+    result['tunnel_name'] = tunnel['name'] if tunnel else "Unknown"
     result['status'] = 'ok'
+    
     return jsonify(result)
 
 @tunnels_bp.route('/tunnels')
