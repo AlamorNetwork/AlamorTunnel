@@ -21,7 +21,6 @@ def get_connected_server():
         c.execute("SELECT * FROM servers LIMIT 1")
         res = c.fetchone()
         conn.close()
-        # تبدیل Row به تاپل یا دیکشنری برای جلوگیری از ارورهای احتمالی
         if res:
             return tuple(res)
         return None
@@ -104,10 +103,6 @@ class Database:
         conn.commit()
         conn.close()
 
-    def get_server(self):
-        # استفاده از تابع کمکی برای جلوگیری از تکرار کد
-        return get_connected_server()
-
     def remove_server(self):
         conn = self.get_db()
         c = conn.cursor()
@@ -133,7 +128,6 @@ class Database:
         return res
 
     def add_tunnel(self, name, transport, port, token, config_dict, **kwargs):
-        # **kwargs اضافه شد تا اگر فیلدهای اضافی مثل server_ip ارسال شد، ارور ندهد
         conn = self.get_db()
         c = conn.cursor()
         config_json = json.dumps(config_dict)
@@ -144,7 +138,6 @@ class Database:
         conn.commit()
         conn.close()
         
-        # ذخیره در فایل برای بکاپ
         save_tunnel_config({
             'id': tunnel_id, 'name': name, 'transport': transport, 
             'port': str(port), 'token': token, 'config': config_dict
@@ -154,9 +147,7 @@ class Database:
     def delete_tunnel(self, tunnel_id):
         tunnel = self.get_tunnel(tunnel_id)
         if tunnel:
-            # حذف فایل بکاپ
             delete_tunnel_config(tunnel_id)
-            
             conn = self.get_db()
             c = conn.cursor()
             c.execute("DELETE FROM tunnels WHERE id=?", (tunnel_id,))
@@ -178,3 +169,36 @@ class Database:
             'id': tunnel_id, 'name': name, 'transport': transport, 
             'port': str(port), 'token': '', 'config': config_dict
         })
+
+# --- توابع Wrapper برای سازگاری با کدهای قدیمی (app.py و routes) ---
+
+def init_db():
+    # ساختن اینستنس، خود به خود init_db را صدا می‌زند
+    Database()
+
+def check_user(username, password):
+    return Database().check_user(username, password)
+
+def update_password(new_pass):
+    Database().update_password(new_pass)
+
+def add_server(ip, user, password, port):
+    Database().add_server(ip, user, password, port)
+
+def remove_server():
+    Database().remove_server()
+
+def get_all_tunnels():
+    return Database().get_tunnels()
+
+def get_tunnel_by_id(tid):
+    return Database().get_tunnel(tid)
+
+def add_tunnel(name, transport, port, token, config_dict):
+    return Database().add_tunnel(name, transport, port, token, config_dict)
+
+def delete_tunnel_by_id(tid):
+    return Database().delete_tunnel(tid)
+
+def update_tunnel_config(tid, name, transport, port, config_dict):
+    return Database().update_tunnel(tid, name, transport, port, config_dict)
