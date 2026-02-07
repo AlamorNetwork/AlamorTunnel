@@ -1,150 +1,214 @@
-import sys
+#!/usr/bin/env python3
 import os
-import sqlite3
-import subprocess
+import sys
 import time
-import re
+import subprocess
+import socket
+import requests
+from colorama import init, Fore, Style, Back
+from tqdm import tqdm
 
-# تلاش برای ایمپورت ماژول‌ها
-try:
-    from core.config_loader import load_config
-    from core.database import DB_PATH
-except ImportError:
-    sys.path.append('/root/AlamorTunnel')
-    from core.config_loader import load_config
-    from core.database import DB_PATH
+# Initialize Colorama
+init(autoreset=True)
 
-# --- COLORS ---
-class Colors:
-    HEADER = '\033[95m'
-    BLUE = '\033[94m'
-    CYAN = '\033[96m'
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    RESET = '\033[0m'
-    BOLD = '\033[1m'
+# --- CONFIGURATION ---
+INSTALL_DIR = "/root/AlamorTunnel"
+GITHUB_REPO = "https://github.com/Alamor/AlamorTunnel"  # لینک پیش‌فرض (قابل تغییر)
+TELEGRAM_CHANNEL = "https://t.me/Alamor_Network"
+VERSION = "v3.5.0"
 
-def clear_screen():
-    os.system('clear')
+class AlamorCLI:
+    def __init__(self):
+        self.banner_color = Fore.CYAN + Style.BRIGHT
+        self.text_color = Fore.WHITE
+        self.option_color = Fore.YELLOW
+        self.accent_color = Fore.MAGENTA
+        self.success = Fore.GREEN + " [✓] "
+        self.error = Fore.RED + " [✖] "
+        self.info = Fore.BLUE + " [i] "
+        self.warning = Fore.YELLOW + " [!] "
+        
+        self.public_ip = self.get_public_ip()
+        self.domain = self.get_configured_domain()
 
-def get_db_connection():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    def clear_screen(self):
+        os.system('clear' if os.name == 'posix' else 'cls')
 
-# --- IP FUNCTION ---
-def get_public_ip():
-    providers = [
-        "curl -s --max-time 3 https://api.ipify.org",
-        "curl -s --max-time 3 https://icanhazip.com",
-        "curl -s --max-time 3 http://ifconfig.me/ip",
-        "hostname -I | awk '{print $1}'" 
-    ]
-    ip_pattern = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$')
-    for cmd in providers:
+    def get_public_ip(self):
         try:
-            output = subprocess.check_output(cmd, shell=True).decode().strip()
-            if ip_pattern.match(output): return output
-        except: continue
-    return "Unknown-IP"
+            return subprocess.check_output("curl -s --max-time 2 ifconfig.me", shell=True).decode().strip()
+        except:
+            return "127.0.0.1"
 
-# --- CORE FUNCTIONS ---
-def show_info():
-    print(f"{Colors.YELLOW}[*] Fetching Server Data...{Colors.RESET}")
-    ip = get_public_ip()
+    def get_configured_domain(self):
+        # بررسی فایل‌های Nginx برای پیدا کردن دامنه فعال
+        try:
+            sites = os.listdir("/etc/nginx/sites-enabled/")
+            for site in sites:
+                if site != "default":
+                    return site # معمولا اسم فایل کانفیگ همان دامنه است
+        except:
+            pass
+        return None
+
+    def draw_header(self):
+        self.clear_screen()
+        # Cyberpunk Style Header
+        print(f"{self.banner_color}╔══════════════════════════════════════════════════════════════╗")
+        print(f"║ {Fore.MAGENTA}  _   _   _   _   _   _   _   _   _   _   _   _   _   _   _  {self.banner_color}║")
+        print(f"║ {Fore.MAGENTA} / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ {self.banner_color}║")
+        print(f"║ {Fore.MAGENTA}( A | L | A | M | O | R |   | T | U | N | N | E | L |   | + ){self.banner_color}║")
+        print(f"║ {Fore.MAGENTA} \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ {self.banner_color}║")
+        print(f"╠══════════════════════════════════════════════════════════════╣")
         
-    config = load_config()
-    secret_path = config.get('panel_path', '')
-    panel_domain = config.get('panel_domain', '') # خواندن دامنه از کانفیگ
-    
-    try:
-        conn = get_db_connection()
-        c = conn.cursor()
-        c.execute("SELECT * FROM users WHERE username='admin'")
-        user = c.fetchone()
-        conn.close()
-        username = user['username']
-        password = user['password']
-    except:
-        username = "admin"
-        password = "Unknown (DB Error)"
-
-    clear_screen()
-    print(f"\n{Colors.CYAN}=== ALAMOR PANEL STATUS ==={Colors.RESET}")
-    print(f"{Colors.YELLOW}[+] Server IP:{Colors.RESET}   {ip}")
-    if panel_domain:
-        print(f"{Colors.YELLOW}[+] Domain:{Colors.RESET}      {panel_domain}")
+        # Server Info Section
+        print(f"║ {Fore.WHITE}SERVER IP : {Fore.GREEN}{self.public_ip:<41} {self.banner_color}║")
         
-    print(f"{Colors.YELLOW}[+] Admin User:{Colors.RESET}  {username}")
-    print(f"{Colors.YELLOW}[+] Admin Pass:{Colors.RESET}  {password}")
-    
-    print(f"\n{Colors.GREEN}[+] LOGIN URLs:{Colors.RESET}")
-    if secret_path:
-        # اگر دامنه داریم، از دامنه استفاده کن، وگرنه IP
-        secure_host = panel_domain if panel_domain else ip
+        # Panel Address Logic
+        if self.domain:
+            url = f"https://{self.domain}"
+            ssl_status = f"{Fore.GREEN}ACTIVE (SSL)"
+        else:
+            url = f"http://{self.public_ip}:5050"
+            ssl_status = f"{Fore.RED}NO SSL"
+            
+        print(f"║ {Fore.WHITE}PANEL URL : {Fore.CYAN}{url:<41} {self.banner_color}║")
+        print(f"║ {Fore.WHITE}SSL STATUS: {ssl_status:<50} {self.banner_color}║")
+        print(f"╠══════════════════════════════════════════════════════════════╣")
+        print(f"║ {Fore.WHITE}GITHUB    : {Fore.BLUE}{'github.com/Alamor':<41} {self.banner_color}║")
+        print(f"║ {Fore.WHITE}TELEGRAM  : {Fore.BLUE}{'t.me/Alamor_Network':<41} {self.banner_color}║")
+        print(f"║ {Fore.WHITE}VERSION   : {Fore.YELLOW}{VERSION:<41} {self.banner_color}║")
+        print(f"╚══════════════════════════════════════════════════════════════╝")
+        print("")
+
+    def loading_animation(self, desc="Processing"):
+        for _ in tqdm(range(100), desc=desc, bar_format="{l_bar}%s{bar}%s{r_bar}" % (Fore.CYAN, Fore.RESET), leave=False):
+            time.sleep(0.01)
+
+    def update_panel(self):
+        print(f"\n{self.info}Checking for updates from GitHub...")
         
-        print(f"  ➜ {Colors.BOLD}Secure (SSL):{Colors.RESET}  https://{secure_host}/{secret_path}/dashboard")
+        # بررسی اینکه آیا پوشه گیت است یا خیر
+        if not os.path.exists(f"{INSTALL_DIR}/.git"):
+            print(f"{self.warning}Directory is not a Git repository.")
+            print(f"{self.info}Initializing Git and pulling latest version...")
+            os.system(f"cd {INSTALL_DIR} && git init && git remote add origin {GITHUB_REPO} 2>/dev/null")
+            os.system(f"cd {INSTALL_DIR} && git fetch --all && git reset --hard origin/main")
+        else:
+             os.system(f"cd {INSTALL_DIR} && git pull")
         
-        if ip != "Unknown-IP":
-             print(f"  ➜ {Colors.BOLD}Local (HTTP):{Colors.RESET}  http://{ip}:5050/{secret_path}/dashboard")
-    else:
-        print(f"  ➜ {Colors.BOLD}Standard:{Colors.RESET}      http://{ip}:5050/")
-    
-    print(f"\n{Colors.CYAN}==========================={Colors.RESET}")
+        self.loading_animation("Updating Files")
+        print(f"\n{self.success}Update finished!")
+        
+        # پرسش برای ریستارت
+        choice = input(f"{self.option_color}Restart panel to apply changes? (y/n): {Fore.RESET}")
+        if choice.lower() == 'y':
+            self.restart_panel()
+        else:
+            input("Press Enter to continue...")
 
-def manage_firewall(action, port, proto='tcp'):
-    if action not in ['allow', 'deny']:
-        print(f"{Colors.RED}[!] Invalid action.{Colors.RESET}")
-        return
-    print(f"{Colors.YELLOW}[*] {action.capitalize()}ing port {port}/{proto}...{Colors.RESET}")
-    os.system(f"ufw {action} {port}/{proto}")
-    os.system("ufw reload")
-    print(f"{Colors.GREEN}[✔] Done.{Colors.RESET}")
+    def show_logs(self):
+        print(f"\n{self.info}Showing live logs (Press Ctrl+C to exit)...")
+        time.sleep(1)
+        try:
+            os.system("journalctl -u alamor -f -n 50")
+        except KeyboardInterrupt:
+            pass
 
-def reset_password():
-    conn = get_db_connection()
-    conn.execute("UPDATE users SET password='admin' WHERE username='admin'")
-    conn.commit()
-    conn.close()
-    print(f"\n{Colors.GREEN}[✔] Password reset to: admin{Colors.RESET}")
-
-def update_panel():
-    print(f"\n{Colors.YELLOW}[*] Updating...{Colors.RESET}")
-    os.system("git fetch --all && git reset --hard origin/main")
-    if os.system("git pull") == 0:
-        print(f"{Colors.GREEN}[✔] Updated. Restarting...{Colors.RESET}")
+    def restart_panel(self):
+        self.loading_animation("Restarting Service")
+        os.system("systemctl daemon-reload")
         os.system("systemctl restart alamor")
-    else:
-        print(f"{Colors.RED}[!] Update failed.{Colors.RESET}")
+        print(f"\n{self.success}Panel service restarted!")
+        time.sleep(1)
 
-def interactive_menu():
-    while True:
-        clear_screen()
-        print(f"{Colors.GREEN}{Colors.BOLD}ALAMOR CLI v2.2{Colors.RESET}")
-        print(f"1. Show Info & URLs")
-        print(f"2. Reset Admin Password")
-        print(f"3. Restart Service")
-        print(f"4. Manage Firewall")
-        print(f"5. Update Panel")
-        print(f"6. Live Logs")
-        print(f"0. Exit")
-        choice = input(f"\n{Colors.BOLD}Select > {Colors.RESET}")
-        if choice == '1': show_info(); input("\nPress Enter...")
-        elif choice == '2': reset_password(); input("\nPress Enter...")
-        elif choice == '3': os.system("systemctl restart alamor"); time.sleep(1)
-        elif choice == '4': manage_firewall('allow', input("Port: ")); input("\nEnter...")
-        elif choice == '5': update_panel(); input("\nEnter...")
-        elif choice == '6': os.system("journalctl -u alamor -f -n 50")
-        elif choice == '0': sys.exit()
+    def setup_ssl(self):
+        print(f"\n{self.info}Starting Certbot SSL Setup...")
+        domain = input(f"{self.option_color}Enter your domain (e.g., panel.example.com): {Fore.RESET}")
+        if not domain: return
+        
+        # 1. Config Nginx
+        nginx_conf = f"""
+server {{
+    listen 80;
+    server_name {domain};
 
-if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        cmd = sys.argv[1]
-        if cmd == 'info': show_info()
-        elif cmd == 'reset_pass': reset_password()
-        elif cmd == 'update': update_panel()
-        elif cmd == 'firewall': 
-            if len(sys.argv) >= 4: manage_firewall(sys.argv[2], sys.argv[3], sys.argv[4] if len(sys.argv)>4 else 'tcp')
-        else: interactive_menu()
-    else: interactive_menu()
+    location / {{
+        proxy_pass http://127.0.0.1:5050;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }}
+}}
+"""
+        with open(f"/etc/nginx/sites-available/{domain}", "w") as f:
+            f.write(nginx_conf)
+            
+        os.system(f"ln -sf /etc/nginx/sites-available/{domain} /etc/nginx/sites-enabled/")
+        os.system("systemctl restart nginx")
+        
+        # 2. Get Cert
+        print(f"{self.info}Requesting Certificate from Let's Encrypt...")
+        os.system(f"certbot --nginx -d {domain} --non-interactive --agree-tos -m admin@{domain}")
+        print(f"\n{self.success}SSL Setup Complete! Access panel at https://{domain}")
+        
+        # بروزرسانی دامنه در حافظه
+        self.domain = domain
+        input("Press Enter to continue...")
+
+    def update_cores(self):
+        print(f"\n{self.info}Re-downloading Core Binaries...")
+        self.loading_animation("Updating Cores")
+        os.system("bash /root/AlamorTunnel/install.sh")
+        print(f"\n{self.success}Cores updated!")
+        time.sleep(1)
+
+    def reset_password(self):
+        new_pass = input(f"\n{self.option_color}Enter new admin password: {Fore.RESET}")
+        if new_pass:
+            cmd = f'python3 -c "from core.database import update_password; update_password(\'{new_pass}\'); print(\'Done\')"'
+            os.system(f"cd {INSTALL_DIR} && {cmd}")
+            print(f"{self.success}Password updated.")
+            time.sleep(1)
+
+    def menu(self):
+        while True:
+            self.draw_header()
+            
+            print(f" {self.accent_color}[ MENU OPTIONS ]{Fore.RESET}")
+            print(f" {self.text_color}1) {self.option_color}Start/Restart Panel    {Fore.DARK_GREY}(Apply configs)")
+            print(f" {self.text_color}2) {self.option_color}View Live Logs         {Fore.DARK_GREY}(Debug issues)")
+            print(f" {self.text_color}3) {self.option_color}Setup Domain & SSL     {Fore.DARK_GREY}(Certbot)")
+            print(f" {self.text_color}4) {self.option_color}Update Panel (Git)     {Fore.GREEN}(NEW!)")
+            print(f" {self.text_color}5) {self.option_color}Re-install Cores       {Fore.DARK_GREY}(Hysteria/Backhaul)")
+            print(f" {self.text_color}6) {self.option_color}Reset Admin Password   {Fore.DARK_GREY}(Recovery)")
+            print(f" {self.text_color}0) {self.option_color}Exit")
+            
+            print(f"\n {Fore.DARK_GREY}Type number and press Enter...")
+            choice = input(f" {Fore.CYAN}alamor > {Fore.RESET}")
+
+            if choice == '1':
+                self.restart_panel()
+            elif choice == '2':
+                self.show_logs()
+            elif choice == '3':
+                self.setup_ssl()
+            elif choice == '4':
+                self.update_panel()
+            elif choice == '5':
+                self.update_cores()
+            elif choice == '6':
+                self.reset_password()
+            elif choice == '0':
+                self.clear_screen()
+                sys.exit()
+
+if __name__ == "__main__":
+    if os.geteuid() != 0:
+        print(Fore.RED + "Please run as root!")
+        sys.exit(1)
+    
+    cli = AlamorCLI()
+    cli.menu()
