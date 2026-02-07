@@ -4,7 +4,7 @@ import secrets
 import logging
 from core.ssh_manager import SSHManager
 
-# تنظیم لاگ
+# تنظیم لاگ برای عیب‌یابی داخل پنل
 logging.basicConfig(filename='/root/AlamorTunnel/install_debug.log', level=logging.DEBUG, format='%(asctime)s %(message)s')
 
 # --- CONSTANTS ---
@@ -47,28 +47,26 @@ def install_hysteria_server_remote(server_ip, config):
     ssh_port = int(config.get('ssh_port', 22))
     ssh_pass = config.get('ssh_pass')
 
-    # تابع اجرای دستور (ساده و بدون پیچیدگی)
+    # تابع اجرای دستور (ساده شده)
     def run(name, cmd):
         logging.info(f"CMD [{name}]: {cmd}")
         ok, out = ssh.run_remote_command(server_ip, "root", ssh_pass, cmd, ssh_port)
         if not ok:
             logging.error(f"FAIL [{name}]: {out}")
-            # اینجا ارور دقیق را برمی‌گرداند
             return False, f"Step '{name}' Failed: {out}"
         logging.info(f"OK [{name}]: {out[:50]}...")
         return True, out
 
-    # 1. تست اتصال (ساده‌ترین دستور ممکن)
+    # 1. تست اتصال
     ok, msg = run("Check Connection", "whoami")
     if not ok: return False, msg
 
     # 2. ساخت پوشه‌ها
     run("Mkdir", "mkdir -p /root/alamor/bin /root/alamor/certs")
 
-    # 3. نصب پیش‌نیازها
-    # استفاده از DEBIAN_FRONTEND برای جلوگیری از گیر کردن apt
-    apt_cmd = "export DEBIAN_FRONTEND=noninteractive; apt-get update -y && apt-get install -y iptables iptables-persistent openssl"
-    ok, msg = run("Install Deps", apt_cmd)
+    # 3. نصب پیش‌نیازها (دقیقاً کدی که در تست جواب داد)
+    deps_cmd = "export DEBIAN_FRONTEND=noninteractive; apt-get update -y && apt-get install -y iptables iptables-persistent openssl ca-certificates"
+    ok, msg = run("Install Deps", deps_cmd)
     if not ok: return False, msg
 
     # 4. ساخت سرتیفیکیت
@@ -98,9 +96,10 @@ def install_hysteria_server_remote(server_ip, config):
     ok, msg = run("Write Config", write_cmd)
     if not ok: return False, msg
 
-    # 7. فایروال
+    # 7. فایروال (Port Hopping)
     tunnel_port = config['tunnel_port']
     fw_cmd = (
+        f"iptables -t nat -F PREROUTING; "
         f"iptables -t nat -A PREROUTING -p udp --dport {HOP_RANGE} -j REDIRECT --to-ports {tunnel_port}; "
         "netfilter-persistent save || true"
     )
@@ -125,10 +124,10 @@ WantedBy=multi-user.target
     svc_cmd = f"cat <<EOF > /etc/systemd/system/hysteria-server.service\n{svc_content}\nEOF"
     run("Service File", svc_cmd)
 
-    # 9. استارت
+    # 9. استارت نهایی
     ok, msg = run("Start", "systemctl daemon-reload && systemctl restart hysteria-server && systemctl is-active hysteria-server")
     
     if "active" in msg or "running" in msg:
         return True, "Installation Successful"
     else:
-        return False, f"Service status error: {msg}"
+        return False, f"Service failed to start. Status: {msg}"

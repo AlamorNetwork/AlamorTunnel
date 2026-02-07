@@ -8,21 +8,29 @@ class SSHManager:
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         
         try:
-            # اتصال به سرور
-            client.connect(ip, port=int(port), username=user, password=password, timeout=15, banner_timeout=15)
+            # تنظیمات اتصال دقیقاً مثل اسکریپت تست موفق
+            client.connect(
+                ip, 
+                port=int(port), 
+                username=user, 
+                password=password, 
+                timeout=20, 
+                banner_timeout=20,
+                allow_agent=False, 
+                look_for_keys=False
+            )
             
-            # نکته طلایی: get_pty=True
-            # این گزینه باعث می‌شود سرور فکر کند ما یک ترمینال واقعی هستیم و دستور را Kill نکند
+            # نکته طلایی: فعال کردن PTY برای جلوگیری از قطع شدن
             stdin, stdout, stderr = client.exec_command(command, get_pty=True)
             
-            # خواندن خروجی
+            # خواندن خروجی به صورت کامل
             out = stdout.read().decode('utf-8', errors='ignore').strip()
-            # در حالت PTY، ارورها هم معمولا در stdout می آیند، اما stderr را هم میخوانیم
             err = stderr.read().decode('utf-8', errors='ignore').strip()
             
             exit_status = stdout.channel.recv_exit_status()
             client.close()
 
+            # ترکیب خروجی‌ها
             full_output = f"{out}\n{err}".strip()
             
             if exit_status != 0:
