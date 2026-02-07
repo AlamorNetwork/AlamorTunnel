@@ -25,8 +25,8 @@ Features include **Port Hopping**, **Traffic Obfuscation**, **Real-time Speedtes
 ## ✨ Features
 
 * **⚡ Multi-Core Support:**
-  * **Hysteria 2:** Built-in **Port Hopping** (dynamic port switching), Masquerade (Bing/Google), and Brutal congestion control.
-  * **Backhaul:** Supports TCP, TCPMux, WS, WSS (WebSocket Secure) with connection pooling.
+  * **Hysteria 2:** Built-in **Port Hopping**, Masquerade, and Brutal congestion control.
+  * **Backhaul:** Supports TCP, TCPMux, WS, WSS with connection pooling.
   * **Gost:** Chain proxies, forwarding, and multi-protocol support.
   * **Rathole:** Lightweight, secure reverse proxy for NAT traversal.
 * **📊 Live Dashboard:**
@@ -34,18 +34,21 @@ Features include **Port Hopping**, **Traffic Obfuscation**, **Real-time Speedtes
   * **Advanced Speedtest:** Check Ping, Download, and Upload speeds directly from the panel.
   * Visual charts for network health.
 * **🛡️ Anti-Censorship:**
-  * Automatic **Port Hopping** configuration (iptables) to evade blocking.
+  * Automatic **Port Hopping** configuration (iptables).
   * Advanced **Masquerade** to mimic real website traffic.
-  * **GeoIP Blocking:** Block domestic or specific country IPs (e.g., CN, IR) to prevent probing.
+  * **GeoIP Blocking:** Block domestic or specific country IPs (e.g., CN, IR).
 * **💻 Cyberpunk CLI:**
-  * Professional terminal interface for server management.
-  * **One-click SSL:** Auto-configure Nginx & Certbot for your domain.
-  * Live logs, updates, and service management.
+  * Professional terminal interface.
+  * **One-click SSL:** Auto-configure Nginx & Certbot.
+  * Live logs and updates.
 
-## 🚀 One-Click Installation
+## 🚀 Installation
 
-Run the following command on your **IRAN** server (Ubuntu 20.04+ / Debian 11+ recommended):
+Run the following commands on your **IRAN** server (Ubuntu 20.04+ / Debian 11+ recommended):
 
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/Alamor/AlamorTunnel/main/install.sh)
+git clone https://github.com/AlamorNetwork/AlamorTunnel.git
+cd AlamorTunnel
+chmod +x install.sh
+./install.sh
 ```
