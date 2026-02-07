@@ -1,7 +1,8 @@
 import paramiko
 import time
 import socket
-from core.database import get_connected_server
+
+# نکته مهم: اینجا دیگر from core.database import ... نداریم تا ارور چرخشی رفع شود.
 
 class SSHManager:
     def __init__(self):
@@ -51,12 +52,13 @@ def verify_ssh_connection(ip, user, password, port=22):
 def run_remote_command(ip, command):
     """
     نسخه قدیمی تابع برای سازگاری با کدهای قبلی
-    (از دیتابیس یوزر/پسورد سرور متصل را می‌خواند)
     """
+    # ایمپورت را اینجا انجام می‌دهیم تا ارور Circular Import رفع شود
+    from core.database import get_connected_server
+    
     server = get_connected_server()
     if not server: return False, "No server connected"
     
-    # استفاده از کلاس جدید برای اجرای دستور
     manager = SSHManager()
     # فرض بر این است که پورت در ایندکس 3 است
     return manager.run_remote_command(server[0], server[1], server[2], command, server[3])
@@ -65,6 +67,9 @@ def run_remote_command_iter(ip, command):
     """
     اجرای دستور طولانی با خروجی زنده (Generator)
     """
+    # ایمپورت را اینجا انجام می‌دهیم تا ارور Circular Import رفع شود
+    from core.database import get_connected_server
+    
     server = get_connected_server()
     if not server: 
         yield f"Error: No server connected"
