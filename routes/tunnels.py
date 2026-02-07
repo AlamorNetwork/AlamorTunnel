@@ -176,7 +176,13 @@ def start_install(protocol):
         return jsonify({'status': 'started', 'task_id': task_id})
     
     return jsonify({'status': 'error', 'message': 'Unknown protocol'})
-
+@tunnels_bp.route('/server-speedtest')
+@login_required
+def server_speedtest():
+    """تست سرعت کلی سرور (پینگ و دانلود از اینترنت) برای نمایش در داشبورد"""
+    # استفاده از تابع run_advanced_speedtest که قبلاً ایمپورت شده
+    result = run_advanced_speedtest() 
+    return jsonify(result)
 # --- SPEEDTEST ROUTE (FIXED) ---
 @tunnels_bp.route('/run-speedtest/<int:tunnel_id>')
 @login_required
