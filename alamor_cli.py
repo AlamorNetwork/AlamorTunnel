@@ -12,7 +12,7 @@ init(autoreset=True)
 INSTALL_DIR = "/root/AlamorTunnel"
 GITHUB_REPO = "https://github.com/Alamor/AlamorTunnel.git"
 TELEGRAM_CHANNEL = "https://t.me/Alamor_Network"
-VERSION = "v3.8.0"
+VERSION = "v3.9.0"
 
 class AlamorCLI:
     def __init__(self):
@@ -28,6 +28,7 @@ class AlamorCLI:
 
         self.public_ip = self.get_server_ip()
         self.domain = self.get_configured_domain()
+        self.port = self.get_current_port()
 
     # ---------- SYSTEM INFO ----------
 
@@ -58,6 +59,18 @@ class AlamorCLI:
         except:
             pass
         return None
+    
+    def get_current_port(self):
+        # تلاش برای خواندن پورت از فایل app.py
+        try:
+            with open(f"{INSTALL_DIR}/app.py", "r") as f:
+                content = f.read()
+                match = re.search(r"port\s*=\s*(\d+)", content)
+                if match:
+                    return int(match.group(1))
+        except:
+            pass
+        return 5050 # پیش‌فرض
 
     def is_port_open(self, port):
         try:
@@ -104,14 +117,14 @@ class AlamorCLI:
 
         port_status = (
             Fore.GREEN + "OPEN"
-            if self.is_port_open(5050)
+            if self.is_port_open(self.port)
             else Fore.RED + "CLOSED"
         )
 
         panel_url = (
             f"https://{self.domain}"
             if self.domain
-            else f"http://{self.public_ip}:5050"
+            else f"http://{self.public_ip}:{self.port}"
         )
 
         print(f"{self.banner_color}╔══════════════════════════════════════════════════════════════╗")
@@ -121,17 +134,17 @@ class AlamorCLI:
         print(f"║ PANEL URL   : {Fore.CYAN}{panel_url:<43}{self.banner_color}║")
         print(f"║ SSL STATUS  : {self.ssl_status():<43}{self.banner_color}║")
         print(f"║ SERVICE     : {service_color:<43}{self.banner_color}║")
-        print(f"║ PORT 5050   : {port_status:<43}{self.banner_color}║")
+        print(f"║ PORT {self.port:<4}   : {port_status:<43}{self.banner_color}║")
         print(f"╠══════════════════════════════════════════════════════════════╣")
-        print(f"║ GITHUB      : github.com/Alamor                             ║")
-        print(f"║ TELEGRAM    : t.me/Alamor_Network                           ║")
+        print(f"║ GITHUB      : github.com/Alamor                              ║")
+        print(f"║ TELEGRAM    : t.me/Alamor_Network                            ║")
         print(f"║ VERSION     : {VERSION:<45}║")
         print(f"╚══════════════════════════════════════════════════════════════╝\n")
 
     # ---------- ACTIONS ----------
 
     def restart_panel(self):
-        print(self.info, "Restarting panel...")
+        print(f"\n{self.info} Restarting panel...")
         os.system("systemctl daemon-reload")
         os.system("systemctl restart alamor")
         time.sleep(1)
@@ -140,15 +153,81 @@ class AlamorCLI:
         os.system("journalctl -u alamor -f -n 50")
 
     def update_panel(self):
-        print(self.info, "Updating from GitHub...")
+        print(f"\n{self.info} Updating from GitHub...")
         os.system(f"cd {INSTALL_DIR} && git pull")
+        self.restart_panel()
 
     def setup_ssl(self):
-        domain = input("Enter domain: ").strip()
+        print(f"\n{self.info} Setup SSL...")
+        domain = input(f"{self.option_color} Enter domain: {Fore.RESET}").strip()
         if not domain:
             return
-        os.system(f"certbot --nginx -d {domain}")
+        
+        # 1. Update Nginx Config
+        nginx_conf = f"""
+server {{
+    listen 80;
+    server_name {domain};
+
+    location / {{
+        proxy_pass http://127.0.0.1:{self.port};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }}
+}}
+"""
+        with open(f"/etc/nginx/sites-available/{domain}", "w") as f:
+            f.write(nginx_conf)
+        
+        os.system(f"ln -sf /etc/nginx/sites-available/{domain} /etc/nginx/sites-enabled/")
+        os.system("systemctl restart nginx")
+
+        # 2. Certbot
+        os.system(f"certbot --nginx -d {domain} --non-interactive --agree-tos -m admin@{domain}")
         self.domain = domain
+
+    def change_credentials(self):
+        print(f"\n{self.info} Change Admin Credentials")
+        new_user = input(f"{self.option_color} New Username: {Fore.RESET}").strip()
+        new_pass = input(f"{self.option_color} New Password: {Fore.RESET}").strip()
+        
+        if not new_user or not new_pass:
+            print(f"{self.error} Username/Password cannot be empty.")
+            time.sleep(1)
+            return
+
+        # اجرای دستور پایتون برای آپدیت دیتابیس
+        cmd = f"""cd {INSTALL_DIR} && python3 -c "import sqlite3; conn = sqlite3.connect('database.db'); c = conn.cursor(); c.execute(\\\"UPDATE users SET username='{new_user}', password='{new_pass}'\\\"); conn.commit(); print('Credentials Updated!')" """
+        os.system(cmd)
+        print(f"{self.success} Login details changed successfully.")
+        time.sleep(1)
+
+    def change_port(self):
+        print(f"\n{self.info} Change Panel Port")
+        print(f"{self.option_color} Current Port: {self.port}")
+        new_port = input(f"{self.option_color} Enter new port (default 5050): {Fore.RESET}").strip()
+        
+        if not new_port.isdigit():
+            print(f"{self.error} Invalid port.")
+            return
+        
+        # 1. Update app.py
+        app_path = f"{INSTALL_DIR}/app.py"
+        os.system(f"sed -i 's/port=[0-9]*/port={new_port}/g' {app_path}")
+        
+        # 2. Update Nginx if exists
+        if self.domain:
+            nginx_conf = f"/etc/nginx/sites-enabled/{self.domain}"
+            if os.path.exists(nginx_conf):
+                os.system(f"sed -i 's/127.0.0.1:[0-9]*/127.0.0.1:{new_port}/g' {nginx_conf}")
+                os.system("systemctl restart nginx")
+        
+        self.port = int(new_port)
+        print(f"{self.success} Port changed to {new_port}.")
+        self.restart_panel()
 
     # ---------- MENU ----------
 
@@ -156,11 +235,13 @@ class AlamorCLI:
         while True:
             self.draw_header()
             print(f"{self.accent_color}[ MENU OPTIONS ]\n")
-            print(" 1) Start / Restart Panel")
-            print(" 2) View Live Logs")
-            print(" 3) Setup Domain & SSL")
-            print(" 4) Update Panel (Git)")
-            print(" 0) Exit\n")
+            print(f" 1) Start / Restart Panel")
+            print(f" 2) View Live Logs")
+            print(f" 3) Setup Domain & SSL")
+            print(f" 4) Update Panel (Git)")
+            print(f" 5) Change User/Pass  {Fore.GREEN}(NEW!)")
+            print(f" 6) Change Panel Port {Fore.GREEN}(NEW!)")
+            print(f" 0) Exit\n")
 
             choice = input(" alamor > ").strip()
 
@@ -172,6 +253,10 @@ class AlamorCLI:
                 self.setup_ssl()
             elif choice == "4":
                 self.update_panel()
+            elif choice == "5":
+                self.change_credentials()
+            elif choice == "6":
+                self.change_port()
             elif choice == "0":
                 sys.exit()
 
