@@ -43,9 +43,11 @@
                 <div class="text-muted small">
                     <i class="fas fa-info-circle me-1"></i> Read-Only Mode (Immutable)
                 </div>
-                <a href="{{ url_for('tunnels.delete_tunnel', tunnel_id=tunnel[0]) }}" class="btn btn-glass-danger px-4" onclick="return confirm('WARNING: This action is irreversible. Proceed?')">
-                    <i class="fas fa-skull-crossbones me-2"></i>SELF DESTRUCT
-                </a>
+                <form action="{{ url_for('tunnels.delete_tunnel_route', tunnel_id=tunnel[0]) }}" method="POST" class="d-inline">
+                    <button type="submit" class="btn btn-glass-danger px-4" onclick="return confirm('WARNING: This action is irreversible. Proceed?')">
+                        <i class="fas fa-skull-crossbones me-2"></i>SELF DESTRUCT
+                    </button>
+                </form>
             </div>
         </div>
     </div>
