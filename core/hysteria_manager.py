@@ -2,7 +2,18 @@ import os
 import yaml
 import secrets
 import time
+import logging
+import traceback
 from core.ssh_manager import SSHManager
+
+# --- LOGGING SETUP ---
+LOG_FILE = "/root/AlamorTunnel/install_debug.log"
+logging.basicConfig(
+    filename=LOG_FILE,
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    filemode='w' # هر بار فایل را خالی کن و از اول بنویس
+)
 
 # --- CONSTANTS ---
 HYSTERIA_BIN_PATH = "/root/alamor/bin/hysteria"
@@ -38,13 +49,6 @@ def generate_server_config(config):
             "listen": f"127.0.0.1:{STATS_PORT}",
             "secret": stats_secret
         },
-        "resolver": {
-            "type": "udp",
-            "udp": {
-                "addr": "8.8.8.8:53",
-                "timeout": "4s"
-            }
-        },
         "acl": {
             "inline": [
                 "reject(geoip:cn)",
@@ -61,85 +65,107 @@ def generate_server_config(config):
     return yaml.dump(server_conf), stats_secret
 
 def install_hysteria_server_remote(server_ip, config):
-    ssh = SSHManager()
-    ssh_port = int(config.get('ssh_port', 22))
-    ssh_pass = config.get('ssh_pass')
-
-    if not ssh_pass:
-        return False, "SSH Password missing in config"
-
-    # تابع کمکی برای اجرای دستور و لاگ کردن خطا
-    def run_step(name, cmd):
-        # اضافه کردن timeout برای جلوگیری از هنگ کردن
-        full_cmd = f"timeout 120 bash -c '{cmd}'" 
-        ok, out = ssh.run_remote_command(server_ip, "root", ssh_pass, full_cmd, ssh_port)
-        if not ok:
-            return False, f"{name} Failed: {out}"
-        return True, out
-
-    # 1. تست اتصال و ساخت پوشه‌ها
-    ok, msg = run_step("Init", "mkdir -p /root/alamor/bin /root/alamor/certs && echo 'OK'")
-    if not ok: return False, msg
-
-    # 2. نصب پیش‌نیازها (فقط اگر نیاز باشد)
-    # ترفند: استفاده از DEBIAN_FRONTEND=noninteractive قبل از apt
-    install_cmd = (
-        "export DEBIAN_FRONTEND=noninteractive; "
-        "if ! command -v iptables &> /dev/null; then "
-        "apt-get update -qq && apt-get install -y -qq iptables iptables-persistent; "
-        "fi; "
-        "sysctl -w net.ipv4.ip_forward=1"
-    )
-    ok, msg = run_step("Dependencies", install_cmd)
-    if not ok: return False, msg # اگر اینجا ارور داد، لاگ دقیق برمیگرداند
-
-    # 3. سرتیفیکیت
-    cert_cmd = (
-        "openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 "
-        f"-subj '/CN=www.bing.com' "
-        "-keyout /root/alamor/certs/server.key -out /root/alamor/certs/server.crt"
-    )
-    ok, msg = run_step("Certificate", cert_cmd)
-    if not ok: return False, msg
-
-    # 4. دانلود باینری (هوشمند)
-    # چک میکنیم اگر فایل هست و سالمه، دانلود نکنیم
-    check_cmd = f"[ -f {HYSTERIA_BIN_PATH} ] && echo 'EXISTS' || echo 'MISSING'"
-    _, check_out = run_step("Check Bin", check_cmd)
+    logging.info(f"--- STARTING INSTALLATION ON {server_ip} ---")
     
-    if "MISSING" in check_out:
+    try:
+        ssh = SSHManager()
+        ssh_port = int(config.get('ssh_port', 22))
+        ssh_pass = config.get('ssh_pass')
+
+        if not ssh_pass:
+            logging.error("SSH Password missing")
+            return False, "SSH Password missing in config"
+
+        # تابع کمکی برای اجرای دستور و لاگ کردن
+        def run_step(name, cmd):
+            logging.info(f"STEP: {name} | CMD: {cmd}")
+            
+            # اضافه کردن 2>&1 برای گرفتن تمام ارورها
+            # اضافه کردن timeout
+            full_cmd = f"timeout 120 bash -c '{cmd}' 2>&1"
+            
+            try:
+                ok, out = ssh.run_remote_command(server_ip, "root", ssh_pass, full_cmd, ssh_port)
+            except Exception as e:
+                logging.error(f"SSH Exception in {name}: {str(e)}")
+                return False, f"SSH Exception: {str(e)}"
+
+            if not ok:
+                logging.error(f"FAILED: {name} | OUTPUT: {out}")
+                return False, f"{name} Failed: {out}"
+            
+            logging.info(f"SUCCESS: {name} | OUTPUT: {out[:100]}...") # لاگ کردن بخشی از خروجی
+            return True, out
+
+        # 0. تست اتصال ساده
+        logging.info("Testing SSH Connection...")
+        ok, msg = run_step("SSH Connectivity Test", "echo 'Connection Established'")
+        if not ok: return False, f"Could not connect to server: {msg}"
+
+        # 1. ساخت پوشه‌ها
+        ok, msg = run_step("Init Directories", "mkdir -p /root/alamor/bin /root/alamor/certs")
+        if not ok: return False, msg
+
+        # 2. نصب پیش‌نیازها
+        # چک میکنیم اگر پکیج‌ها نصب هستند، دوباره apt update نزنیم (صرفه‌جویی در زمان و کاهش ریسک)
+        install_cmd = (
+            "export DEBIAN_FRONTEND=noninteractive; "
+            "if ! command -v iptables &> /dev/null; then "
+            "   apt-get update -qq && apt-get install -y -qq iptables iptables-persistent; "
+            "fi; "
+            "if ! command -v openssl &> /dev/null; then "
+            "   apt-get install -y -qq openssl; "
+            "fi; "
+            "sysctl -w net.ipv4.ip_forward=1"
+        )
+        ok, msg = run_step("Dependencies", install_cmd)
+        if not ok: return False, msg
+
+        # 3. سرتیفیکیت
+        # اگر فایل وجود دارد، دوباره نساز
+        cert_cmd = (
+            "if [ ! -f /root/alamor/certs/server.key ]; then "
+            "openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 "
+            "-subj '/CN=www.bing.com' "
+            "-keyout /root/alamor/certs/server.key -out /root/alamor/certs/server.crt; "
+            "fi"
+        )
+        ok, msg = run_step("Certificate", cert_cmd)
+        if not ok: return False, msg
+
+        # 4. دانلود باینری
         dl_cmd = (
+            f"if [ ! -f {HYSTERIA_BIN_PATH} ]; then "
             f"curl -L --retry 3 --max-time 60 -o {HYSTERIA_BIN_PATH} "
             "https://github.com/apernet/hysteria/releases/latest/download/hysteria-linux-amd64 "
-            f"&& chmod +x {HYSTERIA_BIN_PATH}"
+            f"&& chmod +x {HYSTERIA_BIN_PATH}; "
+            "fi"
         )
         ok, msg = run_step("Download Core", dl_cmd)
         if not ok: return False, msg
 
-    # 5. کانفیگ
-    yaml_content, stats_secret = generate_server_config(config)
-    config['stats_secret'] = stats_secret 
-    # نوشتن فایل با echo و base64 برای جلوگیری از کاراکترهای عجیب
-    # (اما اینجا ساده می‌نویسیم چون yaml معمولا امن است)
-    create_conf_cmd = f"cat <<EOF > {SERVER_CONFIG_PATH}\n{yaml_content}\nEOF"
-    ok, msg = run_step("Write Config", create_conf_cmd)
-    if not ok: return False, msg
+        # 5. کانفیگ
+        yaml_content, stats_secret = generate_server_config(config)
+        config['stats_secret'] = stats_secret 
+        
+        # نوشتن فایل کانفیگ به روش امن‌تر
+        # اول فایل را پاک میکنیم بعد مینویسیم
+        create_conf_cmd = f"rm -f {SERVER_CONFIG_PATH} && cat <<EOF > {SERVER_CONFIG_PATH}\n{yaml_content}\nEOF"
+        ok, msg = run_step("Write Config", create_conf_cmd)
+        if not ok: return False, msg
 
-    # 6. Iptables (Port Hopping)
-    tunnel_port = config['tunnel_port']
-    ipt_cmd = (
-        f"iptables -t nat -D PREROUTING -p udp --dport {HOP_RANGE.replace(':','-')} -j REDIRECT --to-ports {tunnel_port} 2>/dev/null || true; "
-        f"iptables -t nat -A PREROUTING -p udp --dport {HOP_RANGE} -j REDIRECT --to-ports {tunnel_port}; "
-        "netfilter-persistent save 2>/dev/null || true; "
-        f"ufw allow {tunnel_port}/udp 2>/dev/null || true; "
-        f"ufw allow {tunnel_port}/tcp 2>/dev/null || true; "
-        f"ufw allow {HOP_RANGE}/udp 2>/dev/null || true"
-    )
-    ok, msg = run_step("Firewall", ipt_cmd)
-    if not ok: return False, msg
+        # 6. فایروال (پورت هاپینگ)
+        tunnel_port = config['tunnel_port']
+        ipt_cmd = (
+            f"iptables -t nat -F PREROUTING; "  # پاک کردن رول‌های قبلی برای جلوگیری از تداخل
+            f"iptables -t nat -A PREROUTING -p udp --dport {HOP_RANGE} -j REDIRECT --to-ports {tunnel_port}; "
+            "netfilter-persistent save 2>/dev/null || true"
+        )
+        ok, msg = run_step("Firewall Rules", ipt_cmd)
+        if not ok: return False, msg
 
-    # 7. سرویس Systemd
-    svc_content = f"""[Unit]
+        # 7. سرویس سیستم
+        svc_content = f"""[Unit]
 Description=Hysteria 2 Server
 After=network.target
 
@@ -155,71 +181,27 @@ LimitNOFILE=1048576
 [Install]
 WantedBy=multi-user.target
 """
-    create_svc_cmd = f"cat <<EOF > /etc/systemd/system/hysteria-server.service\n{svc_content}\nEOF"
-    ok, msg = run_step("Service File", create_svc_cmd)
-    if not ok: return False, msg
+        create_svc_cmd = f"cat <<EOF > /etc/systemd/system/hysteria-server.service\n{svc_content}\nEOF"
+        ok, msg = run_step("Service File", create_svc_cmd)
+        if not ok: return False, msg
 
-    # 8. استارت
-    start_cmd = "systemctl daemon-reload && systemctl enable hysteria-server && systemctl restart hysteria-server"
-    return run_step("Start Service", start_cmd)
+        # 8. استارت سرویس
+        start_cmd = (
+            "systemctl daemon-reload && "
+            "systemctl enable hysteria-server && "
+            "systemctl restart hysteria-server && "
+            "systemctl is-active hysteria-server" # چک کردن اینکه واقعا ران شده یا نه
+        )
+        ok, msg = run_step("Start Service", start_cmd)
+        if not ok: return False, msg
+        
+        if "active" not in msg and "running" not in msg:
+             return False, f"Service started but status is: {msg}"
 
-def install_hysteria_client_local(server_ip, config):
-    local_bin = "/root/AlamorTunnel/bin/hysteria"
-    if not os.path.exists(local_bin):
-        os.system(f"mkdir -p /root/AlamorTunnel/bin")
-        os.system(f"curl -L -o {local_bin} https://github.com/apernet/hysteria/releases/latest/download/hysteria-linux-amd64")
-        os.system(f"chmod +x {local_bin}")
+        logging.info("Installation Completed Successfully")
+        return True, "Installation Successful"
 
-    hopping_addr = f"{server_ip}:{HOP_RANGE}"
-    
-    client_conf = {
-        "server": hopping_addr,
-        "auth": config['password'],
-        "tls": {
-            "sni": "www.bing.com",
-            "insecure": True
-        },
-        "transport": {
-            "type": "udp",
-            "udp": {
-                "hopInterval": "30s"
-            }
-        },
-        "bandwidth": {
-            "up": config.get('up_mbps', '100 mbps'),
-            "down": config.get('down_mbps', '100 mbps')
-        },
-        "socks5": {"listen": "127.0.0.1:1080"},
-        "http": {"listen": "127.0.0.1:8080"}
-    }
-    
-    if 'ports' in config and config['ports']:
-        tcp_fw = []
-        udp_fw = []
-        for p in config['ports']:
-            tcp_fw.append({"listen": f"0.0.0.0:{p}", "remote": f"127.0.0.1:{p}"})
-            udp_fw.append({"listen": f"0.0.0.0:{p}", "remote": f"127.0.0.1:{p}", "timeout": "60s"})
-        client_conf['tcpForwarding'] = tcp_fw
-        client_conf['udpForwarding'] = udp_fw
-
-    with open(CLIENT_CONFIG_PATH, 'w') as f:
-        yaml.dump(client_conf, f)
-
-    service_file = f"""[Unit]
-Description=Hysteria Client
-After=network.target
-
-[Service]
-Type=simple
-ExecStart={local_bin} client -c {CLIENT_CONFIG_PATH}
-Restart=always
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-"""
-    with open("/etc/systemd/system/hysteria-client.service", "w") as f:
-        f.write(service_file)
-
-    os.system("systemctl daemon-reload && systemctl enable hysteria-client && systemctl restart hysteria-client")
-    return True
+    except Exception as e:
+        error_trace = traceback.format_exc()
+        logging.critical(f"CRITICAL PYTHON ERROR:\n{error_trace}")
+        return False, f"Python Script Error: {str(e)}"
