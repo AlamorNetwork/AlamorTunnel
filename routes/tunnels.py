@@ -143,7 +143,11 @@ def process_rathole(server_ip, iran_ip, config):
 @tunnels_bp.route('/api/task_status/<task_id>')
 @login_required
 def get_task_status_route(task_id):
-    return jsonify(task_status.get(task_id, {'progress': 0, 'status': 'queued'}))
+    # اصلاح: اگر تسک وجود نداشت (مثلا بعد از ریستارت)، وضعیت 'not_found' برگردان
+    status = task_status.get(task_id)
+    if not status:
+        return jsonify({'progress': 0, 'status': 'not_found', 'log': 'Task not found (Server restarted?)'})
+    return jsonify(status)
 
 @tunnels_bp.route('/start-install/<protocol>', methods=['POST'])
 @login_required
