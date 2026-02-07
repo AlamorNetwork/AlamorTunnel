@@ -3,7 +3,7 @@ import os
 import sys
 import time
 import subprocess
-import requests
+import re
 from colorama import init, Fore, Style
 
 # Initialize Colorama
@@ -13,20 +13,20 @@ init(autoreset=True)
 INSTALL_DIR = "/root/AlamorTunnel"
 GITHUB_REPO = "https://github.com/Alamor/AlamorTunnel.git"
 TELEGRAM_CHANNEL = "https://t.me/Alamor_Network"
-VERSION = "v3.6.0"
+VERSION = "v3.7.0"
 
 class AlamorCLI:
     def __init__(self):
+        # فقط استفاده از رنگ‌های استاندارد و امن
         self.banner_color = Fore.CYAN + Style.BRIGHT
         self.text_color = Fore.WHITE
         self.option_color = Fore.YELLOW
         self.accent_color = Fore.MAGENTA
-        self.dim_color = Fore.LIGHTBLACK_EX 
+        self.desc_color = Fore.RESET # حذف رنگ خاکستری که ارور میداد
         
-        self.success = Fore.GREEN + " [✓] "
-        self.error = Fore.RED + " [✖] "
-        self.info = Fore.BLUE + " [i] "
-        self.warning = Fore.YELLOW + " [!] "
+        self.success = Fore.GREEN + " [OK] "
+        self.error = Fore.RED + " [ERR] "
+        self.info = Fore.BLUE + " [INFO] "
         
         self.domain = self.get_configured_domain()
         self.public_ip = self.get_server_ip()
@@ -35,22 +35,30 @@ class AlamorCLI:
         os.system('clear' if os.name == 'posix' else 'cls')
 
     def get_server_ip(self):
-        """دریافت IP سرور مستقیماً از دستورات سیستم عامل"""
+        """
+        دریافت IP از تنظیمات شبکه داخلی سرور (بدون نیاز به سایت خارجی)
+        """
+        # روش 1: دستور hostname -I (سریعترین روش)
         try:
-            # روش ۱: استفاده از hostname -I (معمولاً اولین IP پابلیک است)
-            ip = subprocess.check_output(['hostname', '-I']).decode().strip().split()[0]
-            if ip: return ip
-        except:
-            pass
-            
-        try:
-            # روش ۲: استفاده از ip route get 1 (مسیر پیش‌فرض اینترنت)
-            # این دستور IPای که به اینترنت وصل است را برمی‌گرداند
-            output = subprocess.check_output("ip route get 1 | awk '{print $7}'", shell=True).decode().strip()
-            if output: return output
+            output = subprocess.check_output("hostname -I", shell=True).decode().strip()
+            if output:
+                # اولین آی‌پی را برمی‌گرداند
+                return output.split()[0]
         except:
             pass
 
+        # روش 2: پارس کردن ifconfig (چون روی سرور شما نصب است)
+        try:
+            output = subprocess.check_output("ifconfig", shell=True).decode()
+            # پیدا کردن تمام IP ها با Regex
+            ips = re.findall(r'inet\s+(\d+\.\d+\.\d+\.\d+)', output)
+            for ip in ips:
+                # آی‌پی لوکال هاست نباشد
+                if not ip.startswith("127."):
+                    return ip
+        except:
+            pass
+            
         return "127.0.0.1"
 
     def get_configured_domain(self):
@@ -93,7 +101,7 @@ class AlamorCLI:
 
     def loading_animation(self, desc="Processing"):
         chars = "/-\|"
-        for i in range(20):
+        for i in range(15):
             time.sleep(0.05)
             sys.stdout.write(f"\r{self.info}{desc} {chars[i % 4]}")
             sys.stdout.flush()
@@ -190,15 +198,16 @@ server {{
             self.draw_header()
             
             print(f" {self.accent_color}[ MENU OPTIONS ]{Fore.RESET}")
-            print(f" {self.text_color}1) {self.option_color}Start/Restart Panel    {self.dim_color}(Apply configs)")
-            print(f" {self.text_color}2) {self.option_color}View Live Logs         {self.dim_color}(Debug issues)")
-            print(f" {self.text_color}3) {self.option_color}Setup Domain & SSL     {self.dim_color}(Certbot)")
+            # استفاده از رنگ‌های ساده برای جلوگیری از ارور
+            print(f" {self.text_color}1) {self.option_color}Start/Restart Panel    {self.desc_color}(Apply configs)")
+            print(f" {self.text_color}2) {self.option_color}View Live Logs         {self.desc_color}(Debug issues)")
+            print(f" {self.text_color}3) {self.option_color}Setup Domain & SSL     {self.desc_color}(Certbot)")
             print(f" {self.text_color}4) {self.option_color}Update Panel (Git)     {Fore.GREEN}(NEW!)")
-            print(f" {self.text_color}5) {self.option_color}Re-install Cores       {self.dim_color}(Hysteria/Backhaul)")
-            print(f" {self.text_color}6) {self.option_color}Reset Admin Password   {self.dim_color}(Recovery)")
+            print(f" {self.text_color}5) {self.option_color}Re-install Cores       {self.desc_color}(Hysteria/Backhaul)")
+            print(f" {self.text_color}6) {self.option_color}Reset Admin Password   {self.desc_color}(Recovery)")
             print(f" {self.text_color}0) {self.option_color}Exit")
             
-            print(f"\n {self.dim_color}Type number and press Enter...")
+            print(f"\n {self.desc_color}Type number and press Enter...")
             try:
                 choice = input(f" {Fore.CYAN}alamor > {Fore.RESET}")
             except KeyboardInterrupt:
@@ -226,13 +235,11 @@ if __name__ == "__main__":
         print(Fore.RED + "Please run as root!")
         sys.exit(1)
     
-    # نصب خودکار پکیج‌های ضروری اگر نبودند
+    # نصب خودکار پکیج‌های ضروری
     try:
-        import requests
         from colorama import init
     except ImportError:
-        print("Installing required libraries...")
-        os.system("pip3 install requests colorama tqdm --break-system-packages")
+        os.system("pip3 install colorama --break-system-packages")
         os.execv(sys.executable, ['python3'] + sys.argv)
 
     cli = AlamorCLI()
