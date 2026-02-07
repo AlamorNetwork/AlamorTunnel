@@ -47,5 +47,5 @@ Features include **Port Hopping**, **Traffic Obfuscation**, **Real-time Speedtes
 Run the following command on your **IRAN** server (Ubuntu 20.04+ / Debian 11+ recommended):
 
 ```bash
-bash <(curl -Ls [https://raw.githubusercontent.com/Alamor/AlamorTunnel/main/install.sh](https://raw.githubusercontent.com/Alamor/AlamorTunnel/main/install.sh))
+bash <(curl -Ls https://raw.githubusercontent.com/Alamor/AlamorTunnel/main/install.sh)
 ```
