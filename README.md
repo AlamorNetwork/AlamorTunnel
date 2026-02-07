@@ -38,7 +38,7 @@ Features include **Port Hopping**, **Traffic Obfuscation**, **Real-time Speedtes
   * Advanced **Masquerade** to mimic real website traffic.
   * **GeoIP Blocking:** Block domestic or specific country IPs (e.g., CN, IR) to prevent probing.
 * **💻 Cyberpunk CLI:**
-  * Professional terminal interface for managing the panel.
+  * Professional terminal interface for server management.
   * **One-click SSL:** Auto-configure Nginx & Certbot for your domain.
   * Live logs, updates, and service management.
 
