@@ -15,10 +15,10 @@ Features include **Port Hopping**, **Traffic Obfuscation**, **Real-time Speedtes
 
 ---
 
-## 🌍 Language / زبان
+## 🌍 Language
 
 - [🇺🇸 English (Default)](#-features)
-- [🇮🇷 Persian (فارسی)](#-ویژگیها)
+- [🇮🇷 Persian (فارسی)](README_fa.md)
 
 ---
 
