@@ -13,7 +13,7 @@ init(autoreset=True)
 INSTALL_DIR = "/root/AlamorTunnel"
 GITHUB_REPO = "https://github.com/Alamor/AlamorTunnel.git"
 TELEGRAM_CHANNEL = "https://t.me/Alamor_Network"
-VERSION = "v3.5.2"
+VERSION = "v3.6.0"
 
 class AlamorCLI:
     def __init__(self):
@@ -21,7 +21,6 @@ class AlamorCLI:
         self.text_color = Fore.WHITE
         self.option_color = Fore.YELLOW
         self.accent_color = Fore.MAGENTA
-        # جایگزین استاندارد برای رنگ خاکستری تیره
         self.dim_color = Fore.LIGHTBLACK_EX 
         
         self.success = Fore.GREEN + " [✓] "
@@ -30,33 +29,28 @@ class AlamorCLI:
         self.warning = Fore.YELLOW + " [!] "
         
         self.domain = self.get_configured_domain()
-        # دریافت IP باید بعد از مقداردهی اولیه متغیرها باشد
-        self.public_ip = self.get_public_ip()
+        self.public_ip = self.get_server_ip()
 
     def clear_screen(self):
         os.system('clear' if os.name == 'posix' else 'cls')
 
-    def get_public_ip(self):
-        # لیست سرورهای مختلف برای دریافت IP تا اگر یکی ارور داد، بعدی کار کند
-        providers = [
-            "https://api.ipify.org",
-            "https://icanhazip.com",
-            "http://checkip.amazonaws.com",
-            "https://ifconfig.me/ip"
-        ]
-        
-        print(f"{self.info}Detecting Server IP...", end="\r")
-        for url in providers:
-            try:
-                response = requests.get(url, timeout=3)
-                if response.status_code == 200:
-                    ip = response.text.strip()
-                    # بررسی اینکه خروجی واقعا IP باشد و نه کد HTML خطا
-                    if len(ip) < 20 and "html" not in ip and "error" not in ip.lower():
-                        return ip
-            except:
-                continue
-        
+    def get_server_ip(self):
+        """دریافت IP سرور مستقیماً از دستورات سیستم عامل"""
+        try:
+            # روش ۱: استفاده از hostname -I (معمولاً اولین IP پابلیک است)
+            ip = subprocess.check_output(['hostname', '-I']).decode().strip().split()[0]
+            if ip: return ip
+        except:
+            pass
+            
+        try:
+            # روش ۲: استفاده از ip route get 1 (مسیر پیش‌فرض اینترنت)
+            # این دستور IPای که به اینترنت وصل است را برمی‌گرداند
+            output = subprocess.check_output("ip route get 1 | awk '{print $7}'", shell=True).decode().strip()
+            if output: return output
+        except:
+            pass
+
         return "127.0.0.1"
 
     def get_configured_domain(self):
@@ -79,7 +73,6 @@ class AlamorCLI:
         print(f"║ {Fore.MAGENTA} \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ {self.banner_color}║")
         print(f"╠══════════════════════════════════════════════════════════════╣")
         
-        # نمایش IP که تمیز شده است
         print(f"║ {Fore.WHITE}SERVER IP : {Fore.GREEN}{self.public_ip:<41} {self.banner_color}║")
         
         if self.domain:
@@ -99,10 +92,9 @@ class AlamorCLI:
         print("")
 
     def loading_animation(self, desc="Processing"):
-        # انیمیشن ساده بدون نیاز به tqdm برای سبکی بیشتر
         chars = "/-\|"
         for i in range(20):
-            time.sleep(0.1)
+            time.sleep(0.05)
             sys.stdout.write(f"\r{self.info}{desc} {chars[i % 4]}")
             sys.stdout.flush()
         print()
@@ -116,9 +108,12 @@ class AlamorCLI:
              os.system(f"cd {INSTALL_DIR} && git pull")
         
         print(f"\n{self.success}Update finished!")
-        choice = input(f"{self.option_color}Restart panel to apply changes? (y/n): {Fore.RESET}")
-        if choice.lower() == 'y':
-            self.restart_panel()
+        try:
+            choice = input(f"{self.option_color}Restart panel to apply changes? (y/n): {Fore.RESET}")
+            if choice.lower() == 'y':
+                self.restart_panel()
+        except KeyboardInterrupt:
+            pass
 
     def show_logs(self):
         print(f"\n{self.info}Showing live logs (Press Ctrl+C to exit)...")
@@ -137,7 +132,11 @@ class AlamorCLI:
 
     def setup_ssl(self):
         print(f"\n{self.info}Starting Certbot SSL Setup...")
-        domain = input(f"{self.option_color}Enter your domain (e.g., panel.example.com): {Fore.RESET}")
+        try:
+            domain = input(f"{self.option_color}Enter your domain (e.g., panel.example.com): {Fore.RESET}")
+        except KeyboardInterrupt:
+            return
+
         if not domain: return
         
         nginx_conf = f"""
@@ -176,19 +175,21 @@ server {{
         time.sleep(1)
 
     def reset_password(self):
-        new_pass = input(f"\n{self.option_color}Enter new admin password: {Fore.RESET}")
-        if new_pass:
-            cmd = f'python3 -c "from core.database import update_password; update_password(\'{new_pass}\'); print(\'Done\')"'
-            os.system(f"cd {INSTALL_DIR} && {cmd}")
-            print(f"{self.success}Password updated.")
-            time.sleep(1)
+        try:
+            new_pass = input(f"\n{self.option_color}Enter new admin password: {Fore.RESET}")
+            if new_pass:
+                cmd = f'python3 -c "from core.database import update_password; update_password(\'{new_pass}\'); print(\'Done\')"'
+                os.system(f"cd {INSTALL_DIR} && {cmd}")
+                print(f"{self.success}Password updated.")
+                time.sleep(1)
+        except KeyboardInterrupt:
+            pass
 
     def menu(self):
         while True:
             self.draw_header()
             
             print(f" {self.accent_color}[ MENU OPTIONS ]{Fore.RESET}")
-            # استفاده از self.dim_color که خطا ندهد
             print(f" {self.text_color}1) {self.option_color}Start/Restart Panel    {self.dim_color}(Apply configs)")
             print(f" {self.text_color}2) {self.option_color}View Live Logs         {self.dim_color}(Debug issues)")
             print(f" {self.text_color}3) {self.option_color}Setup Domain & SSL     {self.dim_color}(Certbot)")
@@ -225,12 +226,13 @@ if __name__ == "__main__":
         print(Fore.RED + "Please run as root!")
         sys.exit(1)
     
-    # نصب پیشنیازها اگر نصب نباشند
+    # نصب خودکار پکیج‌های ضروری اگر نبودند
     try:
         import requests
+        from colorama import init
     except ImportError:
-        os.system("pip3 install requests colorama")
-        print("Installed missing libraries. Restarting...")
+        print("Installing required libraries...")
+        os.system("pip3 install requests colorama tqdm --break-system-packages")
         os.execv(sys.executable, ['python3'] + sys.argv)
 
     cli = AlamorCLI()
