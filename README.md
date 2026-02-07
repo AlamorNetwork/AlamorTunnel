@@ -1,55 +1,51 @@
-# 🐍 AlamorTunnel Enterprise
 
-![Version](https://img.shields.io/badge/version-2.0.0-succes)
-![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)
-![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Ubuntu-orange?logo=linux&logoColor=white)
-![License](https://img.shields.io/badge/license-MIT-green)
+# AlamorTunnel 🚀
 
-> **The Ultimate Tunneling Infrastructure Orchestrator.** > Manage your local and remote servers, tunnels, and network optimizations from a single, glass-morphism dashboard.
+### Advanced Anti-Censorship Tunneling Panel
 
----
+![AlamorTunnel Banner](https://raw.githubusercontent.com/Alamor/AlamorTunnel/main/static/img/banner.png)
 
-## 🌟 Features (قابلیت‌ها)
+[![GitHub release](https://img.shields.io/github/v/release/Alamor/AlamorTunnel?style=flat-square)](https://github.com/Alamor/AlamorTunnel/releases)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10+-yellow?style=flat-square)](https://www.python.org/)
 
-AlamorTunnel is not just a script; it's a full-stack infrastructure manager designed for stability and stealth.
+**AlamorTunnel** is a powerful, web-based management panel designed to bypass severe internet censorship. It integrates the most advanced tunneling cores (**Hysteria 2**, **Backhaul**, **Gost**, **Rathole**) into a single, easy-to-use interface.
 
-### 🔥 Core Capabilities
-
-* **Orchestration Mode:** Manage remote ("Slave") servers from a central ("Master") Iran server securely via SSH keys.
-* **Smart Installer:** Auto-detects network issues and switches Python mirrors automatically (Anti-Filter).
-* **Sequential Logic:** Prevents server overload by queuing tasks (Install BBR -> Config Tunnel -> Update DNS).
-* **Clean IP Injection:** Integrated scanner to find clean Cloudflare IPs and inject them into X-UI configs instantly.
-
-### 🎨 UI & UX
-
-* **Slytherin Prime Theme:** A modern, dark-mode "Glassmorphism" interface with neon green accents.
-* **Real-time Dashboard:** Monitor CPU, RAM, and Connection Health (Ping/Packet Loss) visually.
-* **Responsive Design:** Fully compatible with Desktop and Mobile browsers.
-
-### 🛠 Tools & Tunnels
-
-* **Tunnel Support:**
-  * 🚀 **Backhaul:** TCP-optimized reverse tunnel (Great for gaming).
-  * 🛡️ **Rathole:** Secure, Rust-based tunnel for high-restriction environments.
-  * 👻 **ICMP/DNS:** Stealth tunneling methods.
-* **System Opt:** One-click BBR, Cube, and Firewall management.
+Features include **Port Hopping**, **Traffic Obfuscation**, **Real-time Speedtest**, and a **Cyberpunk CLI** for server management.
 
 ---
 
-## 📸 Screenshots
+## 🌍 Language / زبان
 
-|                                       Login Screen                                       |                                     Dashboard Overview                                     |
-| :---------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------: |
-| ![Login](https://via.placeholder.com/400x250/000000/10b981?text=Login+Page+Slytherin+Style) | ![Dashboard](https://via.placeholder.com/400x250/0f0f0f/10b981?text=Glassmorphism+Dashboard) |
-
-*(Screenshots will be updated soon)*
+- [🇺🇸 English (Default)](#-features)
+- [🇮🇷 Persian (فارسی)](#-ویژگیها)
 
 ---
 
-## 🚀 Installation (نصب سریع)
+## ✨ Features
 
-Run this command on your **Iran Server (Master Node)**. The script handles everything automatically.
+* **⚡ Multi-Core Support:**
+  * **Hysteria 2:** Built-in **Port Hopping** (dynamic port switching), Masquerade (Bing/Google), and Brutal congestion control.
+  * **Backhaul:** Supports TCP, TCPMux, WS, WSS (WebSocket Secure) with connection pooling.
+  * **Gost:** Chain proxies, forwarding, and multi-protocol support.
+  * **Rathole:** Lightweight, secure reverse proxy for NAT traversal.
+* **📊 Live Dashboard:**
+  * Real-time **Traffic Monitoring** (RX/TX).
+  * **Advanced Speedtest:** Check Ping, Download, and Upload speeds directly from the panel.
+  * Visual charts for network health.
+* **🛡️ Anti-Censorship:**
+  * Automatic **Port Hopping** configuration (iptables) to evade blocking.
+  * Advanced **Masquerade** to mimic real website traffic.
+  * **GeoIP Blocking:** Block domestic or specific country IPs (e.g., CN, IR) to prevent probing.
+* **💻 Cyberpunk CLI:**
+  * Professional terminal interface for managing the panel.
+  * **One-click SSL:** Auto-configure Nginx & Certbot for your domain.
+  * Live logs, updates, and service management.
+
+## 🚀 One-Click Installation
+
+Run the following command on your **IRAN** server (Ubuntu 20.04+ / Debian 11+ recommended):
 
 ```bash
-apt update -y && apt install git -y && git clone https://github.com/AlamorNetwork/AlamorTunnel.git && cd AlamorTunnel && chmod +x install.sh && ./install.sh
+bash <(curl -Ls [https://raw.githubusercontent.com/Alamor/AlamorTunnel/main/install.sh](https://raw.githubusercontent.com/Alamor/AlamorTunnel/main/install.sh))
 ```
