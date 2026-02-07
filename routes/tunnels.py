@@ -152,10 +152,28 @@ def get_task_status_route(task_id):
 @tunnels_bp.route('/start-install/<protocol>', methods=['POST'])
 @login_required
 def start_install(protocol):
+    # 1. دریافت اطلاعات سرور متصل از دیتابیس
     server = get_connected_server()
-    if not server: return jsonify({'status': 'error', 'message': 'No remote server connected!'})
+    if not server:
+        return jsonify({'status': 'error', 'message': 'No remote server connected!'})
     
+    # استخراج اطلاعات سرور (IP, User, Pass, Port)
+    # فرض بر این است که get_connected_server یک تاپل یا لیست برمی‌گرداند:
+    # (ip, user, password, port)
+    server_ip = server[0]
+    ssh_user = server[1]
+    ssh_pass = server[2]
+    ssh_port = server[3]
+
+    # 2. دریافت فرم کانفیگ از کاربر
     config = request.form.to_dict()
+    
+    # 3. افزودن اطلاعات SSH به کانفیگ (این بخش جا افتاده بود!)
+    config['ssh_ip'] = server_ip
+    config['ssh_user'] = ssh_user
+    config['ssh_pass'] = ssh_pass
+    config['ssh_port'] = ssh_port
+
     task_id = str(uuid.uuid4())
     init_task(task_id)
 
@@ -178,11 +196,11 @@ def start_install(protocol):
         config['tls_cert'] = '/root/certs/server.crt'
         config['tls_key'] = '/root/certs/server.key'
         target_func = process_backhaul
-        args = (server[0], iran_ip, config)
+        args = (server_ip, iran_ip, config)
 
     elif protocol == 'gost':
         target_func = process_gost
-        args = (server[0], config)
+        args = (server_ip, config)
         
     elif protocol == 'hysteria':
         raw = config.get('forward_ports', '')
@@ -190,7 +208,7 @@ def start_install(protocol):
         config['password'] = config.get('password') or generate_pass()
         config['obfs_pass'] = config.get('obfs_pass') or generate_pass()
         target_func = process_hysteria
-        args = (server[0], config)
+        args = (server_ip, config)
         
     elif protocol == 'rathole':
         iran_ip = get_server_public_ip()
@@ -200,7 +218,7 @@ def start_install(protocol):
         config['ipv6'] = request.form.get('ipv6') == 'on'
         config['nodelay'] = request.form.get('nodelay') == 'on'
         target_func = process_rathole
-        args = (server[0], iran_ip, config)
+        args = (server_ip, iran_ip, config)
 
     if target_func:
         thread = threading.Thread(target=run_task_in_background, args=(task_id, target_func, args))
