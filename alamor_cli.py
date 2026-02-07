@@ -3,10 +3,8 @@ import os
 import sys
 import time
 import subprocess
-import socket
 import requests
-from colorama import init, Fore, Style, Back
-from tqdm import tqdm
+from colorama import init, Fore, Style
 
 # Initialize Colorama
 init(autoreset=True)
@@ -15,7 +13,7 @@ init(autoreset=True)
 INSTALL_DIR = "/root/AlamorTunnel"
 GITHUB_REPO = "https://github.com/Alamor/AlamorTunnel.git"
 TELEGRAM_CHANNEL = "https://t.me/Alamor_Network"
-VERSION = "v3.5.1"
+VERSION = "v3.5.2"
 
 class AlamorCLI:
     def __init__(self):
@@ -23,7 +21,7 @@ class AlamorCLI:
         self.text_color = Fore.WHITE
         self.option_color = Fore.YELLOW
         self.accent_color = Fore.MAGENTA
-        # جایگزینی رنگ DARK_GREY با LIGHTBLACK_EX که در تمام سیستم‌ها کار می‌کند
+        # جایگزین استاندارد برای رنگ خاکستری تیره
         self.dim_color = Fore.LIGHTBLACK_EX 
         
         self.success = Fore.GREEN + " [✓] "
@@ -31,29 +29,30 @@ class AlamorCLI:
         self.info = Fore.BLUE + " [i] "
         self.warning = Fore.YELLOW + " [!] "
         
-        self.public_ip = self.get_public_ip()
         self.domain = self.get_configured_domain()
+        # دریافت IP باید بعد از مقداردهی اولیه متغیرها باشد
+        self.public_ip = self.get_public_ip()
 
     def clear_screen(self):
         os.system('clear' if os.name == 'posix' else 'cls')
 
     def get_public_ip(self):
-        # استفاده از چندین منبع برای جلوگیری از ارور 403
+        # لیست سرورهای مختلف برای دریافت IP تا اگر یکی ارور داد، بعدی کار کند
         providers = [
             "https://api.ipify.org",
             "https://icanhazip.com",
-            "https://ifconfig.me/ip",
-            "http://checkip.amazonaws.com"
+            "http://checkip.amazonaws.com",
+            "https://ifconfig.me/ip"
         ]
         
+        print(f"{self.info}Detecting Server IP...", end="\r")
         for url in providers:
             try:
-                # استفاده از python requests به جای curl برای مدیریت بهتر خطا
                 response = requests.get(url, timeout=3)
                 if response.status_code == 200:
                     ip = response.text.strip()
-                    # اعتبارسنجی ساده که html نباشد
-                    if len(ip) < 20 and "html" not in ip:
+                    # بررسی اینکه خروجی واقعا IP باشد و نه کد HTML خطا
+                    if len(ip) < 20 and "html" not in ip and "error" not in ip.lower():
                         return ip
             except:
                 continue
@@ -73,7 +72,6 @@ class AlamorCLI:
 
     def draw_header(self):
         self.clear_screen()
-        # Cyberpunk Style Header
         print(f"{self.banner_color}╔══════════════════════════════════════════════════════════════╗")
         print(f"║ {Fore.MAGENTA}  _   _   _   _   _   _   _   _   _   _   _   _   _   _   _  {self.banner_color}║")
         print(f"║ {Fore.MAGENTA} / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ {self.banner_color}║")
@@ -81,10 +79,9 @@ class AlamorCLI:
         print(f"║ {Fore.MAGENTA} \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ {self.banner_color}║")
         print(f"╠══════════════════════════════════════════════════════════════╣")
         
-        # Server Info Section
+        # نمایش IP که تمیز شده است
         print(f"║ {Fore.WHITE}SERVER IP : {Fore.GREEN}{self.public_ip:<41} {self.banner_color}║")
         
-        # Panel Address Logic
         if self.domain:
             url = f"https://{self.domain}"
             ssl_status = f"{Fore.GREEN}ACTIVE (SSL)"
@@ -102,22 +99,23 @@ class AlamorCLI:
         print("")
 
     def loading_animation(self, desc="Processing"):
-        for _ in tqdm(range(100), desc=desc, bar_format="{l_bar}%s{bar}%s{r_bar}" % (Fore.CYAN, Fore.RESET), leave=False):
-            time.sleep(0.01)
+        # انیمیشن ساده بدون نیاز به tqdm برای سبکی بیشتر
+        chars = "/-\|"
+        for i in range(20):
+            time.sleep(0.1)
+            sys.stdout.write(f"\r{self.info}{desc} {chars[i % 4]}")
+            sys.stdout.flush()
+        print()
 
     def update_panel(self):
-        print(f"\n{self.info}Checking for updates from GitHub...")
+        print(f"\n{self.info}Checking for updates...")
         if not os.path.exists(f"{INSTALL_DIR}/.git"):
-            print(f"{self.warning}Directory is not a Git repository.")
-            print(f"{self.info}Initializing Git and pulling latest version...")
             os.system(f"cd {INSTALL_DIR} && git init && git remote add origin {GITHUB_REPO} 2>/dev/null")
             os.system(f"cd {INSTALL_DIR} && git fetch --all && git reset --hard origin/main")
         else:
              os.system(f"cd {INSTALL_DIR} && git pull")
         
-        self.loading_animation("Updating Files")
         print(f"\n{self.success}Update finished!")
-        
         choice = input(f"{self.option_color}Restart panel to apply changes? (y/n): {Fore.RESET}")
         if choice.lower() == 'y':
             self.restart_panel()
@@ -163,7 +161,7 @@ server {{
         os.system(f"ln -sf /etc/nginx/sites-available/{domain} /etc/nginx/sites-enabled/")
         os.system("systemctl restart nginx")
         
-        print(f"{self.info}Requesting Certificate from Let's Encrypt...")
+        print(f"{self.info}Requesting Certificate...")
         os.system(f"certbot --nginx -d {domain} --non-interactive --agree-tos -m admin@{domain}")
         print(f"\n{self.success}SSL Setup Complete! Access panel at https://{domain}")
         
@@ -190,7 +188,7 @@ server {{
             self.draw_header()
             
             print(f" {self.accent_color}[ MENU OPTIONS ]{Fore.RESET}")
-            # استفاده از self.dim_color که همان LIGHTBLACK_EX است
+            # استفاده از self.dim_color که خطا ندهد
             print(f" {self.text_color}1) {self.option_color}Start/Restart Panel    {self.dim_color}(Apply configs)")
             print(f" {self.text_color}2) {self.option_color}View Live Logs         {self.dim_color}(Debug issues)")
             print(f" {self.text_color}3) {self.option_color}Setup Domain & SSL     {self.dim_color}(Certbot)")
@@ -200,7 +198,11 @@ server {{
             print(f" {self.text_color}0) {self.option_color}Exit")
             
             print(f"\n {self.dim_color}Type number and press Enter...")
-            choice = input(f" {Fore.CYAN}alamor > {Fore.RESET}")
+            try:
+                choice = input(f" {Fore.CYAN}alamor > {Fore.RESET}")
+            except KeyboardInterrupt:
+                print("\nGoodbye!")
+                sys.exit()
 
             if choice == '1':
                 self.restart_panel()
@@ -223,5 +225,13 @@ if __name__ == "__main__":
         print(Fore.RED + "Please run as root!")
         sys.exit(1)
     
+    # نصب پیشنیازها اگر نصب نباشند
+    try:
+        import requests
+    except ImportError:
+        os.system("pip3 install requests colorama")
+        print("Installed missing libraries. Restarting...")
+        os.execv(sys.executable, ['python3'] + sys.argv)
+
     cli = AlamorCLI()
     cli.menu()
