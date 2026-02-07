@@ -8,6 +8,7 @@ from core.traffic import get_traffic_stats, check_port_health, run_advanced_spee
 from core.tasks import task_queue, init_task, task_status
 from routes.auth import login_required
 from core.ssl_manager import set_root_tunnel 
+from core.ssh_manager import SSHManager, verify_ssh_connection, run_remote_command, run_remote_command_iter
 import psutil
 from core.config_loader import load_config
 import os
@@ -17,8 +18,52 @@ import re
 import threading
 import time
 import uuid
-
+from core.database import Database
+db = Database()
 tunnels_bp = Blueprint('tunnels', __name__)
+def get_cleanup_commands(protocol, is_remote=False):
+    """دستورات لینوکسی برای توقف، غیرفعال‌سازی و حذف فایل‌ها"""
+    
+    # مسیر فایل‌های کانفیگ بر اساس اینکه سرور خارج است یا ایران
+    base_dir = "/root/alamor" if is_remote else "/root/AlamorTunnel"
+    
+    commands = []
+    service_name = ""
+    
+    if protocol == 'hysteria2':
+        service_name = "hysteria-server" if is_remote else "hysteria-client"
+        config_file = f"{base_dir}/bin/config.yaml" if is_remote else f"{base_dir}/bin/hysteria_client.yaml"
+    
+    elif protocol == 'backhaul':
+        service_name = "backhaul" # معمولا یکی است، مگر اینکه پسوند داشته باشد
+        config_file = f"{base_dir}/bin/backhaul.toml"
+        
+    elif protocol == 'rathole':
+        service_name = "rathole"
+        config_file = f"{base_dir}/bin/rathole.toml"
+        
+    elif protocol == 'gost':
+        service_name = "gost"
+        config_file = f"{base_dir}/bin/config.json"
+
+    # اگر سرویس مشخص شد، دستورات را بساز
+    if service_name:
+        # 1. توقف سرویس
+        commands.append(f"systemctl stop {service_name}")
+        # 2. غیرفعال کردن سرویس (که با ریبوت بالا نیاید)
+        commands.append(f"systemctl disable {service_name}")
+        # 3. حذف فایل سرویس
+        commands.append(f"rm /etc/systemd/system/{service_name}.service")
+        # 4. ریلود کردن دیمن سیستم
+        commands.append("systemctl daemon-reload")
+        # 5. ریست کردن کانکشن‌های فیلد شده (Killing Ports)
+        # (اختیاری: اگر سرویس گیر کرده باشد پورت را آزاد میکند)
+        # commands.append(f"fuser -k -n tcp {port}") 
+        
+        # 6. حذف فایل کانفیگ اختصاصی
+        commands.append(f"rm -f {config_file}")
+
+    return "; ".join(commands)
 
 # --- WORKER FUNCTION ---
 def run_task_in_background(task_id, func, args):
@@ -236,15 +281,52 @@ def tunnel_stats(tunnel_id):
     rx, tx = get_traffic_stats(port, proto)
     return jsonify({'rx': round(rx/1024/1024, 2), 'tx': round(tx/1024/1024, 2)})
 
-@tunnels_bp.route('/delete/<int:tunnel_id>', methods=['POST'])
+@tunnels_bp.route('/tunnel/delete/<int:tunnel_id>', methods=['POST'])
 @login_required
 def delete_tunnel_route(tunnel_id):
-    tunnel = get_tunnel_by_id(tunnel_id)
-    if tunnel:
-        if "backhaul" in tunnel['transport']: stop_and_delete_backhaul()
-    delete_tunnel_by_id(tunnel_id)
-    os.system("systemctl daemon-reload")
-    return jsonify({'status': 'ok'})
+    try:
+        # 1. دریافت اطلاعات تانل قبل از حذف
+        tunnel = db.get_tunnel(tunnel_id)
+        if not tunnel:
+            flash('Tunnel not found.', 'danger')
+            return redirect(url_for('dashboard.index'))
+
+        # استخراج اطلاعات (بر اساس ساختار دیتابیس شما)
+        # فرض: tunnel[2]=remote_ip, tunnel[3]=remote_port, tunnel[5]=protocol, tunnel[6]=ssh_username, tunnel[7]=ssh_password
+        # نکته: اگر این ایندکس‌ها در دیتابیس شما فرق دارد، باید اصلاح کنید.
+        remote_ip = tunnel[2]
+        protocol = tunnel[5]
+        ssh_user = tunnel[6]
+        ssh_pass = tunnel[7]
+
+        # 2. پاک‌سازی سرور ایران (Local Cleanup)
+        local_cmd = get_cleanup_commands(protocol, is_remote=False)
+        print(f"Executing Local Cleanup: {local_cmd}")
+        subprocess.run(local_cmd, shell=True, executable='/bin/bash')
+
+        # 3. پاک‌سازی سرور خارج (Remote Cleanup)
+        if remote_ip and ssh_user and ssh_pass:
+            remote_cmd = get_cleanup_commands(protocol, is_remote=True)
+            print(f"Executing Remote Cleanup on {remote_ip}: {remote_cmd}")
+            
+            ssh = SSHManager()
+            # تلاش برای اجرای دستور در سرور خارج
+            try:
+                ssh.run_remote_command(remote_ip, ssh_user, ssh_pass, remote_cmd)
+                flash('Tunnel services stopped and removed from BOTH servers.', 'success')
+            except Exception as e:
+                print(f"Remote cleanup failed: {e}")
+                flash(f'Local files removed, but could not connect to remote server: {e}', 'warning')
+        else:
+            flash('Local files removed. Remote server credentials missing, clean manually.', 'warning')
+
+        # 4. حذف نهایی از دیتابیس
+        db.delete_tunnel(tunnel_id)
+        
+    except Exception as e:
+        flash(f'Error deleting tunnel: {str(e)}', 'danger')
+
+    return redirect(url_for('dashboard.index'))
 
 @tunnels_bp.route('/tunnel/edit/<int:tunnel_id>')
 @login_required
