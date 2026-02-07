@@ -1,14 +1,15 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
-from core.database import get_connected_server, add_tunnel, get_all_tunnels, get_tunnel_by_id, delete_tunnel_by_id, update_tunnel_config
+# ایمپورت کلاس Database و Wrapperها
+from core.database import Database, get_connected_server, add_tunnel, get_all_tunnels, get_tunnel_by_id, delete_tunnel_by_id, update_tunnel_config
+from core.ssh_manager import SSHManager
 from core.backhaul_manager import install_local_backhaul, install_remote_backhaul, generate_token, stop_and_delete_backhaul
 from core.rathole_manager import install_local_rathole, install_remote_rathole
 from core.hysteria_manager import install_hysteria_server_remote, install_hysteria_client_local, generate_pass
 from core.gost_manager import install_gost_server_remote, install_gost_client_local
-from core.traffic import get_traffic_stats, check_port_health, run_advanced_speedtest
+from core.traffic import get_traffic_stats, run_advanced_speedtest
 from core.tasks import task_queue, init_task, task_status
 from routes.auth import login_required
 from core.ssl_manager import set_root_tunnel 
-from core.ssh_manager import SSHManager, verify_ssh_connection, run_remote_command, run_remote_command_iter
 import psutil
 from core.config_loader import load_config
 import os
@@ -18,52 +19,8 @@ import re
 import threading
 import time
 import uuid
-from core.database import Database
-db = Database()
+
 tunnels_bp = Blueprint('tunnels', __name__)
-def get_cleanup_commands(protocol, is_remote=False):
-    """دستورات لینوکسی برای توقف، غیرفعال‌سازی و حذف فایل‌ها"""
-    
-    # مسیر فایل‌های کانفیگ بر اساس اینکه سرور خارج است یا ایران
-    base_dir = "/root/alamor" if is_remote else "/root/AlamorTunnel"
-    
-    commands = []
-    service_name = ""
-    
-    if protocol == 'hysteria2':
-        service_name = "hysteria-server" if is_remote else "hysteria-client"
-        config_file = f"{base_dir}/bin/config.yaml" if is_remote else f"{base_dir}/bin/hysteria_client.yaml"
-    
-    elif protocol == 'backhaul':
-        service_name = "backhaul" # معمولا یکی است، مگر اینکه پسوند داشته باشد
-        config_file = f"{base_dir}/bin/backhaul.toml"
-        
-    elif protocol == 'rathole':
-        service_name = "rathole"
-        config_file = f"{base_dir}/bin/rathole.toml"
-        
-    elif protocol == 'gost':
-        service_name = "gost"
-        config_file = f"{base_dir}/bin/config.json"
-
-    # اگر سرویس مشخص شد، دستورات را بساز
-    if service_name:
-        # 1. توقف سرویس
-        commands.append(f"systemctl stop {service_name}")
-        # 2. غیرفعال کردن سرویس (که با ریبوت بالا نیاید)
-        commands.append(f"systemctl disable {service_name}")
-        # 3. حذف فایل سرویس
-        commands.append(f"rm /etc/systemd/system/{service_name}.service")
-        # 4. ریلود کردن دیمن سیستم
-        commands.append("systemctl daemon-reload")
-        # 5. ریست کردن کانکشن‌های فیلد شده (Killing Ports)
-        # (اختیاری: اگر سرویس گیر کرده باشد پورت را آزاد میکند)
-        # commands.append(f"fuser -k -n tcp {port}") 
-        
-        # 6. حذف فایل کانفیگ اختصاصی
-        commands.append(f"rm -f {config_file}")
-
-    return "; ".join(commands)
 
 # --- WORKER FUNCTION ---
 def run_task_in_background(task_id, func, args):
@@ -81,6 +38,37 @@ def run_task_in_background(task_id, func, args):
         print(f"Task Failed: {e}")
         task_status[task_id] = {'progress': 100, 'status': 'error', 'log': f"Error: {str(e)}"}
 
+# --- CLEANUP HELPER (سیستم حذف هوشمند) ---
+def get_cleanup_commands(protocol, is_remote=False):
+    """دستورات لینوکسی برای حذف سرویس‌ها"""
+    base_dir = "/root/alamor" if is_remote else "/root/AlamorTunnel"
+    commands = []
+    service_name = ""
+    
+    if protocol == 'hysteria2' or protocol == 'hysteria':
+        service_name = "hysteria-server" if is_remote else "hysteria-client"
+        config_file = f"{base_dir}/bin/config.yaml" if is_remote else f"{base_dir}/bin/hysteria_client.yaml"
+    elif 'backhaul' in protocol:
+        service_name = "backhaul"
+        config_file = f"{base_dir}/bin/backhaul.toml"
+    elif 'rathole' in protocol:
+        service_name = "rathole"
+        config_file = f"{base_dir}/bin/rathole.toml"
+    elif 'gost' in protocol:
+        service_name = "gost"
+        config_file = f"{base_dir}/bin/config.json"
+
+    if service_name:
+        commands.append(f"systemctl stop {service_name}")
+        commands.append(f"systemctl disable {service_name}")
+        commands.append(f"rm /etc/systemd/system/{service_name}.service")
+        commands.append("systemctl daemon-reload")
+        # کشتن پروسه‌های جامانده
+        commands.append(f"pkill -f {service_name}")
+        commands.append(f"rm -f {config_file}")
+
+    return "; ".join(commands)
+
 # --- HELPERS ---
 def get_server_public_ip():
     providers = [
@@ -96,7 +84,7 @@ def get_server_public_ip():
         except: continue
     return "127.0.0.1"
 
-# --- GENERATORS (مراحل نصب) ---
+# --- GENERATORS ---
 def process_backhaul(server_ip, iran_ip, config):
     yield 10, f"Connecting to Remote Server ({server_ip})..."
     success, msg = install_remote_backhaul(server_ip, iran_ip, config)
@@ -107,7 +95,6 @@ def process_backhaul(server_ip, iran_ip, config):
         install_local_backhaul(config)
     except Exception as e: raise Exception(f"Local Install Failed: {e}")
     
-    # === تنظیم تانل روی Root (443) ===
     if config['transport'] in ['ws', 'wss', 'wsmux', 'wssmux']:
         yield 70, "Binding Tunnel to Domain Root (443)..."
         ok, nginx_msg = set_root_tunnel(config['tunnel_port'])
@@ -173,23 +160,19 @@ def start_install(protocol):
 
     if protocol == 'backhaul':
         iran_ip = request.form.get('iran_ip_manual') or get_server_public_ip()
-        
         config['token'] = generate_token()
         raw_ports = request.form.get('port_rules', '').strip()
         config['port_rules'] = [l.strip() for l in raw_ports.split('\n') if l.strip()]
         
-        # تبدیل چک‌باکس‌ها
         bool_fields = ['accept_udp', 'nodelay', 'sniffer', 'skip_optz', 'aggressive_pool']
         for f in bool_fields: config[f] = request.form.get(f) == 'on'
             
-        # تبدیل اعداد
         int_fields = ['keepalive_period', 'heartbeat', 'mux_con', 'channel_size', 'mss', 'so_rcvbuf', 'so_sndbuf', 'mux_version', 'mux_framesize', 'mux_recievebuffer', 'mux_streambuffer', 'web_port', 'dial_timeout', 'retry_interval', 'connection_pool', 'tunnel_port']
         for f in int_fields:
             if config.get(f) and config[f].isdigit(): config[f] = int(config[f])
         
         config['tls_cert'] = '/root/certs/server.crt'
         config['tls_key'] = '/root/certs/server.key'
-        
         target_func = process_backhaul
         args = (server[0], iran_ip, config)
 
@@ -221,43 +204,12 @@ def start_install(protocol):
         return jsonify({'status': 'started', 'task_id': task_id})
     
     return jsonify({'status': 'error', 'message': 'Unknown protocol'})
-@tunnels_bp.route('/server-speedtest')
-@login_required
-def server_speedtest():
-    """تست سرعت کلی سرور (پینگ و دانلود از اینترنت) برای نمایش در داشبورد"""
-    # استفاده از تابع run_advanced_speedtest که قبلاً ایمپورت شده
-    result = run_advanced_speedtest() 
-    return jsonify(result)
-# --- SPEEDTEST ROUTE (FIXED) ---
+
 @tunnels_bp.route('/run-speedtest/<int:tunnel_id>')
 @login_required
 def run_tunnel_speedtest_route(tunnel_id):
-    """
-    اجرای تست سرعت برای یک تانل خاص.
-    1. پیدا کردن IP سرور خارج (Remote) مربوط به این تانل
-    2. پینگ گرفتن به آن IP (برای محاسبه تأخیر تانل)
-    3. تست دانلود از اینترنت
-    """
     tunnel = get_tunnel_by_id(tunnel_id)
-    target_ip = None
-    local_port = None
-    
-    if tunnel:
-        # دریافت IP سرور خارج از دیتابیس سرورها
-        try:
-            # فرض می‌کنیم server_id در تانل ذخیره شده یا از کانفیگ می‌خوانیم
-            # اینجا برای سادگی آی‌پی سرور خارج را از کانفیگ جیسون استخراج می‌کنیم
-            config = json.loads(tunnel['config'])
-            # در بک‌هال و هیستریا معمولا آی‌پی سرور در آرگومان‌های نصب استفاده شده
-            # اما چون در دیتابیس tunnels فیلد server_id داریم بهتر است از آن استفاده کنیم
-            # ولی اینجا دسترسی سریع به IP را شبیه‌سازی می‌کنیم یا از 8.8.8.8 استفاده می‌کنیم
-            pass 
-        except:
-            pass
-
-    # اجرای تست
-    # در اینجا target_ip را None می‌گذاریم تا به 8.8.8.8 پینگ بزند (یا اگر IP دارید جایگزین کنید)
-    result = run_advanced_speedtest(target_ip=target_ip, local_port=local_port)
+    result = run_advanced_speedtest()
     result['status'] = 'ok'
     return jsonify(result)
 
@@ -270,63 +222,55 @@ def list_tunnels():
 @tunnels_bp.route('/stats/<int:tunnel_id>')
 @login_required
 def tunnel_stats(tunnel_id):
-    """آمار زنده ترافیک برای کارت‌های داشبورد"""
     tunnel = get_tunnel_by_id(tunnel_id)
     if not tunnel: return jsonify({'error': 'Not found'})
     try: port = int(tunnel['port'])
     except: port = 0
     transport = tunnel['transport']
-    # تشخیص UDP برای Hysteria
     proto = 'udp' if 'hysteria' in transport else 'tcp'
     rx, tx = get_traffic_stats(port, proto)
     return jsonify({'rx': round(rx/1024/1024, 2), 'tx': round(tx/1024/1024, 2)})
 
-@tunnels_bp.route('/tunnel/delete/<int:tunnel_id>', methods=['POST'])
+# --- DELETE TUNNEL (اصلاح شده + پاکسازی کامل) ---
+@tunnels_bp.route('/delete/<int:tunnel_id>', methods=['POST'])
 @login_required
 def delete_tunnel_route(tunnel_id):
     try:
-        # 1. دریافت اطلاعات تانل قبل از حذف
+        # 1. گرفتن اطلاعات تانل
+        # استفاده از کلاس Database برای دسترسی مطمئن
+        db = Database()
         tunnel = db.get_tunnel(tunnel_id)
+        
         if not tunnel:
-            flash('Tunnel not found.', 'danger')
-            return redirect(url_for('dashboard.index'))
+            return jsonify({'status': 'error', 'message': 'Tunnel not found'})
 
-        # استخراج اطلاعات (بر اساس ساختار دیتابیس شما)
-        # فرض: tunnel[2]=remote_ip, tunnel[3]=remote_port, tunnel[5]=protocol, tunnel[6]=ssh_username, tunnel[7]=ssh_password
-        # نکته: اگر این ایندکس‌ها در دیتابیس شما فرق دارد، باید اصلاح کنید.
-        remote_ip = tunnel[2]
-        protocol = tunnel[5]
-        ssh_user = tunnel[6]
-        ssh_pass = tunnel[7]
-
-        # 2. پاک‌سازی سرور ایران (Local Cleanup)
+        protocol = tunnel['transport']
+        
+        # 2. پاک‌سازی سمت ایران (Local)
         local_cmd = get_cleanup_commands(protocol, is_remote=False)
-        print(f"Executing Local Cleanup: {local_cmd}")
+        print(f"Cleaning Local: {local_cmd}")
         subprocess.run(local_cmd, shell=True, executable='/bin/bash')
 
-        # 3. پاک‌سازی سرور خارج (Remote Cleanup)
-        if remote_ip and ssh_user and ssh_pass:
+        # 3. پاک‌سازی سمت خارج (Remote)
+        # دریافت اطلاعات سرور از دیتابیس سرورها
+        server = get_connected_server()
+        if server:
+            server_ip, ssh_user, ssh_pass, ssh_port = server
             remote_cmd = get_cleanup_commands(protocol, is_remote=True)
-            print(f"Executing Remote Cleanup on {remote_ip}: {remote_cmd}")
+            print(f"Cleaning Remote {server_ip}: {remote_cmd}")
             
             ssh = SSHManager()
-            # تلاش برای اجرای دستور در سرور خارج
-            try:
-                ssh.run_remote_command(remote_ip, ssh_user, ssh_pass, remote_cmd)
-                flash('Tunnel services stopped and removed from BOTH servers.', 'success')
-            except Exception as e:
-                print(f"Remote cleanup failed: {e}")
-                flash(f'Local files removed, but could not connect to remote server: {e}', 'warning')
-        else:
-            flash('Local files removed. Remote server credentials missing, clean manually.', 'warning')
+            ssh.run_remote_command(server_ip, ssh_user, ssh_pass, remote_cmd, ssh_port)
 
-        # 4. حذف نهایی از دیتابیس
+        # 4. حذف از دیتابیس
         db.delete_tunnel(tunnel_id)
+        os.system("systemctl daemon-reload")
+        
+        return jsonify({'status': 'ok'})
         
     except Exception as e:
-        flash(f'Error deleting tunnel: {str(e)}', 'danger')
-
-    return redirect(url_for('dashboard.index'))
+        print(f"Delete Error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)})
 
 @tunnels_bp.route('/tunnel/edit/<int:tunnel_id>')
 @login_required
