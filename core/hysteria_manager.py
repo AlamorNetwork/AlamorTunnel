@@ -5,7 +5,7 @@ import logging
 import subprocess
 from core.ssh_manager import SSHManager
 
-# تنظیم مسیر لاگ‌ها
+# تنظیم لاگ‌ها
 LOG_DIR = '/root/AlamorTunnel/logs'
 if not os.path.exists(LOG_DIR):
     os.makedirs(LOG_DIR, exist_ok=True)
@@ -25,7 +25,7 @@ STATS_PORT = 9999
 HOP_RANGE = "20000:50000"
 
 # ==========================================
-# بخش ۱: توابع کمکی
+# بخش ۱: توابع کمکی (Helper Functions)
 # ==========================================
 
 def generate_pass():
@@ -161,7 +161,7 @@ WantedBy=multi-user.target
 
 def install_hysteria_client_local(server_ip, config):
     """
-    نصب و تنظیم نسخه کلاینت روی سرور ایران
+    نصب و تنظیم نسخه کلاینت روی سرور ایران (برای حل ارور Import)
     """
     logging.info("Starting Local Client Install")
     try:
