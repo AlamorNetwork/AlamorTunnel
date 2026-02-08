@@ -1,7 +1,8 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from core.database import Database, get_connected_server, add_tunnel, get_all_tunnels, get_tunnel_by_id, delete_tunnel_by_id, update_tunnel_config
 from core.ssh_manager import SSHManager
-from core.backhaul_manager import install_local_backhaul, install_remote_backhaul, generate_token, stop_and_delete_backhaul
+# تغییر مهم: فقط توابع موجود در منیجر جدید ایمپورت شدند
+from core.backhaul_manager import install_backhaul_bridge, generate_token, stop_and_delete_backhaul
 from core.rathole_manager import install_local_rathole, install_remote_rathole
 from core.hysteria_manager import install_hysteria_server_remote, install_hysteria_client_local, generate_pass
 from core.gost_manager import install_gost_server_remote, install_gost_client_local
@@ -27,6 +28,7 @@ def generic_error(log_message):
 def run_task_in_background(task_id, func, args):
     try:
         task_status[task_id] = {'progress': 5, 'status': 'running', 'log': 'Starting process...'}
+        # اجرای تابع Generator
         for percent, log_msg in func(*args):
             task_status[task_id] = {'progress': percent, 'status': 'running', 'log': log_msg}
             time.sleep(0.5)
@@ -41,48 +43,66 @@ def get_server_public_ip():
     except:
         return "127.0.0.1"
 
-# --- Install Logic Generators ---
-def process_backhaul(server_ip, iran_ip, config):
-    yield 10, f"Connecting to Remote ({server_ip})..."
-    success, msg = install_remote_backhaul(server_ip, iran_ip, config)
-    if not success: raise Exception(f"Remote Install Failed: {msg}")
+# --- Install Logic Generators (Tasks) ---
+
+def process_backhaul(remote_ip, iran_ip, config):
+    yield 10, f"Initializing Backhaul Bridge (Remote: {remote_ip})..."
     
-    yield 50, "Remote Configured. Installing Local..."
-    success, msg = install_local_backhaul(config)
-    if not success: raise Exception(f"Local Install Failed: {msg}")
+    # استفاده از تابع واحد install_backhaul_bridge که خودکار سرور و کلاینت را تنظیم می‌کند
+    # ترتیب اجرا در منیجر: 1. نصب روی ایران (Server) -> 2. نصب روی خارج (Client)
+    success, msg = install_backhaul_bridge(remote_ip, iran_ip, config)
     
-    yield 90, "Saving to Database..."
-    add_tunnel(config['name'], "backhaul", config['tunnel_port'], config['token'], config)
-    yield 100, "Done!"
+    if not success:
+        raise Exception(f"Backhaul Install Failed: {msg}")
+    
+    yield 90, "Saving Configuration to Database..."
+    
+    # تبدیل کانفیگ به JSON برای ذخیره در دیتابیس
+    config_json = json.dumps(config)
+    
+    # ذخیره در دیتابیس (تابع add_tunnel باید وجود داشته باشد)
+    # پارامترها: نام، پروتکل، پورت لوکال (تانل)، توکن/پسورد، کل کانفیگ
+    add_tunnel(config.get('name', 'Backhaul'), "backhaul", config['tunnel_port'], config.get('token'), config_json)
+    
+    yield 100, "Installation Complete!"
 
 def process_hysteria(server_ip, config):
     yield 10, "Installing Hysteria Remote..."
     success, msg = install_hysteria_server_remote(server_ip, config)
     if not success: raise Exception(msg)
+    
     yield 60, "Configuring Local Client..."
     install_hysteria_client_local(server_ip, config)
+    
     yield 90, "Saving..."
-    add_tunnel(f"Hysteria2-{config['tunnel_port']}", "hysteria", config['tunnel_port'], config['password'], config)
+    config_json = json.dumps(config)
+    add_tunnel(f"Hysteria2-{config['tunnel_port']}", "hysteria", config['tunnel_port'], config['password'], config_json)
     yield 100, "Done!"
 
 def process_rathole(server_ip, iran_ip, config):
     yield 10, "Installing Rathole Remote..."
     success, msg = install_remote_rathole(server_ip, iran_ip, config)
     if not success: raise Exception(msg)
+    
     yield 60, "Configuring Local Rathole..."
     install_local_rathole(config)
+    
     yield 90, "Saving..."
-    add_tunnel(f"Rathole-{config['tunnel_port']}", "rathole", config['tunnel_port'], config['token'], config)
+    config_json = json.dumps(config)
+    add_tunnel(f"Rathole-{config['tunnel_port']}", "rathole", config['tunnel_port'], config['token'], config_json)
     yield 100, "Done!"
 
 def process_gost(server_ip, config):
     yield 20, "Installing Gost Remote..."
     success, msg = install_gost_server_remote(server_ip, config)
     if not success: raise Exception(msg)
+    
     yield 60, "Configuring Local Gost..."
     install_gost_client_local(server_ip, config)
+    
     yield 90, "Saving Tunnel..."
-    add_tunnel(f"GOST-{config['tunnel_port']}", "gost", config['client_port'], "N/A", config)
+    config_json = json.dumps(config)
+    add_tunnel(f"GOST-{config['tunnel_port']}", "gost", config.get('client_port', 0), "N/A", config_json)
     yield 100, "Done!"
 
 # --- ROUTES ---
@@ -96,6 +116,7 @@ def start_install(protocol):
             return jsonify({'status': 'error', 'message': 'No remote server connected!'})
         
         # Unpack server info (ip, user, pass, key, port)
+        # فرض بر این است که get_connected_server تاپل برمی‌گرداند
         server_ip, ssh_user, ssh_pass, ssh_key, ssh_port = server
         
         config = request.form.to_dict()
@@ -112,18 +133,21 @@ def start_install(protocol):
         args = ()
 
         if protocol == 'backhaul':
+            # دریافت IP ایران برای کانفیگ کلاینت خارج
             iran_ip = get_server_public_ip()
             config['token'] = generate_token()
             
-            # Parsing Ports
+            # پارس کردن قوانین پورت (Port Rules)
+            # هندل کردن خطوط خالی و فضاهای خالی
             raw_ports = request.form.get('port_rules', '').strip()
             config['port_rules'] = [l.strip() for l in raw_ports.split('\n') if l.strip()]
             
-            # Parsing Booleans (Checkbox logic)
+            # تبدیل چک‌باکس‌ها به Boolean
             bool_fields = ['accept_udp', 'nodelay', 'sniffer', 'aggressive_pool']
-            for f in bool_fields: config[f] = (request.form.get(f) == 'on')
+            for f in bool_fields: 
+                config[f] = (request.form.get(f) == 'on')
             
-            # Parsing Integers
+            # تبدیل اعداد به Integer
             int_fields = [
                 'tunnel_port', 'connection_pool', 'mux_con', 'mux_version', 
                 'mux_framesize', 'mux_recievebuffer', 'mux_streambuffer',
@@ -131,7 +155,8 @@ def start_install(protocol):
                 'dial_timeout', 'retry_interval'
             ]
             for f in int_fields:
-                if config.get(f) and str(config[f]).isdigit(): config[f] = int(config[f])
+                if config.get(f) and str(config[f]).isdigit(): 
+                    config[f] = int(config[f])
 
             target_func = process_backhaul
             args = (server_ip, iran_ip, config)
@@ -179,35 +204,45 @@ def get_task_status_route(task_id):
 @login_required
 def delete_tunnel_route(tunnel_id):
     try:
-        db = Database()
-        tunnel = db.get_tunnel(tunnel_id)
+        # استفاده از get_tunnel_by_id که در ایمپورت‌ها بود
+        tunnel = get_tunnel_by_id(tunnel_id)
         if not tunnel: return jsonify({'status': 'error', 'message': 'Not found'})
         
         transport = tunnel['transport']
-        port = tunnel['port']
-        service_name = ""
-
+        
+        # هندل کردن پورت که ممکن است رشته باشد
+        try:
+            port = int(tunnel['local_port']) # معمولاً در دیتابیس local_port ذخیره می‌شود
+        except:
+            port = 0
+            
         if transport == 'backhaul':
-            service_name = f"backhaul-client-{port}"
+            # استفاده از تابع اختصاصی منیجر که سرویس سرور ایران را پاک می‌کند
+            stop_and_delete_backhaul(port)
+            
         elif transport == 'rathole':
              service_name = f"rathole-iran{port}"
+             os.system(f"systemctl stop {service_name}")
+             os.system(f"systemctl disable {service_name}")
+             os.system(f"rm /etc/systemd/system/{service_name}.service")
+             
         elif transport == 'hysteria':
-            service_name = "hysteria-client"
-        elif transport == 'gost':
-             service_name = "gost-client"
-
-        if service_name:
+            service_name = "hysteria-client" # اگر چند تا هستند باید با پورت داینامیک شود
             os.system(f"systemctl stop {service_name}")
             os.system(f"systemctl disable {service_name}")
-            os.system(f"rm /etc/systemd/system/{service_name}.service")
+            
+        elif transport == 'gost':
+             service_name = f"gost-client-{port}"
+             os.system(f"systemctl stop {service_name}")
+             os.system(f"systemctl disable {service_name}")
+             os.system(f"rm /etc/systemd/system/{service_name}.service")
         
-        db.delete_tunnel(tunnel_id)
+        delete_tunnel_by_id(tunnel_id)
         os.system("systemctl daemon-reload")
         return jsonify({'status': 'ok'})
     except Exception as e:
         return generic_error(str(e))
 
-# (Other routes list_tunnels, server_speedtest, etc remain the same)
 @tunnels_bp.route('/tunnels')
 @login_required
 def list_tunnels():
@@ -219,7 +254,7 @@ def list_tunnels():
 def tunnel_stats(tunnel_id):
     tunnel = get_tunnel_by_id(tunnel_id)
     if not tunnel: return jsonify({'error': 'Not found'})
-    try: port = int(tunnel['port'])
+    try: port = int(tunnel['local_port'])
     except: port = 0
     transport = tunnel['transport']
     proto = 'udp' if 'hysteria' in transport else 'tcp'
@@ -274,7 +309,7 @@ def update_tunnel(tunnel_id):
     try:
         current_config = json.loads(tunnel['config'])
         current_config.update(config) 
-        update_tunnel_config(tunnel_id, tunnel['name'], tunnel['transport'], tunnel['port'], current_config)
+        update_tunnel_config(tunnel_id, tunnel['name'], tunnel['transport'], tunnel['local_port'], json.dumps(current_config))
         flash('Tunnel configuration updated (Service restart required).', 'success')
     except Exception as e:
         flash(f'Update failed: {str(e)}', 'danger')

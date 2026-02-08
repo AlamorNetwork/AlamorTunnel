@@ -104,3 +104,17 @@ def install_remote_backhaul(ip, iran, c): return BackhaulManager().install_serve
 def install_local_backhaul(c): return BackhaulManager().install_client(c['ssh_ip'], c)
 def generate_token(): return secrets.token_hex(16)
 def stop_and_delete_backhaul(port): os.system(f"systemctl stop backhaul-client-{port}")
+# =========================================================
+# GLOBAL HELPERS (Required by routes/tunnels.py)
+# =========================================================
+
+def generate_token():
+    return secrets.token_hex(16)
+
+def stop_and_delete_backhaul(port):
+    # در معماری Reverse، سرور روی ایران است
+    service_name = f"backhaul-server-{port}"
+    os.system(f"systemctl stop {service_name}")
+    os.system(f"systemctl disable {service_name}")
+    os.system(f"rm -f /etc/systemd/system/{service_name}.service")
+    os.system("systemctl daemon-reload")
