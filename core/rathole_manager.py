@@ -1,10 +1,11 @@
 import os
 import subprocess
-from core.ssh_manager import run_remote_command
+import logging
+# استفاده از کلاس SSHManager بجای تابع تکی
+from core.ssh_manager import SSHManager
 
-# --- CONFIGURATION ---
+logger = logging.getLogger("RatholeManager")
 INSTALL_DIR = "/root/AlamorTunnel/bin"
-LOCAL_REPO = "http://files.irplatforme.ir/files/rathole.tar.gz"
 REMOTE_REPO = "https://github.com/rapiz1/rathole/releases/latest/download/rathole-x86_64-unknown-linux-gnu.zip"
 
 def check_binary(binary_name):
@@ -12,28 +13,28 @@ def check_binary(binary_name):
     if os.path.exists(file_path): return True
     try:
         if not os.path.exists(INSTALL_DIR): os.makedirs(INSTALL_DIR)
-        # اضافه شدن -k
-        subprocess.run(f"curl -k -L -o {file_path}.tar.gz {LOCAL_REPO}", shell=True, check=True)
-        subprocess.run(f"tar -xzf {file_path}.tar.gz -C {INSTALL_DIR}", shell=True, check=True)
+        subprocess.run(f"curl -k -L -o {file_path}.zip {REMOTE_REPO}", shell=True, check=True)
+        subprocess.run(f"unzip -o {file_path}.zip -d {INSTALL_DIR}", shell=True, check=True)
         subprocess.run(f"chmod +x {file_path}", shell=True, check=True)
-        if os.path.exists(f"{file_path}.tar.gz"): os.remove(f"{file_path}.tar.gz")
         return True
-    except: return False
+    except Exception as e:
+        logger.error(f"Binary Check Failed: {e}")
+        return False
 
 def install_local_rathole(config_data):
     if not check_binary("rathole"):
-        raise Exception("Rathole binary missing.")
+        raise Exception("Rathole binary missing locally.")
         
     port = config_data['tunnel_port']
-    bind_ip = "[::]" if config_data['ipv6'] else "0.0.0.0"
+    bind_ip = "[::]" if config_data.get('ipv6') else "0.0.0.0"
     
-    transport_block = f'[server.transport]\ntype = "{config_data["transport"]}"'
-    if config_data['transport'] == 'tcp':
-        transport_block += f'\n[server.transport.tcp]\nnodelay = {str(config_data["nodelay"]).lower()}'
+    transport_block = f'[server.transport]\ntype = "{config_data.get("transport", "tcp")}"'
+    if config_data.get('transport') == 'tcp':
+        transport_block += f'\n[server.transport.tcp]\nnodelay = {str(config_data.get("nodelay", True)).lower()}'
 
     services = ""
     for p in config_data['ports']:
-        services += f'\n[server.services.{p}]\ntype = "{config_data["transport"]}"\nbind_addr = "{bind_ip}:{p}"\n'
+        services += f'\n[server.services.{p}]\ntype = "{config_data.get("transport", "tcp")}"\nbind_addr = "{bind_ip}:{p}"\n'
 
     config_content = f"""
 [server]
@@ -46,8 +47,7 @@ default_token = "{config_data['token']}"
         f.write(config_content)
 
     svc_name = f"rathole-iran{port}"
-    svc_content = f"""
-[Unit]
+    svc_content = f"""[Unit]
 Description=Rathole Iran {port}
 After=network.target
 [Service]
@@ -65,28 +65,36 @@ def install_remote_rathole(ssh_ip, iran_ip, config_data):
     port = config_data['tunnel_port']
     remote_addr = f"[{iran_ip}]:{port}" if ":" in iran_ip and not iran_ip.startswith("[") else f"{iran_ip}:{port}"
     
+    # ساخت سرویس‌ها
     services = ""
     for p in config_data['ports']:
-        services += f'\n[client.services.{p}]\ntype = "{config_data["transport"]}"\nlocal_addr = "0.0.0.0:{p}"\n'
+        services += f'\n[client.services.{p}]\ntype = "{config_data.get("transport", "tcp")}"\nlocal_addr = "0.0.0.0:{p}"\n'
+
+    # دریافت اطلاعات اتصال SSH از کانفیگ
+    ssh_user = config_data.get('ssh_user', 'root')
+    ssh_pass = config_data.get('ssh_pass')
+    ssh_key = config_data.get('ssh_key')
+    ssh_port = int(config_data.get('ssh_port', 22))
 
     remote_script = f"""
-    apt-get install -y unzip
-    mkdir -p {INSTALL_DIR}
-    if [ ! -f {INSTALL_DIR}/rathole ]; then
-        curl -L -o {INSTALL_DIR}/rathole.zip {REMOTE_REPO}
-        unzip -o {INSTALL_DIR}/rathole.zip -d {INSTALL_DIR}
-        chmod +x {INSTALL_DIR}/rathole
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update && apt-get install -y unzip curl
+    mkdir -p /root/alamor/bin
+    if [ ! -f /root/alamor/bin/rathole ]; then
+        curl -L -k -o /tmp/rathole.zip {REMOTE_REPO}
+        unzip -o /tmp/rathole.zip -d /root/alamor/bin/
+        chmod +x /root/alamor/bin/rathole
     fi
 
-    cat > {INSTALL_DIR}/rathole_kharej{port}.toml <<EOL
+    cat > /root/alamor/bin/rathole_kharej{port}.toml <<EOL
 [client]
 remote_addr = "{remote_addr}"
 default_token = "{config_data['token']}"
 retry_interval = 1
 [client.transport]
-type = "{config_data['transport']}"
+type = "{config_data.get('transport', 'tcp')}"
 [client.transport.tcp]
-nodelay = {str(config_data['nodelay']).lower()}
+nodelay = {str(config_data.get('nodelay', True)).lower()}
 {services}
 EOL
 
@@ -95,11 +103,14 @@ EOL
 Description=Rathole Kharej {port}
 After=network.target
 [Service]
-ExecStart={INSTALL_DIR}/rathole {INSTALL_DIR}/rathole_kharej{port}.toml
+ExecStart=/root/alamor/bin/rathole /root/alamor/bin/rathole_kharej{port}.toml
 Restart=always
 [Install]
 WantedBy=multi-user.target
 EOL
     systemctl daemon-reload && systemctl enable rathole-kharej{port} && systemctl restart rathole-kharej{port}
     """
-    return run_remote_command(ssh_ip, remote_script)
+    
+    # استفاده صحیح از SSHManager
+    ssh = SSHManager()
+    return ssh.run_remote_command(ssh_ip, ssh_user, ssh_pass, remote_script, ssh_port, ssh_key)
