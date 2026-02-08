@@ -4,6 +4,7 @@ import socket
 import logging
 import io
 
+# Setup logger
 logger = logging.getLogger("SSHManager")
 
 class SSHManager:
@@ -54,7 +55,7 @@ class SSHManager:
             logger.error(f"SSH Connection Error: {e}")
             return False, f"SSH Error: {str(e)}"
 
-
+# --- Global Wrappers (FIX FOR IMPORT ERROR) ---
 def run_remote_command(ip, user, password, command, port=22, ssh_key=None):
     return SSHManager().run_remote_command(ip, user, password, command, port, ssh_key)
 
