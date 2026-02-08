@@ -3,16 +3,15 @@ import secrets
 import logging
 from core.ssh_manager import SSHManager
 
-# تنظیم لاگر
 logger = logging.getLogger("BackhaulManager")
 logger.setLevel(logging.INFO)
 
-# ثابت‌ها
 REMOTE_BIN_PATH = "/root/alamor/bin/backhaul"
 REMOTE_CONFIG_PATH = "/root/alamor/bin/backhaul_server.toml"
 LOCAL_BIN_PATH = "/root/AlamorTunnel/bin/backhaul"
 LOCAL_CONFIG_PATH = "/root/AlamorTunnel/bin/backhaul_client.toml"
-DOWNLOAD_URL = "https://github.com/musixal/backhaul/releases/download/v0.6.0/backhaul_linux_amd64.tar.gz"
+# لینک دانلود اصلاح شده و مستقیم
+DOWNLOAD_URL = "https://github.com/Musixal/Backhaul/releases/download/v0.6.0/backhaul_linux_amd64.tar.gz"
 
 class BackhaulManager:
     def __init__(self):
@@ -22,30 +21,25 @@ class BackhaulManager:
         return secrets.token_hex(16)
 
     def _generate_server_toml(self, config):
-        """تولید کانفیگ سمت سرور (TOML)"""
         bind_port = config.get('tunnel_port', 3080)
         transport = config.get('transport', 'tcp')
         token = config.get('token', self._generate_token())
-        
-        # تنظیمات اختیاری با مقادیر پیش‌فرض
-        keepalive = config.get('keepalive', 75)
+        keepalive = config.get('keepalive_period', 75)
         heartbeat = config.get('heartbeat', 40)
         channel_size = config.get('channel_size', 2048)
         sniffer = str(config.get('sniffer', False)).lower()
         web_port = config.get('web_port', 2060)
         nodelay = str(config.get('nodelay', True)).lower()
 
-        # تنظیمات Multiplexing
         mux_block = ""
         if "mux" in transport:
             mux_block = f"""
     mux_con = {config.get('mux_con', 8)}
     mux_version = {config.get('mux_version', 1)}
-    mux_framesize = 32768
-    mux_recievebuffer = 4194304
-    mux_streambuffer = 65536"""
+    mux_framesize = {config.get('mux_framesize', 32768)}
+    mux_recievebuffer = {config.get('mux_recievebuffer', 4194304)}
+    mux_streambuffer = {config.get('mux_streambuffer', 65536)}"""
 
-        # تنظیمات TLS
         tls_block = ""
         if "wss" in transport:
             tls_block = """
@@ -53,15 +47,11 @@ class BackhaulManager:
     tls_key = "/root/alamor/certs/server.key"
             """
 
-        # تنظیمات پورت‌ها
         ports_list = []
-        raw_ports = config.get('ports', [])
-        # تبدیل رشته به لیست اگر لازم باشد
-        if isinstance(raw_ports, str):
-            raw_ports = [p.strip() for p in raw_ports.split(',') if p.strip()]
-        
+        raw_ports = config.get('port_rules', [])
         for p in raw_ports:
-            ports_list.append(f'"{p}"')
+            if p.strip():
+                ports_list.append(f'"{p.strip()}"')
         ports_str = ", ".join(ports_list)
 
         toml = f"""[server]
@@ -76,16 +66,13 @@ class BackhaulManager:
     web_port = {web_port}
     sniffer_log = "/root/alamor/backhaul.json"
     log_level = "info"
-    skip_optz = true
     {mux_block}
     {tls_block}
-
     ports = [{ports_str}]
     """
         return toml, token
 
     def _generate_client_toml(self, server_ip, config):
-        """تولید کانفیگ سمت کلاینت (TOML)"""
         bind_port = config.get('tunnel_port', 3080)
         transport = config.get('transport', 'tcp')
         token = config.get('token', '')
@@ -94,9 +81,9 @@ class BackhaulManager:
         if "mux" in transport:
             mux_block = f"""
     mux_version = {config.get('mux_version', 1)}
-    mux_framesize = 32768
-    mux_recievebuffer = 4194304
-    mux_streambuffer = 65536"""
+    mux_framesize = {config.get('mux_framesize', 32768)}
+    mux_recievebuffer = {config.get('mux_recievebuffer', 4194304)}
+    mux_streambuffer = {config.get('mux_streambuffer', 65536)}"""
 
         edge_ip_block = ""
         if config.get('edge_ip'):
@@ -115,7 +102,6 @@ class BackhaulManager:
     sniffer = false
     web_port = 0
     log_level = "info"
-    skip_optz = true
     {edge_ip_block}
     {mux_block}
     """
@@ -123,35 +109,38 @@ class BackhaulManager:
 
     def install_server(self, server_ip, config):
         logger.info(f"Installing Backhaul Server on {server_ip}")
+        
         ssh = SSHManager()
         ssh_port = int(config.get('ssh_port', 22))
         ssh_pass = config.get('ssh_pass')
+        ssh_key = config.get('ssh_key')
 
         def run(step, cmd):
-            ok, out = ssh.run_remote_command(server_ip, "root", ssh_pass, cmd, ssh_port)
+            ok, out = ssh.run_remote_command(server_ip, "root", ssh_pass, cmd, ssh_port, ssh_key)
             if not ok:
                 raise Exception(f"{step} Failed: {out}")
             return out
 
         try:
             run("Check Connection", "whoami")
-            run("Install Deps", "export DEBIAN_FRONTEND=noninteractive; apt-get update -y && apt-get install -y openssl ca-certificates tar gzip")
+            run("Install Deps", "export DEBIAN_FRONTEND=noninteractive; apt-get update -y && apt-get install -y openssl ca-certificates tar gzip curl")
             run("Mkdir", "mkdir -p /root/alamor/bin /root/alamor/certs")
 
-            # دانلود
+            # Check Binary
             check_cmd = f"[ -f {REMOTE_BIN_PATH} ] && echo 'EXISTS' || echo 'MISSING'"
             if "MISSING" in run("Check Binary", check_cmd):
-                dl_cmd = f"curl -L -o /tmp/backhaul.tar.gz {DOWNLOAD_URL} && tar -xzf /tmp/backhaul.tar.gz -C /root/alamor/bin/ && mv /root/alamor/bin/backhaul_linux_amd64 {REMOTE_BIN_PATH} && chmod +x {REMOTE_BIN_PATH} && rm /tmp/backhaul.tar.gz"
+                # دانلود و استخراج (اصلاح شده برای اطمینان از مسیر)
+                dl_cmd = f"curl -L -k -o /tmp/backhaul.tar.gz {DOWNLOAD_URL} && tar -xzf /tmp/backhaul.tar.gz -C /root/alamor/bin/ && mv /root/alamor/bin/backhaul_linux_amd64 {REMOTE_BIN_PATH} 2>/dev/null || mv /root/alamor/bin/backhaul {REMOTE_BIN_PATH} && chmod +x {REMOTE_BIN_PATH}"
                 run("Download Backhaul", dl_cmd)
 
-            # تولید سرتیفیکیت برای WSS
             if "wss" in config.get('transport', ''):
                 cert_cmd = "openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 -subj '/CN=www.bing.com' -keyout /root/alamor/certs/server.key -out /root/alamor/certs/server.crt"
                 run("Generate Certs", cert_cmd)
 
-            # کانفیگ و سرویس
             toml_content, token = self._generate_server_toml(config)
             config['token'] = token
+            
+            # نوشتن فایل کانفیگ
             run("Write Config", f"cat <<EOF > {REMOTE_CONFIG_PATH}\n{toml_content}\nEOF")
 
             svc_content = f"""[Unit]
@@ -176,37 +165,60 @@ WantedBy=multi-user.target
             return False, str(e)
 
     def install_client(self, server_ip, config):
-        # این متد باید روی سرور ایران اجرا شود (Local Exec)
         import subprocess
         try:
             if not os.path.exists(LOCAL_BIN_PATH):
                 os.makedirs(os.path.dirname(LOCAL_BIN_PATH), exist_ok=True)
-                subprocess.run(f"curl -L -o /tmp/backhaul.tar.gz {DOWNLOAD_URL}", shell=True, check=True)
+                subprocess.run(f"curl -L -k -o /tmp/backhaul.tar.gz {DOWNLOAD_URL}", shell=True, check=True)
                 subprocess.run(f"tar -xzf /tmp/backhaul.tar.gz -C /root/AlamorTunnel/bin/", shell=True, check=True)
-                subprocess.run(f"mv /root/AlamorTunnel/bin/backhaul_linux_amd64 {LOCAL_BIN_PATH}", shell=True, check=True)
+                # هندل کردن تغییر نام احتمالی در آرشیو
+                subprocess.run(f"mv /root/AlamorTunnel/bin/backhaul_linux_amd64 {LOCAL_BIN_PATH} 2>/dev/null || true", shell=True)
                 subprocess.run(f"chmod +x {LOCAL_BIN_PATH}", shell=True, check=True)
 
             toml_content = self._generate_client_toml(server_ip, config)
-            with open(LOCAL_CONFIG_PATH, "w") as f:
+            
+            # ذخیره با نام یونیک (برای پشتیبانی چند تانل)
+            unique_config_path = f"/root/AlamorTunnel/bin/backhaul_client_{config.get('tunnel_port')}.toml"
+            with open(unique_config_path, "w") as f:
                 f.write(toml_content)
 
+            svc_name = f"backhaul-client-{config.get('tunnel_port')}"
             svc_content = f"""[Unit]
-Description=Backhaul Client (Iran)
+Description=Backhaul Client {config.get('tunnel_port')}
 After=network.target
 [Service]
 Type=simple
-ExecStart={LOCAL_BIN_PATH} -c {LOCAL_CONFIG_PATH}
+ExecStart={LOCAL_BIN_PATH} -c {unique_config_path}
 Restart=always
 RestartSec=3
 LimitNOFILE=1048576
 [Install]
 WantedBy=multi-user.target
 """
-            with open("/etc/systemd/system/backhaul-client.service", "w") as f:
+            with open(f"/etc/systemd/system/{svc_name}.service", "w") as f:
                 f.write(svc_content)
 
-            os.system("systemctl daemon-reload && systemctl restart backhaul-client && systemctl enable backhaul-client")
+            os.system(f"systemctl daemon-reload && systemctl restart {svc_name} && systemctl enable {svc_name}")
             return True, "Backhaul Client Installed"
         except Exception as e:
             logger.error(f"Local Client Error: {e}")
             return False, str(e)
+
+# Global Functions required by routes
+def install_remote_backhaul(server_ip, iran_ip, config):
+    return BackhaulManager().install_server(server_ip, config)
+
+def install_local_backhaul(config):
+    # دریافت IP سرور از کانفیگ (که قبلاً ست شده)
+    server_ip = config.get('ssh_ip', '127.0.0.1') 
+    return BackhaulManager().install_client(server_ip, config)
+
+def generate_token():
+    return BackhaulManager()._generate_token()
+
+def stop_and_delete_backhaul(port):
+    svc_name = f"backhaul-client-{port}"
+    os.system(f"systemctl stop {svc_name}")
+    os.system(f"systemctl disable {svc_name}")
+    os.system(f"rm /etc/systemd/system/{svc_name}.service")
+    os.system("systemctl daemon-reload")

@@ -1,4 +1,3 @@
-# AlamorTunnel/routes/dashboard.py
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from core.database import get_connected_server, add_server, remove_server
 from core.ssh_manager import verify_ssh_connection
@@ -12,7 +11,6 @@ def index():
     try:
         server = get_connected_server()
         server_ip = server[0] if server else None
-        # رندر کردن قالب جدید و کامل
         return render_template('dashboard.html', server_ip=server_ip)
     except Exception as e:
         flash(f"Error loading dashboard: {str(e)}", "danger")
@@ -24,20 +22,23 @@ def connect_server():
     ip = request.form.get('ip')
     user = request.form.get('username', 'root')
     password = request.form.get('password')
+    ssh_key = request.form.get('ssh_key')
+    
     try:
         port = int(request.form.get('port', 22))
     except:
         port = 22
 
-    if not ip or not password:
-        flash('IP and Password are required.', 'warning')
+    if not ip or (not password and not ssh_key):
+        flash('IP and Authentication (Password OR SSH Key) are required.', 'warning')
         return redirect(url_for('dashboard.index'))
 
-    if verify_ssh_connection(ip, user, password, port):
-        add_server(ip, user, password, port)
+    # ارسال همزمان پسورد و کلید به منیجر (اولویت با کلید است)
+    if verify_ssh_connection(ip, user, password, port, ssh_key):
+        add_server(ip, user, password, ssh_key, port)
         flash('Foreign Server Connected Successfully!', 'success')
     else:
-        flash('Connection Failed! Check IP, Password, or SSH Port.', 'danger')
+        flash('Connection Failed! Check IP, Auth, or Port. Check server logs for details.', 'danger')
         
     return redirect(url_for('dashboard.index'))
 

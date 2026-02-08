@@ -21,23 +21,29 @@ import time
 import uuid
 
 tunnels_bp = Blueprint('tunnels', __name__)
-
+def generic_error(log_message):
+    print(f"!!! SYSTEM ERROR !!! : {log_message}")
+    return jsonify({
+        'status': 'error', 
+        'message': 'Operation failed. Please check server logs (journalctl -u alamor) for details.'
+    })
 # --- WORKER FUNCTION ---
 def run_task_in_background(task_id, func, args):
     try:
         task_status[task_id] = {'progress': 5, 'status': 'running', 'log': 'Starting process...'}
         for percent, log_msg in func(*args):
-            task_status[task_id] = {
-                'progress': percent, 
-                'status': 'running', 
-                'log': log_msg
-            }
+            task_status[task_id] = {'progress': percent, 'status': 'running', 'log': log_msg}
             time.sleep(0.5)
-        task_status[task_id] = {'progress': 100, 'status': 'completed', 'log': 'Installation Successfully Completed!'}
+        task_status[task_id] = {'progress': 100, 'status': 'completed', 'log': 'Completed Successfully!'}
     except Exception as e:
         print(f"Task Failed: {e}")
         task_status[task_id] = {'progress': 100, 'status': 'error', 'log': f"Error: {str(e)}"}
 
+def get_server_public_ip():
+    try:
+        return subprocess.check_output("curl -s https://api.ipify.org", shell=True).decode().strip()
+    except:
+        return "127.0.0.1"
 # --- CLEANUP HELPER (سیستم حذف هوشمند) ---
 def get_cleanup_commands(protocol, is_remote=False):
     """دستورات لینوکسی برای حذف سرویس‌ها"""
@@ -70,42 +76,24 @@ def get_cleanup_commands(protocol, is_remote=False):
     return "; ".join(commands)
 
 # --- HELPERS ---
-def get_server_public_ip():
-    providers = [
-        "curl -s --max-time 3 https://api.ipify.org",
-        "curl -s --max-time 3 https://icanhazip.com",
-        "curl -s --max-time 3 http://ifconfig.me/ip"
-    ]
-    ip_pattern = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$')
-    for cmd in providers:
-        try:
-            output = subprocess.check_output(cmd, shell=True).decode().strip()
-            if ip_pattern.match(output): return output
-        except: continue
-    return "127.0.0.1"
+
 
 # --- GENERATORS ---
 def process_backhaul(server_ip, iran_ip, config):
-    yield 10, f"Connecting to Remote Server ({server_ip})..."
+    yield 10, f"Connecting to Remote ({server_ip})..."
+    
+    # نصب ریموت
     success, msg = install_remote_backhaul(server_ip, iran_ip, config)
     if not success: raise Exception(f"Remote Install Failed: {msg}")
     
     yield 50, "Remote Configured. Installing Local..."
-    try:
-        install_local_backhaul(config)
-    except Exception as e: raise Exception(f"Local Install Failed: {e}")
     
-    if config['transport'] in ['ws', 'wss', 'wsmux', 'wssmux']:
-        yield 70, "Binding Tunnel to Domain Root (443)..."
-        ok, nginx_msg = set_root_tunnel(config['tunnel_port'])
-        if ok:
-            config['ws_path'] = "/"
-            config['domain_url'] = f"https://{load_config().get('panel_domain')}"
-        else:
-            yield 75, f"Warning: Nginx Error ({nginx_msg})"
-            
-    yield 90, "Local Configured. Saving to DB..."
-    add_tunnel("Backhaul Tunnel", config['transport'], config['tunnel_port'], config['token'], config)
+    # نصب لوکال
+    success, msg = install_local_backhaul(config)
+    if not success: raise Exception(f"Local Install Failed: {msg}")
+    
+    yield 90, "Saving to Database..."
+    add_tunnel(config['name'], "backhaul", config['tunnel_port'], config['token'], config)
     yield 100, "Done!"
 
 def process_gost(server_ip, config):
@@ -152,80 +140,84 @@ def get_task_status_route(task_id):
 @tunnels_bp.route('/start-install/<protocol>', methods=['POST'])
 @login_required
 def start_install(protocol):
-    # 1. دریافت اطلاعات سرور متصل از دیتابیس
-    server = get_connected_server()
-    if not server:
-        return jsonify({'status': 'error', 'message': 'No remote server connected!'})
-    
-    # استخراج اطلاعات سرور (IP, User, Pass, Port)
-    # فرض بر این است که get_connected_server یک تاپل یا لیست برمی‌گرداند:
-    # (ip, user, password, port)
-    server_ip = server[0]
-    ssh_user = server[1]
-    ssh_pass = server[2]
-    ssh_port = server[3]
-
-    # 2. دریافت فرم کانفیگ از کاربر
-    config = request.form.to_dict()
-    
-    # 3. افزودن اطلاعات SSH به کانفیگ (این بخش جا افتاده بود!)
-    config['ssh_ip'] = server_ip
-    config['ssh_user'] = ssh_user
-    config['ssh_pass'] = ssh_pass
-    config['ssh_port'] = ssh_port
-
-    task_id = str(uuid.uuid4())
-    init_task(task_id)
-
-    target_func = None
-    args = ()
-
-    if protocol == 'backhaul':
-        iran_ip = request.form.get('iran_ip_manual') or get_server_public_ip()
-        config['token'] = generate_token()
-        raw_ports = request.form.get('port_rules', '').strip()
-        config['port_rules'] = [l.strip() for l in raw_ports.split('\n') if l.strip()]
+    try:
+        # 1. دریافت اطلاعات سرور (با پشتیبانی از SSH Key)
+        server = get_connected_server()
+        if not server:
+            return jsonify({'status': 'error', 'message': 'No remote server connected!'})
         
-        bool_fields = ['accept_udp', 'nodelay', 'sniffer', 'skip_optz', 'aggressive_pool']
-        for f in bool_fields: config[f] = request.form.get(f) == 'on'
+        # آنپک کردن 5 مقدار (طبق دیتابیس جدید)
+        server_ip, ssh_user, ssh_pass, ssh_key, ssh_port = server
+        
+        config = request.form.to_dict()
+        
+        # 2. تزریق اطلاعات SSH به کانفیگ (برای استفاده در Managerها)
+        config['ssh_ip'] = server_ip
+        config['ssh_user'] = ssh_user
+        config['ssh_pass'] = ssh_pass
+        config['ssh_key'] = ssh_key  # کلید خصوصی
+        config['ssh_port'] = ssh_port
+        
+        task_id = str(uuid.uuid4())
+        init_task(task_id)
+        
+        target_func = None
+        args = ()
+
+        # --- تنظیمات پروتکل‌ها ---
+        
+        if protocol == 'backhaul':
+            iran_ip = request.form.get('iran_ip_manual') or get_server_public_ip()
+            config['token'] = generate_token()
             
-        int_fields = ['keepalive_period', 'heartbeat', 'mux_con', 'channel_size', 'mss', 'so_rcvbuf', 'so_sndbuf', 'mux_version', 'mux_framesize', 'mux_recievebuffer', 'mux_streambuffer', 'web_port', 'dial_timeout', 'retry_interval', 'connection_pool', 'tunnel_port']
-        for f in int_fields:
-            if config.get(f) and config[f].isdigit(): config[f] = int(config[f])
-        
-        config['tls_cert'] = '/root/certs/server.crt'
-        config['tls_key'] = '/root/certs/server.key'
-        target_func = process_backhaul
-        args = (server_ip, iran_ip, config)
+            # پارس کردن پورت‌ها
+            raw_ports = request.form.get('port_rules', '').strip()
+            config['port_rules'] = [l.strip() for l in raw_ports.split('\n') if l.strip()]
+            
+            # هندل کردن چک‌باکس‌ها
+            bool_fields = ['accept_udp', 'nodelay', 'sniffer', 'aggressive_pool']
+            for f in bool_fields: config[f] = (request.form.get(f) == 'on')
+            
+            # هندل کردن اعداد
+            int_fields = ['tunnel_port', 'connection_pool', 'mux_con', 'keepalive_period', 'heartbeat', 'channel_size']
+            for f in int_fields:
+                if config.get(f) and str(config[f]).isdigit(): config[f] = int(config[f])
 
-    elif protocol == 'gost':
-        target_func = process_gost
-        args = (server_ip, config)
-        
-    elif protocol == 'hysteria':
-        raw = config.get('forward_ports', '')
-        config['ports'] = [p.strip() for p in raw.split(',') if p.strip().isdigit()]
-        config['password'] = config.get('password') or generate_pass()
-        config['obfs_pass'] = config.get('obfs_pass') or generate_pass()
-        target_func = process_hysteria
-        args = (server_ip, config)
-        
-    elif protocol == 'rathole':
-        iran_ip = get_server_public_ip()
-        raw = config.get('forward_ports', '')
-        config['ports'] = [p.strip() for p in raw.split(',') if p.strip().isdigit()]
-        config['token'] = config.get('token') or generate_token()
-        config['ipv6'] = request.form.get('ipv6') == 'on'
-        config['nodelay'] = request.form.get('nodelay') == 'on'
-        target_func = process_rathole
-        args = (server_ip, iran_ip, config)
+            target_func = process_backhaul
+            args = (server_ip, iran_ip, config)
 
-    if target_func:
-        thread = threading.Thread(target=run_task_in_background, args=(task_id, target_func, args))
-        thread.start()
-        return jsonify({'status': 'started', 'task_id': task_id})
-    
-    return jsonify({'status': 'error', 'message': 'Unknown protocol'})
+        elif protocol == 'hysteria':
+            raw = config.get('forward_ports', '')
+            config['ports'] = [p.strip() for p in raw.split(',') if p.strip().isdigit()]
+            config['password'] = config.get('password') or generate_pass()
+            config['obfs_pass'] = config.get('obfs_pass') or generate_pass()
+            
+            target_func = process_hysteria
+            args = (server_ip, config)
+            
+        elif protocol == 'rathole':
+            iran_ip = get_server_public_ip()
+            raw = config.get('forward_ports', '')
+            config['ports'] = [p.strip() for p in raw.split(',') if p.strip().isdigit()]
+            config['token'] = config.get('token') or generate_token()
+            config['ipv6'] = (request.form.get('ipv6') == 'on')
+            config['nodelay'] = (request.form.get('nodelay') == 'on')
+            
+            target_func = process_rathole
+            args = (server_ip, iran_ip, config)
+            
+        elif protocol == 'gost':
+             target_func = process_gost
+             args = (server_ip, config)
+
+        if target_func:
+            threading.Thread(target=run_task_in_background, args=(task_id, target_func, args)).start()
+            return jsonify({'status': 'started', 'task_id': task_id})
+        
+        return jsonify({'status': 'error', 'message': 'Unknown Protocol'})
+
+    except Exception as e:
+        return generic_error(str(e))
 
 @tunnels_bp.route('/run-speedtest/<int:tunnel_id>')
 @login_required
@@ -278,41 +270,46 @@ def tunnel_stats(tunnel_id):
 @login_required
 def delete_tunnel_route(tunnel_id):
     try:
-        # 1. گرفتن اطلاعات تانل
-        # استفاده از کلاس Database برای دسترسی مطمئن
         db = Database()
         tunnel = db.get_tunnel(tunnel_id)
-        
         if not tunnel:
             return jsonify({'status': 'error', 'message': 'Tunnel not found'})
-
-        protocol = tunnel['transport']
         
-        # 2. پاک‌سازی سمت ایران (Local)
-        local_cmd = get_cleanup_commands(protocol, is_remote=False)
-        print(f"Cleaning Local: {local_cmd}")
-        subprocess.run(local_cmd, shell=True, executable='/bin/bash')
+        transport = tunnel['transport']
+        port = tunnel['port']
+        service_name = ""
 
-        # 3. پاک‌سازی سمت خارج (Remote)
-        # دریافت اطلاعات سرور از دیتابیس سرورها
-        server = get_connected_server()
-        if server:
-            server_ip, ssh_user, ssh_pass, ssh_port = server
-            remote_cmd = get_cleanup_commands(protocol, is_remote=True)
-            print(f"Cleaning Remote {server_ip}: {remote_cmd}")
+        # تشخیص نام سرویس بر اساس پروتکل
+        if transport == 'backhaul':
+            # نام سرویس در منیجر بکهال به صورت یکتا تعریف شده است
+            service_name = f"backhaul-client-{port}"
+        
+        elif transport == 'rathole':
+             service_name = f"rathole-iran{port}"
+             
+        elif transport == 'hysteria':
+            # نکته: هیستریا فعلا تک کلاینت است (hysteria-client)
+            # در آپدیت‌های بعدی باید آن را هم یونیک کنیم
+            service_name = "hysteria-client"
             
-            ssh = SSHManager()
-            ssh.run_remote_command(server_ip, ssh_user, ssh_pass, remote_cmd, ssh_port)
+        elif transport == 'gost':
+             service_name = "gost-client"
 
-        # 4. حذف از دیتابیس
+        # توقف و حذف سرویس
+        if service_name:
+            print(f"Stopping service: {service_name}")
+            os.system(f"systemctl stop {service_name}")
+            os.system(f"systemctl disable {service_name}")
+            os.system(f"rm /etc/systemd/system/{service_name}.service")
+        
+        # حذف از دیتابیس
         db.delete_tunnel(tunnel_id)
         os.system("systemctl daemon-reload")
         
         return jsonify({'status': 'ok'})
-        
+
     except Exception as e:
-        print(f"Delete Error: {e}")
-        return jsonify({'status': 'error', 'message': str(e)})
+        return generic_error(str(e))
 
 @tunnels_bp.route('/tunnel/edit/<int:tunnel_id>')
 @login_required

@@ -140,10 +140,28 @@
                             <input type="number" name="port" class="form-control" value="22">
                         </div>
                     </div>
+                    
                     <div class="mb-4">
-                        <label class="form-label text-primary-neon small">PASSWORD</label>
-                        <input name="password" type="password" class="form-control" required>
+                         <label class="form-label text-primary-neon small">AUTHENTICATION METHOD</label>
+                         <ul class="nav nav-pills mb-2" id="authTab" role="tablist">
+                             <li class="nav-item" role="presentation">
+                                 <button class="nav-link active btn-sm" id="pass-tab" data-bs-toggle="tab" data-bs-target="#auth-pass" type="button">Password</button>
+                             </li>
+                             <li class="nav-item" role="presentation">
+                                 <button class="nav-link btn-sm" id="key-tab" data-bs-toggle="tab" data-bs-target="#auth-key" type="button">SSH Key</button>
+                             </li>
+                         </ul>
+                         
+                         <div class="tab-content" id="authTabContent">
+                             <div class="tab-pane fade show active" id="auth-pass" role="tabpanel">
+                                 <input name="password" type="password" class="form-control" placeholder="Enter Password">
+                             </div>
+                             <div class="tab-pane fade" id="auth-key" role="tabpanel">
+                                 <textarea name="ssh_key" class="form-control font-monospace small bg-black text-success" rows="5" placeholder="-----BEGIN PRIVATE KEY-----"></textarea>
+                             </div>
+                         </div>
                     </div>
+                    
                     <button class="btn btn-glass w-100 py-2">Establish Connection</button>
                 </form>
             </div>
