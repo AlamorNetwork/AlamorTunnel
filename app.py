@@ -98,4 +98,4 @@ def root_redirect():
 if __name__ == '__main__':
     logger.info("Server Starting on Port 5050...")
     # debug=True مستقیماً پاس داده شده است
-    app.run(host='0.0.0.0', port=5050, debug=True, use_reloader=False)
+    app.run(host='0.0.0.0', port=5050, debug=True, use_reloader=False)  

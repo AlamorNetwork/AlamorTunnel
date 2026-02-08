@@ -1,6 +1,6 @@
 import os
-import logging
 import subprocess
+import logging
 from core.ssh_manager import SSHManager
 
 logger = logging.getLogger("GostManager")
@@ -36,68 +36,30 @@ class GostManager:
 
         return " ".join(args)
 
-    def install_server(self, server_ip, config):
-        logger.info(f"Installing Gost Server on {server_ip}")
-        
-        # اصلاح مهم: ساخت نمونه از کلاس SSHManager
-        ssh = SSHManager()
-        ssh_port = int(config.get('ssh_port', 22))
-        ssh_pass = config.get('ssh_pass')
-
-        def run(step, cmd):
-            # فراخوانی متد روی آبجکت ssh
-            ok, out = ssh.run_remote_command(server_ip, "root", ssh_pass, cmd, ssh_port)
-            if not ok:
-                raise Exception(f"{step} Failed: {out}")
-            return out
-
-        try:
-            run("Check Connection", "whoami")
-            run("Mkdir", "mkdir -p /root/alamor/bin")
-
-            check_cmd = f"[ -f {REMOTE_BIN_PATH} ] && echo 'EXISTS' || echo 'MISSING'"
-            if "MISSING" in run("Check Binary", check_cmd):
-                dl_cmd = f"curl -L -o /tmp/gost.gz {DOWNLOAD_URL} && gzip -d -f /tmp/gost.gz && mv /tmp/gost {REMOTE_BIN_PATH} && chmod +x {REMOTE_BIN_PATH}"
-                run("Download Gost", dl_cmd)
-
-            gost_cmd = config.get('gost_args') or self._build_args('server', config)
-
-            svc_content = f"""[Unit]
-Description=Gost Server
-After=network.target
-[Service]
-Type=simple
-ExecStart={REMOTE_BIN_PATH} {gost_cmd}
-Restart=always
-RestartSec=3
-LimitNOFILE=1048576
-[Install]
-WantedBy=multi-user.target
-"""
-            run("Service File", f"cat <<EOF > /etc/systemd/system/gost.service\n{svc_content}\nEOF")
-            run("Start Service", "systemctl daemon-reload && systemctl restart gost && systemctl enable gost")
-
-            return True, "Gost Server Installed"
-
-        except Exception as e:
-            logger.error(f"Server Install Error: {e}")
-            return False, str(e)
+    def check_local_binary(self):
+        if not os.path.exists(LOCAL_BIN_PATH):
+            logger.info("Downloading Gost locally...")
+            os.makedirs(os.path.dirname(LOCAL_BIN_PATH), exist_ok=True)
+            subprocess.run(f"curl -L -k -o /tmp/gost.gz {DOWNLOAD_URL}", shell=True, check=True)
+            subprocess.run("gzip -d -f /tmp/gost.gz", shell=True, check=True)
+            subprocess.run(f"mv /tmp/gost {LOCAL_BIN_PATH}", shell=True, check=True)
+            subprocess.run(f"chmod +x {LOCAL_BIN_PATH}", shell=True, check=True)
 
     def install_client(self, server_ip, config):
         logger.info("Installing Gost Client Locally")
         try:
-            if not os.path.exists(LOCAL_BIN_PATH):
-                os.makedirs(os.path.dirname(LOCAL_BIN_PATH), exist_ok=True)
-                subprocess.run(f"curl -L -o /tmp/gost.gz {DOWNLOAD_URL}", shell=True, check=True)
-                subprocess.run("gzip -d -f /tmp/gost.gz", shell=True, check=True)
-                subprocess.run(f"mv /tmp/gost {LOCAL_BIN_PATH}", shell=True, check=True)
-                subprocess.run(f"chmod +x {LOCAL_BIN_PATH}", shell=True, check=True)
+            self.check_local_binary()
 
             config['server_ip'] = server_ip
+            # اگر آرگومان دستی نبود، بساز
             gost_cmd = config.get('gost_args') or self._build_args('client', config)
 
+            # استفاده از پورت کلاینت برای نام سرویس جهت جلوگیری از تداخل
+            client_port = config.get('bind_port', 1080)
+            svc_name = f"gost-client-{client_port}"
+
             svc_content = f"""[Unit]
-Description=Gost Client (Iran)
+Description=Gost Client {client_port}
 After=network.target
 [Service]
 Type=simple
@@ -108,12 +70,62 @@ LimitNOFILE=1048576
 [Install]
 WantedBy=multi-user.target
 """
-            with open("/etc/systemd/system/gost-client.service", "w") as f:
+            with open(f"/etc/systemd/system/{svc_name}.service", "w") as f:
                 f.write(svc_content)
 
-            os.system("systemctl daemon-reload && systemctl restart gost-client && systemctl enable gost-client")
+            os.system(f"systemctl daemon-reload && systemctl restart {svc_name} && systemctl enable {svc_name}")
             return True, "Gost Client Installed"
 
         except Exception as e:
             logger.error(f"Client Install Error: {e}")
             return False, str(e)
+
+# --- GLOBAL FUNCTIONS (مورد نیاز routes/tunnels.py) ---
+
+def install_gost_client_local(server_ip, config):
+    # این تابع کلاس بالا را صدا می‌زند
+    manager = GostManager()
+    # نگاشت فیلدهای فرم به کانفیگ منیجر
+    # در فرم معمولا 'client_port' داریم اما کلاس 'bind_port' میخواهد
+    if 'client_port' in config:
+        config['bind_port'] = config['client_port']
+    
+    # اگر پورت سرور در کانفیگ اصلی tunnel_port بود
+    if 'tunnel_port' in config:
+        config['server_port'] = config['tunnel_port']
+
+    return manager.install_client(server_ip, config)
+
+def install_gost_server_remote(ip, config):
+    port = config.get('tunnel_port', 443)
+    ssh_user = config.get('ssh_user', 'root')
+    ssh_pass = config.get('ssh_pass')
+    ssh_key = config.get('ssh_key')
+    ssh_port = int(config.get('ssh_port', 22))
+    
+    # اسکریپت نصب در سرور خارج
+    script = f"""
+    mkdir -p /root/alamor/bin
+    if [ ! -f /root/alamor/bin/gost ]; then
+        curl -L -k -o /root/alamor/bin/gost.gz {DOWNLOAD_URL}
+        gzip -d -f /root/alamor/bin/gost.gz
+        chmod +x /root/alamor/bin/gost
+    fi
+    
+    # ساخت سرویس
+    cat > /etc/systemd/system/gost-server-{port}.service <<EOL
+[Unit]
+Description=Gost Server {port}
+After=network.target
+[Service]
+ExecStart=/root/alamor/bin/gost -L=:{port}
+Restart=always
+[Install]
+WantedBy=multi-user.target
+EOL
+    
+    systemctl daemon-reload && systemctl enable gost-server-{port} && systemctl restart gost-server-{port}
+    """
+    
+    ssh = SSHManager()
+    return ssh.run_remote_command(ip, ssh_user, ssh_pass, script, ssh_port, ssh_key)
