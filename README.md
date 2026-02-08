@@ -35,7 +35,7 @@
 To deploy the full panel on your **Iran Server** (Ubuntu 20.04+ Recommended), run this single command:
 
 ```bash
-bash <(curl -Ls [https://raw.githubusercontent.com/AlamorNetwork/AlamorTunnel/main/install.sh](https://raw.githubusercontent.com/AlamorNetwork/AlamorTunnel/main/install.sh))
+bash <(curl -Ls https://raw.githubusercontent.com/AlamorNetwork/AlamorTunnel/main/install.sh)
 ```
 
 
