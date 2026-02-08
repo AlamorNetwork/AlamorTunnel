@@ -5,10 +5,6 @@ import logging
 import io
 
 logger = logging.getLogger("SSHManager")
-if not logger.handlers:
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter('%(asctime)s - [SSH] - %(message)s'))
-    logger.addHandler(handler)
 
 class SSHManager:
     def __init__(self):
@@ -18,26 +14,17 @@ class SSHManager:
     def run_remote_command(self, ip, user, password, command, port=22, ssh_key=None):
         try:
             logger.info(f"Connecting to {ip}:{port}...")
-            
             pkey = None
             if ssh_key and ssh_key.strip():
                 try:
                     pkey = paramiko.RSAKey.from_private_key(io.StringIO(ssh_key))
-                except paramiko.SSHException:
-                    try:
-                        pkey = paramiko.Ed25519Key.from_private_key(io.StringIO(ssh_key))
-                    except:
-                        logger.warning("Could not parse SSH Key, falling back to password.")
+                except:
+                    try: pkey = paramiko.Ed25519Key.from_private_key(io.StringIO(ssh_key))
+                    except: logger.warning("Invalid SSH Key format")
 
             self.client.connect(
-                ip, 
-                port=int(port), 
-                username=user, 
-                password=password, 
-                pkey=pkey,
-                timeout=20,
-                allow_agent=False, 
-                look_for_keys=False
+                ip, port=int(port), username=user, password=password, 
+                pkey=pkey, timeout=20, allow_agent=False, look_for_keys=False
             )
             
             stdin, stdout, stderr = self.client.exec_command(command, get_pty=True)
@@ -47,20 +34,11 @@ class SSHManager:
             self.client.close()
 
             full_output = f"{out}\n{err}".strip()
-            
             if exit_status != 0:
                 logger.error(f"Command Failed: {full_output}")
-                return False, f"Exit Code {exit_status}: {full_output}"
-            
+                return False, full_output
             return True, full_output
 
         except Exception as e:
-            logger.error(f"SSH Connection Error: {e}")
-            return False, f"SSH Error: {str(e)}"
-
-# Global Wrappers
-def run_remote_command(ip, user, password, command, port=22, ssh_key=None):
-    return SSHManager().run_remote_command(ip, user, password, command, port, ssh_key)
-
-def verify_ssh_connection(ip, user, password, port=22, ssh_key=None):
-    return run_remote_command(ip, user, password, "whoami", port, ssh_key)[0]
+            logger.error(f"SSH Error: {e}")
+            return False, str(e)

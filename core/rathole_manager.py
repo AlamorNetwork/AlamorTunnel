@@ -1,7 +1,6 @@
 import os
 import subprocess
 import logging
-# استفاده از کلاس SSHManager بجای تابع تکی
 from core.ssh_manager import SSHManager
 
 logger = logging.getLogger("RatholeManager")
@@ -22,11 +21,9 @@ def check_binary(binary_name):
         return False
 
 def install_local_rathole(config_data):
-    if not check_binary("rathole"):
-        raise Exception("Rathole binary missing locally.")
-        
+    if not check_binary("rathole"): raise Exception("Rathole binary missing locally.")
     port = config_data['tunnel_port']
-    bind_ip = "[::]" if config_data.get('ipv6') else "0.0.0.0"
+    bind_ip = "0.0.0.0"
     
     transport_block = f'[server.transport]\ntype = "{config_data.get("transport", "tcp")}"'
     if config_data.get('transport') == 'tcp':
@@ -36,41 +33,25 @@ def install_local_rathole(config_data):
     for p in config_data['ports']:
         services += f'\n[server.services.{p}]\ntype = "{config_data.get("transport", "tcp")}"\nbind_addr = "{bind_ip}:{p}"\n'
 
-    config_content = f"""
-[server]
-bind_addr = "{bind_ip}:{port}"
-default_token = "{config_data['token']}"
-{transport_block}
-{services}
-"""
-    with open(f"{INSTALL_DIR}/rathole_iran{port}.toml", "w") as f:
-        f.write(config_content)
+    config_content = f"""[server]\nbind_addr = "{bind_ip}:{port}"\ndefault_token = "{config_data['token']}"\n{transport_block}\n{services}\n"""
+    
+    with open(f"{INSTALL_DIR}/rathole_iran{port}.toml", "w") as f: f.write(config_content)
 
     svc_name = f"rathole-iran{port}"
-    svc_content = f"""[Unit]
-Description=Rathole Iran {port}
-After=network.target
-[Service]
-ExecStart={INSTALL_DIR}/rathole {INSTALL_DIR}/rathole_iran{port}.toml
-Restart=always
-[Install]
-WantedBy=multi-user.target
-"""
-    with open(f"/etc/systemd/system/{svc_name}.service", "w") as f:
-        f.write(svc_content)
+    svc_content = f"""[Unit]\nDescription=Rathole Iran {port}\nAfter=network.target\n[Service]\nExecStart={INSTALL_DIR}/rathole {INSTALL_DIR}/rathole_iran{port}.toml\nRestart=always\n[Install]\nWantedBy=multi-user.target\n"""
+    
+    with open(f"/etc/systemd/system/{svc_name}.service", "w") as f: f.write(svc_content)
     os.system(f"systemctl daemon-reload && systemctl enable {svc_name} && systemctl restart {svc_name}")
     return True
 
 def install_remote_rathole(ssh_ip, iran_ip, config_data):
     port = config_data['tunnel_port']
-    remote_addr = f"[{iran_ip}]:{port}" if ":" in iran_ip and not iran_ip.startswith("[") else f"{iran_ip}:{port}"
+    remote_addr = f"{iran_ip}:{port}"
     
-    # ساخت سرویس‌ها
     services = ""
     for p in config_data['ports']:
         services += f'\n[client.services.{p}]\ntype = "{config_data.get("transport", "tcp")}"\nlocal_addr = "0.0.0.0:{p}"\n'
 
-    # دریافت اطلاعات اتصال SSH از کانفیگ
     ssh_user = config_data.get('ssh_user', 'root')
     ssh_pass = config_data.get('ssh_pass')
     ssh_key = config_data.get('ssh_key')
@@ -85,7 +66,6 @@ def install_remote_rathole(ssh_ip, iran_ip, config_data):
         unzip -o /tmp/rathole.zip -d /root/alamor/bin/
         chmod +x /root/alamor/bin/rathole
     fi
-
     cat > /root/alamor/bin/rathole_kharej{port}.toml <<EOL
 [client]
 remote_addr = "{remote_addr}"
@@ -97,7 +77,6 @@ type = "{config_data.get('transport', 'tcp')}"
 nodelay = {str(config_data.get('nodelay', True)).lower()}
 {services}
 EOL
-
     cat > /etc/systemd/system/rathole-kharej{port}.service <<EOL
 [Unit]
 Description=Rathole Kharej {port}
@@ -111,6 +90,6 @@ EOL
     systemctl daemon-reload && systemctl enable rathole-kharej{port} && systemctl restart rathole-kharej{port}
     """
     
-    # استفاده صحیح از SSHManager
+    # FIX: ارسال تمام آرگومان‌های مورد نیاز به تابع run_remote_command
     ssh = SSHManager()
     return ssh.run_remote_command(ssh_ip, ssh_user, ssh_pass, remote_script, ssh_port, ssh_key)

@@ -14,42 +14,36 @@ import secrets
 import logging
 import sys
 
-# --- FORCE LOGGING SETUP ---
-# تنظیم لاگ‌ها برای نمایش در کنسول و ژورنال با سطح DEBUG
+# --- FORCE LOGGING (CRITICAL) ---
+# این بخش باعث می‌شود تمام لاگ‌ها در journalctl دیده شوند
 logging.basicConfig(
     stream=sys.stdout,
     level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    force=True
 )
 logger = logging.getLogger("AlamorApp")
 
-# بارگذاری تنظیمات
+# Load Config
 sys_config = load_config()
 PANEL_PATH = sys_config.get('panel_path', '') 
 URL_PREFIX = f"/{PANEL_PATH}" if PANEL_PATH else ""
 
 app = Flask(__name__, static_url_path=f"{URL_PREFIX}/static")
 
-# --- FORCE DEBUG CONFIG ---
-# این خطوط باعث میشه حتی اگر systemd نخواد، دیباگ روشن بشه
+# --- FORCE FLASK DEBUG ---
 app.config['DEBUG'] = True
 app.config['ENV'] = 'development'
-app.debug = True
 
-# --- SECURITY ---
+# Security
 secret_key = sys_config.get('secret_key')
 if not secret_key:
     secret_key = secrets.token_hex(32)
     save_config('secret_key', secret_key)
 app.secret_key = secret_key
-
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
-app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_NAME'] = 'alamor_session'
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['SESSION_COOKIE_SECURE'] = False 
 
-# --- TASK WORKER ---
+# Worker
 def worker():
     logger.info("Task Worker Started")
     while True:
@@ -69,7 +63,7 @@ def worker():
             logger.info(f"Task {task_id} Completed")
             
         except Exception as e:
-            logger.error(f"Task Failed: {e}", exc_info=True) # exc_info باعث میشه خط خطا دقیق چاپ بشه
+            logger.error(f"Task Failed: {e}", exc_info=True)
             if 'task_id' in locals():
                 task_status[task_id]['progress'] = 100
                 task_status[task_id]['status'] = 'error'
@@ -83,14 +77,14 @@ threading.Thread(target=worker, daemon=True).start()
 def get_task_status(task_id):
     return jsonify(task_status.get(task_id, {'status': 'queued', 'progress': 0}))
 
-# مقداردهی دیتابیس
+# Init DB
 try:
     init_db()
     logger.info("Database Initialized")
 except Exception as e:
     logger.error(f"DB Init Failed: {e}")
 
-# ثبت Blueprint ها
+# Register Blueprints
 app.register_blueprint(auth_bp, url_prefix=f"{URL_PREFIX}/auth")
 app.register_blueprint(dashboard_bp, url_prefix=f"{URL_PREFIX}/dashboard")
 app.register_blueprint(tunnels_bp, url_prefix=f"{URL_PREFIX}/tunnel")
@@ -101,11 +95,7 @@ app.register_blueprint(domains_bp, url_prefix=f"{URL_PREFIX}/domains")
 def root_redirect():
     return redirect(url_for('dashboard.index'))
 
-if PANEL_PATH:
-    @app.route('/')
-    def global_root():
-        return "Access Denied", 403
-
 if __name__ == '__main__':
-    logger.info("Starting AlamorTunnel Server on port 5050 (DEBUG FORCED)...")
+    logger.info("Server Starting on Port 5050...")
+    # debug=True مستقیماً پاس داده شده است
     app.run(host='0.0.0.0', port=5050, debug=True, use_reloader=False)
