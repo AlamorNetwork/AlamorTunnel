@@ -29,38 +29,43 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
 apt-get install -y python3 python3-pip python3-venv nginx certbot python3-certbot-nginx git curl wget unzip tar iptables-persistent net-tools build-essential
 
-# 3. Setup Project Directory & Clone Repo (SMART FIX)
+# 3. Setup Project Directory & Clone Repo (FIXED SECTION)
 echo -e "${GREEN}[+] Setting up Project Files...${NC}"
 INSTALL_DIR="/root/AlamorTunnel"
+REPO_URL="https://github.com/AlamorNetwork/AlamorTunnel.git"
 
-# بررسی اینکه آیا پوشه وجود دارد و آیا یک ریپازیتوری معتبر گیت است یا خیر
+# تابع برای کلون کردن صحیح
+clone_repo() {
+    echo -e "${CYAN}Cloning repository from GitHub...${NC}"
+    git clone $REPO_URL $INSTALL_DIR
+}
+
 if [ -d "$INSTALL_DIR" ]; then
-    if [ -d "$INSTALL_DIR/.git" ]; then
-        echo -e "${YELLOW}Directory exists and is a valid git repo. Updating...${NC}"
+    # اگر پوشه وجود دارد اما فایل app.py توش نیست یا گیت نیست، یعنی ناقصه
+    if [ ! -d "$INSTALL_DIR/.git" ] || [ ! -f "$INSTALL_DIR/app.py" ]; then
+        echo -e "${RED}Directory exists but is corrupt or empty. Re-installing...${NC}"
+        rm -rf $INSTALL_DIR
+        clone_repo
+    else
+        echo -e "${YELLOW}Directory exists and looks good. Pulling updates...${NC}"
         cd $INSTALL_DIR
         git reset --hard
         git pull
-    else
-        echo -e "${RED}Directory exists but is NOT a git repo. Re-cloning...${NC}"
-        rm -rf $INSTALL_DIR
-        git clone https://github.com/AlamorNetwork/AlamorTunnel.git $INSTALL_DIR
     fi
 else
-    echo -e "${CYAN}Cloning repository...${NC}"
-    git clone https://github.com/AlamorNetwork/AlamorTunnel.git $INSTALL_DIR
+    clone_repo
 fi
 
-# ایجاد پوشه‌های مورد نیاز
+# اطمینان از ساخت پوشه‌های جانبی
 mkdir -p $INSTALL_DIR/bin
 mkdir -p $INSTALL_DIR/configs
 mkdir -p $INSTALL_DIR/logs
 mkdir -p /root/certs
 chmod -R 755 $INSTALL_DIR
 
-# 4. Install Python Libraries (PIP FIX)
+# 4. Install Python Libraries
 echo -e "${GREEN}[+] Installing Python Libraries...${NC}"
-# تلاش برای نصب با فلگ --break-system-packages (برای سیستم‌های جدید)
-# اگر ارور داد، بدون فلگ نصب می‌کند (برای سیستم‌های قدیمی مثل Ubuntu 20/22)
+# هندل کردن ارور break-system-packages برای ورژن‌های مختلف اوبونتو
 if ! pip3 install -r $INSTALL_DIR/requirements.txt --break-system-packages 2>/dev/null; then
     echo -e "${YELLOW}Falling back to legacy pip install...${NC}"
     pip3 install -r $INSTALL_DIR/requirements.txt
@@ -107,6 +112,7 @@ fi
 # 6. Initialize Database
 echo -e "${GREEN}[+] Initializing Database...${NC}"
 cd $INSTALL_DIR
+# حالا چون فایل‌ها کلون شده‌اند، این دستور کار می‌کند
 python3 -c "from core.database import init_db; init_db(); print('Database initialized successfully.')"
 
 # 7. Create Service
@@ -123,6 +129,7 @@ ExecStart=/usr/bin/python3 app.py
 Restart=always
 RestartSec=3
 Environment=PYTHONUNBUFFERED=1
+Environment=FLASK_DEBUG=1
 
 [Install]
 WantedBy=multi-user.target
@@ -142,7 +149,7 @@ if [ -f "$CLI_SCRIPT" ]; then
     ln -sf $CLI_SCRIPT /usr/bin/alamor
     echo -e "${CYAN}CLI installed successfully.${NC}"
 else
-    echo -e "${RED}Warning: alamor_cli.py not found!${NC}"
+    echo -e "${RED}Warning: alamor_cli.py not found! (Check git repo)${NC}"
 fi
 
 echo -e "${YELLOW}----------------------------------------------------${NC}"
