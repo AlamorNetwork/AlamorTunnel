@@ -12,10 +12,12 @@ import os
 import threading
 import secrets
 import logging
+import sys
 
-# --- LOGGING SETUP ---
-# تنظیم لاگ‌ها برای نمایش در journalctl
+# --- FORCE LOGGING SETUP ---
+# تنظیم لاگ‌ها برای نمایش در کنسول و ژورنال با سطح DEBUG
 logging.basicConfig(
+    stream=sys.stdout,
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
@@ -27,6 +29,12 @@ PANEL_PATH = sys_config.get('panel_path', '')
 URL_PREFIX = f"/{PANEL_PATH}" if PANEL_PATH else ""
 
 app = Flask(__name__, static_url_path=f"{URL_PREFIX}/static")
+
+# --- FORCE DEBUG CONFIG ---
+# این خطوط باعث میشه حتی اگر systemd نخواد، دیباگ روشن بشه
+app.config['DEBUG'] = True
+app.config['ENV'] = 'development'
+app.debug = True
 
 # --- SECURITY ---
 secret_key = sys_config.get('secret_key')
@@ -61,7 +69,7 @@ def worker():
             logger.info(f"Task {task_id} Completed")
             
         except Exception as e:
-            logger.error(f"Task Failed: {e}", exc_info=True)
+            logger.error(f"Task Failed: {e}", exc_info=True) # exc_info باعث میشه خط خطا دقیق چاپ بشه
             if 'task_id' in locals():
                 task_status[task_id]['progress'] = 100
                 task_status[task_id]['status'] = 'error'
@@ -99,6 +107,5 @@ if PANEL_PATH:
         return "Access Denied", 403
 
 if __name__ == '__main__':
-    logger.info("Starting AlamorTunnel Server on port 5050...")
-    # فعال کردن Debug Mode برای دیدن خطاها
+    logger.info("Starting AlamorTunnel Server on port 5050 (DEBUG FORCED)...")
     app.run(host='0.0.0.0', port=5050, debug=True, use_reloader=False)
