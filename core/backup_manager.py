@@ -18,16 +18,20 @@ class BackhaulManager:
 
     # ---------------------------------------------------------
     # تنظیمات سرور (IRAN - Server Role)
+    # طبق داکیومنت: ایران سرور است و پورت‌ها را گوش می‌دهد
     # ---------------------------------------------------------
     def _server_config_toml(self, config):
         tunnel_port = config.get('tunnel_port', 8080)
         token = config.get('token')
         transport = config.get('transport', 'tcp')
         
+        # پورت‌هایی که باید فوروارد شوند
         ports_list = []
         if 'port_rules' in config:
             rules = config['port_rules']
-            if isinstance(rules, str): rules = rules.split(',')
+            # اگر لیست بود یا رشته، هندل کن
+            if isinstance(rules, str): 
+                rules = rules.split('\n')
             
             for p in rules:
                 p = str(p).strip()
@@ -36,13 +40,17 @@ class BackhaulManager:
                     ports_list.append(f'"{p}=127.0.0.1:{p}"')
         
         ports_str = ",".join(ports_list)
+
+        # تنظیمات اضافی بر اساس داکیومنت backhaul.md
+        nodelay = "true"
+        keepalive = config.get('keepalive', 75)
         
         toml = f"""[server]
 bind_addr = "0.0.0.0:{tunnel_port}"
 transport = "{transport}"
 token = "{token}"
-keepalive_period = 75
-nodelay = true
+keepalive_period = {keepalive}
+nodelay = {nodelay}
 heartbeat = 40
 channel_size = 2048
 sniffer = false
@@ -56,6 +64,7 @@ ports = [
 
     # ---------------------------------------------------------
     # تنظیمات کلاینت (FOREIGN - Client Role)
+    # طبق داکیومنت: خارج کلاینت است و به ایران وصل می‌شود
     # ---------------------------------------------------------
     def _client_config_toml(self, iran_ip, config):
         tunnel_port = config.get('tunnel_port', 8080)
@@ -90,6 +99,9 @@ log_level = "info"
 
         toml_content = self._client_config_toml(iran_ip, config)
         
+        # اسکریپت نصب در خارج
+        # 1. پاکسازی سرویس‌های قدیمی
+        # 2. نصب نسخه جدید و کانفیگ کلاینت
         install_script = f"""
         # CLEANUP
         systemctl stop backhaul-server 2>/dev/null
@@ -111,7 +123,7 @@ log_level = "info"
 {toml_content}
 EOF
 
-        # SERVICE
+        # SERVICE (Client Mode connecting to Iran)
         cat > /etc/systemd/system/backhaul-client.service <<EOF
 [Unit]
 Description=Backhaul Client (Foreign -> Iran)
@@ -156,7 +168,7 @@ EOF
         if not config.get('token'):
             config['token'] = self._gen_token()
 
-        # CONFIG
+        # CONFIG (Server Mode)
         toml_content = self._server_config_toml(config)
         config_path = f"{LOCAL_BIN_DIR}/backhaul_server_{tunnel_port}.toml"
         with open(config_path, "w") as f:
@@ -184,8 +196,32 @@ WantedBy=multi-user.target
         return True, config['token']
 
 # =========================================================
-# GLOBAL EXPORTED FUNCTIONS (توابعی که ایمپورت می‌شوند)
+# GLOBAL HELPERS (حتما باید بیرون کلاس باشند)
 # =========================================================
+
+def generate_token():
+    return secrets.token_hex(16)
+
+def stop_and_delete_backhaul(port):
+    try:
+        # در حالت معکوس، سرور روی ایران است
+        service_name = f"backhaul-server-{port}"
+        os.system(f"systemctl stop {service_name} 2>/dev/null")
+        os.system(f"systemctl disable {service_name} 2>/dev/null")
+        
+        svc_path = f"/etc/systemd/system/{service_name}.service"
+        if os.path.exists(svc_path):
+            os.remove(svc_path)
+            
+        cfg_path = f"{LOCAL_BIN_DIR}/backhaul_server_{port}.toml"
+        if os.path.exists(cfg_path):
+            os.remove(cfg_path)
+
+        os.system("systemctl daemon-reload")
+        return True
+    except Exception as e:
+        logger.error(f"Delete Error: {e}")
+        return False
 
 def install_backhaul_bridge(remote_ip, iran_ip, config):
     mgr = BackhaulManager()
@@ -198,29 +234,3 @@ def install_backhaul_bridge(remote_ip, iran_ip, config):
     
     # 2. نصب کلاینت روی خارج
     return mgr.install_remote(remote_ip, iran_ip, config)
-
-def generate_token():
-    return secrets.token_hex(16)
-
-def stop_and_delete_backhaul(port):
-    try:
-        # پاک کردن سرویس سرور ایران
-        service_name = f"backhaul-server-{port}"
-        os.system(f"systemctl stop {service_name} 2>/dev/null")
-        os.system(f"systemctl disable {service_name} 2>/dev/null")
-        
-        # پاک کردن فایل سرویس
-        svc_path = f"/etc/systemd/system/{service_name}.service"
-        if os.path.exists(svc_path):
-            os.remove(svc_path)
-            
-        # پاک کردن کانفیگ
-        cfg_path = f"{LOCAL_BIN_DIR}/backhaul_server_{port}.toml"
-        if os.path.exists(cfg_path):
-            os.remove(cfg_path)
-
-        os.system("systemctl daemon-reload")
-        return True
-    except Exception as e:
-        logger.error(f"Delete Error: {e}")
-        return False
